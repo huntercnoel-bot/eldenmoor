@@ -9,256 +9,331 @@
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1410;
       font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #f4e4c1; }
     canvas { display: block; }
+
+    /* ===================== Eldenmoor HUD — OSRS x WoW theme =====================
+       Design tokens (kept inline as CSS vars so every panel stays cohesive):
+         carved bronze frames, parchment/stone fills, gold filigree, gem/rivet accents.
+       All element IDs/classes are preserved exactly; this only restyles + lays out. */
+    :root {
+      --gold:        #ffd277;
+      --gold-bright: #ffe6a8;
+      --gold-deep:   #c9962f;
+      --bronze:      #7a5a2c;
+      --bronze-lit:  #c79a52;
+      --bronze-dark: #2c1d0e;
+      --ink:         #f4e4c1;
+      --stone-hi:    #36291a;
+      --stone-lo:    #140d06;
+      --slot-bg:     #120c06;
+      --hp-1: #e85a3a; --hp-2: #b62318;
+      --xp-1: #b6e063; --xp-2: #4f8c2c;
+    }
     .panelbg { background: rgba(20,16,12,0.62); border: 1px solid rgba(244,228,193,0.25); border-radius: 10px; }
 
-    /* HUD = small fixed corner panels. Never a full-screen layer over the canvas. */
+    /* Shared carved-bronze frame: dark stone fill, double bronze edge, gold inner hairline,
+       soft inner shadow for depth + outer drop shadow so it lifts off the 3D view. */
+    .frame, #vitals, #panel, #coords, #worldchat, #chat, #ctxmenu, #levelup, .login-card {
+      background:
+        linear-gradient(180deg, var(--stone-hi) 0%, #1d140c 55%, var(--stone-lo) 100%);
+      border: 2px solid var(--bronze);
+      border-radius: 8px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,214,119,0.10),
+        inset 0 1px 0 rgba(255,214,119,0.16),
+        inset 0 0 22px rgba(0,0,0,0.78),
+        0 0 0 1px var(--bronze-dark),
+        0 10px 28px rgba(0,0,0,0.65);
+    }
+    /* Corner rivets — little gold gem studs on the frame corners (WoW filigree cue). */
+    .riveted { position: relative; }
+    .riveted::before, .riveted::after,
+    #panel::before, #panel::after,
+    .login-card::before, .login-card::after {
+      content: ''; position: absolute; width: 7px; height: 7px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold-deep) 60%, #6b4a18);
+      box-shadow: 0 0 4px rgba(255,210,119,0.6), inset 0 0 2px rgba(0,0,0,0.5);
+      pointer-events: none; z-index: 2;
+    }
+    #panel::before, .login-card::before { top: 5px; left: 5px; }
+    #panel::after,  .login-card::after  { top: 5px; right: 5px; }
+
+    /* Title — gilded serif with engraved glow. */
     #title {
-      position: fixed; top: 16px; left: 20px; z-index: 5; pointer-events: none;
-      font-size: 24px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 6px rgba(0,0,0,0.85);
+      position: fixed; top: 14px; left: 20px; z-index: 5; pointer-events: none;
+      font-family: Georgia, 'Times New Roman', serif; font-size: 25px; font-weight: 800; letter-spacing: 3px;
+      color: var(--gold); text-shadow: 0 0 12px rgba(255,210,119,0.45), 0 2px 4px #000, 0 1px 0 #5a3d12;
     }
-    #title span { font-size: 12px; font-weight: 400; opacity: 0.7; letter-spacing: 1px; }
+    #title span { font-size: 11px; font-weight: 400; letter-spacing: 1px; color: #c9a25a; text-shadow: 0 1px 3px #000; }
+
     #coords {
-      position: fixed; top: 52px; right: 20px; z-index: 5; pointer-events: none; font-size: 13px;
-      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25);
-      padding: 6px 12px; border-radius: 8px; font-variant-numeric: tabular-nums;
+      position: fixed; top: 54px; right: 20px; z-index: 5; pointer-events: none; font-size: 13px;
+      padding: 6px 13px; font-variant-numeric: tabular-nums; color: var(--gold-bright);
+      font-weight: 700; letter-spacing: 0.4px;
     }
 
-    /* Vitals (top-left): HP bar + the Woodcutting "currently training" readout. */
-    #vitals { position: fixed; top: 52px; left: 20px; z-index: 5; pointer-events: none; width: 230px;
-      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25); padding: 9px 12px; border-radius: 10px; }
-    .vrow { display: flex; align-items: center; gap: 7px; font-size: 13px; }
-    .vlabel { margin-top: 7px; }
-    .vlabel b { color: #ffd87a; }
-    .vico { font-size: 14px; }
-    .vnum { font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.9; }
-    .vsub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
-    .bar { flex: 1; height: 9px; border-radius: 6px; overflow: hidden; margin: 5px 0 1px;
-      background: rgba(0,0,0,0.45); border: 1px solid rgba(244,228,193,0.18); }
-    .bar-fill { height: 100%; width: 0%; transition: width 0.25s ease; }
-    .bar-fill.hp { background: linear-gradient(90deg,#c0392b,#e74c3c); }
-    .bar-fill.xp { background: linear-gradient(90deg,#5fa84a,#a8e063); }
+    /* Vitals (top-left): WoW-style HP orb + RS-style carved bronze XP bar. */
+    #vitals { position: fixed; top: 54px; left: 20px; z-index: 5; pointer-events: none; width: 244px;
+      padding: 11px 13px 12px; }
+    .vrow { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+    .vlabel { margin-top: 11px; font-family: Georgia, serif; letter-spacing: 0.3px; }
+    .vlabel b { color: var(--gold); }
+    .vico { font-size: 15px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); }
+    .vnum { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--gold-bright); font-weight: 700; }
+    .vsub { font-size: 12px; opacity: 0.92; margin-top: 4px; color: #e9d8b0; }
+    .vsub b, #coin-count { color: var(--gold); }
 
-    /* Bottom hint. */
-    #logout { position: fixed; top: 16px; right: 20px; z-index: 5;
-      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1;
-      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; font-size: 12px; font-weight: 700;
-      padding: 6px 12px; border-radius: 8px; cursor: pointer; }
-    #logout:hover { background: rgba(244,228,193,0.18); border-color: #ffd87a; }
+    /* Bars: sunken bronze trough, glossy fill, top sheen + moving glow. */
+    .bar { flex: 1; height: 13px; border-radius: 7px; overflow: hidden; margin: 6px 0 1px; position: relative;
+      background: linear-gradient(180deg,#0a0703,#1a120a);
+      border: 1px solid #4a3417;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,214,119,0.10), 0 1px 0 rgba(255,214,119,0.08); }
+    .bar-fill { height: 100%; width: 0%; transition: width 0.25s ease; position: relative; border-radius: 6px; }
+    .bar-fill::after { content: ''; position: absolute; inset: 0 0 50% 0; border-radius: 6px 6px 0 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.40), rgba(255,255,255,0)); }
+    .bar-fill.hp { background: linear-gradient(90deg,var(--hp-2),var(--hp-1)); box-shadow: 0 0 8px rgba(232,90,58,0.55); }
+    .bar-fill.xp { background: linear-gradient(90deg,var(--xp-2),var(--xp-1)); box-shadow: 0 0 8px rgba(150,224,99,0.45); }
+
+    /* Top-right logout button — carved bronze pill. */
+    #logout { position: fixed; top: 14px; right: 20px; z-index: 5;
+      background: linear-gradient(180deg,#4a3620,#241708); color: var(--gold-bright);
+      border: 1px solid var(--bronze); font-family: Georgia, serif; font-size: 12px; font-weight: 700;
+      padding: 7px 14px; border-radius: 7px; cursor: pointer; letter-spacing: 0.4px;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.18), 0 3px 8px rgba(0,0,0,0.55); }
+    #logout:hover { border-color: var(--gold); color: #fff3d6; box-shadow: inset 0 1px 0 rgba(255,214,119,0.3), 0 0 10px rgba(255,210,119,0.35); }
+
+    /* Bottom hint — slim banner with engraved keys. */
     #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none;
-      font-size: 13px; white-space: nowrap; background: rgba(20,16,12,0.6);
-      border: 1px solid rgba(244,228,193,0.25); padding: 8px 16px; border-radius: 999px; }
-    #hint b { color: #ffd87a; }
+      font-size: 12.5px; white-space: nowrap; color: #e6dcc4;
+      background: linear-gradient(180deg,rgba(46,34,20,0.92),rgba(16,11,6,0.92));
+      border: 1px solid var(--bronze); padding: 8px 20px; border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 4px 14px rgba(0,0,0,0.55); }
+    #hint b { color: var(--gold); }
 
-    /* Character panel (bottom-right): tabbed Inventory / Equipment / Skills. */
-    #panel { position: fixed; bottom: 16px; right: 16px; z-index: 5; width: 198px;
-      background: rgba(28,20,14,0.84); border: 1px solid rgba(244,228,193,0.3); border-radius: 12px; padding: 10px; }
+    /* Character panel (bottom-right): tabbed Inventory / Equipment / Skills / Friends. */
+    #panel { position: fixed; bottom: 16px; right: 16px; z-index: 5; width: 214px; padding: 11px 11px 12px; }
     #panel.hidden { display: none; }
-    .tabs { display: flex; gap: 5px; margin-bottom: 9px; }
-    .tab { flex: 1; padding: 6px 0; font-size: 16px; cursor: pointer; border-radius: 7px;
-      background: rgba(0,0,0,0.25); border: 1px solid rgba(244,228,193,0.15); color: #f4e4c1; }
-    .tab:hover { background: rgba(244,228,193,0.12); }
-    .tab.active { background: rgba(244,228,193,0.18); border-color: rgba(255,216,122,0.6); }
+    .tabs { display: flex; gap: 5px; margin-bottom: 11px; padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,214,119,0.14); }
+    .tab { flex: 1; padding: 7px 0; font-size: 17px; cursor: pointer; border-radius: 6px; line-height: 1;
+      background: linear-gradient(180deg,#3a2a17,#1d1207); border: 1px solid #6e552c; color: var(--ink);
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.12); transition: all 0.12s ease; }
+    .tab:hover { background: linear-gradient(180deg,#4d3a20,#2a1c0e); border-color: var(--bronze-lit); }
+    .tab.active { background: linear-gradient(180deg,#6e512a,#3a2914); border-color: var(--gold);
+      box-shadow: inset 0 1px 0 rgba(255,230,168,0.35), 0 0 9px rgba(255,210,119,0.4); }
     .tab-page { display: none; }
     .tab-page.active { display: block; }
 
-    /* Inventory grid. */
-    #inv-grid { display: grid; grid-template-columns: repeat(4, 42px); grid-auto-rows: 42px; gap: 4px; }
-    .inv-slot { position: relative; width: 42px; height: 42px; border-radius: 6px;
-      background: rgba(0,0,0,0.28); border: 1px solid rgba(244,228,193,0.12);
+    /* Item slots — deep-sunken stone squares with bronze rim (OSRS bag feel). */
+    #inv-grid { display: grid; grid-template-columns: repeat(4, 44px); grid-auto-rows: 44px; gap: 5px; justify-content: center; }
+    .inv-slot { position: relative; width: 44px; height: 44px; border-radius: 5px;
+      background: radial-gradient(circle at 50% 38%, #1b1206, var(--slot-bg) 75%);
+      border: 1px solid #4a3a22;
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,214,119,0.06);
       display: flex; align-items: center; justify-content: center; }
-    .inv-slot.filled { background: rgba(244,228,193,0.07); cursor: pointer; }
-    .inv-slot.filled:hover { background: rgba(244,228,193,0.16); }
-    .inv-slot svg { width: 34px; height: 34px; display: block; }
-    .inv-qty { position: absolute; top: 1px; left: 3px; font-size: 11px; font-weight: 800; color: #ffe08a; text-shadow: 0 1px 2px #000; }
+    .inv-slot.filled { border-color: #8a6d3a; cursor: pointer;
+      background: radial-gradient(circle at 50% 35%, #2a1e0e, #120c06 78%); }
+    .inv-slot.filled:hover { border-color: var(--gold); box-shadow: inset 0 0 8px rgba(0,0,0,0.7), 0 0 9px rgba(255,210,119,0.45); }
+    .inv-slot svg { width: 35px; height: 35px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
+    .inv-qty { position: absolute; top: 1px; left: 3px; font-size: 11px; font-weight: 800; color: var(--gold); text-shadow: 0 1px 2px #000, 0 0 3px #000; }
 
-    /* Equipment grid (3 columns, OSRS-style body layout). */
-    #equip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; justify-items: center; padding: 4px 8px; }
-    .equip-spacer { width: 46px; height: 46px; }
-    .equip-slot { width: 46px; height: 46px; border-radius: 8px;
-      background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.14);
+    /* Equipment grid (3 columns, OSRS paper-doll layout). */
+    #equip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; justify-items: center; padding: 6px 8px; }
+    .equip-spacer { width: 48px; height: 48px; }
+    .equip-slot { width: 48px; height: 48px; border-radius: 6px;
+      background: radial-gradient(circle at 50% 38%, #1b1206, var(--slot-bg) 75%);
+      border: 2px solid #4a3a22;
+      box-shadow: inset 0 0 9px rgba(0,0,0,0.92), inset 0 1px 0 rgba(255,214,119,0.06);
       display: flex; align-items: center; justify-content: center; font-size: 22px; }
-    .equip-slot.filled { background: rgba(244,228,193,0.08); border-color: rgba(255,216,122,0.4); cursor: pointer; }
-    .equip-slot.filled:hover { background: rgba(244,228,193,0.18); }
-    .equip-slot svg { width: 36px; height: 36px; }
-    .equip-empty { opacity: 0.32; font-size: 20px; }
+    .equip-slot.filled { border-color: var(--bronze-lit); cursor: pointer;
+      background: radial-gradient(circle at 50% 35%, #2a1e0e, #120c06 78%); }
+    .equip-slot.filled:hover { border-color: var(--gold); box-shadow: inset 0 0 8px rgba(0,0,0,0.7), 0 0 10px rgba(255,210,119,0.5); }
+    .equip-slot svg { width: 37px; height: 37px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
+    .equip-empty { opacity: 0.3; font-size: 20px; }
 
     /* Skills tab. */
     #skills-tab { padding: 2px; }
-    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-    .skill-cell { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 0; border-radius: 7px;
-      background: rgba(0,0,0,0.25); border: 1px solid rgba(244,228,193,0.12); }
-    .sc-icon { font-size: 15px; }
-    .sc-lv { font-size: 14px; font-weight: 800; color: #ffe08a; }
-    .skills-foot { text-align: center; font-size: 12px; margin-top: 9px; opacity: 0.9; }
-    .skills-foot b { color: #ffd87a; }
+    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .skill-cell { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 0; border-radius: 6px;
+      background: linear-gradient(180deg,#2a1e0e,#140d06); border: 1px solid #6e552c;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.1), inset 0 0 8px rgba(0,0,0,0.55); }
+    .sc-icon { font-size: 16px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+    .sc-lv { font-size: 14px; font-weight: 800; color: var(--gold); text-shadow: 0 1px 2px #000; }
+    .skills-foot { text-align: center; font-size: 12px; margin-top: 11px; opacity: 0.95; font-family: Georgia, serif; }
+    .skills-foot b { color: var(--gold); }
 
     /* Floating "+xp" text. */
     .xpfloat { position: fixed; z-index: 7; pointer-events: none; transform: translate(-50%,-50%);
-      color: #b6ffa6; font-weight: 800; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,0.9); white-space: nowrap; }
-    /* "Level up!" banner. */
-    #levelup { position: fixed; top: 92px; left: 50%; transform: translateX(-50%); z-index: 8; pointer-events: none;
-      color: #ffd87a; font-weight: 800; font-size: 22px; background: rgba(20,16,12,0.88);
-      border: 1px solid rgba(255,216,122,0.5); padding: 10px 20px; border-radius: 12px; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
-    #saved { position: fixed; top: 88px; right: 20px; z-index: 6; pointer-events: none; font-size: 13px; font-weight: 700;
-      color: #b6ffa6; background: rgba(20,16,12,0.7); border: 1px solid rgba(182,255,166,0.3);
-      padding: 5px 12px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease; }
-    /* Right-click context menu. */
-    #ctxmenu { position: fixed; z-index: 50; min-width: 152px; overflow: hidden;
-      background: rgba(20,16,12,0.97); border: 1px solid rgba(244,228,193,0.4); border-radius: 6px;
-      font-size: 13px; box-shadow: 0 8px 22px rgba(0,0,0,0.6); }
+      color: #c7ffb0; font-weight: 800; font-size: 18px; text-shadow: 0 0 8px rgba(120,224,99,0.7), 0 2px 4px rgba(0,0,0,0.95); white-space: nowrap; }
+
+    /* "Level up!" banner — gilded proclamation. */
+    #levelup { position: fixed; top: 96px; left: 50%; transform: translateX(-50%); z-index: 8; pointer-events: none;
+      font-family: Georgia, serif; color: var(--gold-bright); font-weight: 800; font-size: 22px; letter-spacing: 0.5px;
+      padding: 11px 24px;
+      background: linear-gradient(180deg,#3a2914,#1a1107);
+      border: 2px solid var(--gold-deep); border-radius: 10px;
+      text-shadow: 0 0 12px rgba(255,210,119,0.5), 0 2px 6px rgba(0,0,0,0.95);
+      box-shadow: inset 0 1px 0 rgba(255,230,168,0.3), 0 0 22px rgba(255,210,119,0.35), 0 8px 26px rgba(0,0,0,0.65); }
+
+    #saved { position: fixed; top: 92px; right: 20px; z-index: 6; pointer-events: none; font-size: 13px; font-weight: 700;
+      color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
+      padding: 5px 14px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 3px 10px rgba(0,0,0,0.5); }
+
+    /* Right-click context menu — carved bronze dropdown. */
+    #ctxmenu { position: fixed; z-index: 50; min-width: 158px; overflow: hidden; font-size: 13px; border-radius: 6px; }
     #ctxmenu[hidden] { display: none; }
-    .ctx-head { background: rgba(0,0,0,0.4); padding: 5px 11px; font-weight: 700; color: #ffd87a;
-      border-bottom: 1px solid rgba(244,228,193,0.18); }
-    .ctx-item { padding: 6px 11px; cursor: pointer; white-space: nowrap; }
-    .ctx-item:hover { background: rgba(120,170,90,0.45); }
-    .ctx-yellow { color: #ffd87a; }
-    /* Old School-style game message line. */
-    #worldchat { position: fixed; bottom: 16px; left: 16px; z-index: 7; width: 340px;
-      background: rgba(20,16,12,0.74); border: 1px solid rgba(244,228,193,0.22); border-radius: 10px; padding: 8px; }
-    #wc-log { height: 108px; overflow-y: auto; font-size: 12px; line-height: 1.5; margin-bottom: 6px; color: #e6dcc4; }
+    .ctx-head { background: linear-gradient(180deg,#3a2914,#241708); padding: 6px 12px; font-weight: 700; color: var(--gold);
+      font-family: Georgia, serif; border-bottom: 1px solid rgba(255,214,119,0.22); }
+    .ctx-item { padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+    .ctx-item:hover { background: linear-gradient(90deg,rgba(110,82,42,0.85),rgba(74,54,28,0.85)); color: #fff3d6; }
+    .ctx-yellow { color: var(--gold); }
+
+    /* OSRS bottom chat box — carved bronze frame, parchment-tinted log, sunken input. */
+    #worldchat { position: fixed; bottom: 16px; left: 16px; z-index: 7; width: 352px; padding: 9px 9px 10px; }
+    #wc-log { height: 112px; overflow-y: auto; font-size: 12.5px; line-height: 1.55; margin-bottom: 7px; color: #e8dcc0;
+      padding: 7px 8px; border-radius: 5px;
+      background: linear-gradient(180deg, rgba(10,7,3,0.55), rgba(6,4,2,0.7));
+      border: 1px solid #3c2c16; box-shadow: inset 0 0 10px rgba(0,0,0,0.7); }
+    #wc-log::-webkit-scrollbar, #chat-log::-webkit-scrollbar, #fr-list::-webkit-scrollbar, #shop-grid::-webkit-scrollbar { width: 8px; }
+    #wc-log::-webkit-scrollbar-thumb, #chat-log::-webkit-scrollbar-thumb, #fr-list::-webkit-scrollbar-thumb { background: #6e552c; border-radius: 4px; }
+    #shop-grid::-webkit-scrollbar-thumb { background: #8a6030; border-radius: 4px; }
     .wc-line { margin: 1px 0; word-wrap: break-word; }
-    #wc-input { width: 100%; padding: 7px 9px; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 13px; }
-    #wc-input:focus { outline: none; border-color: #ffd87a; }
-    #gamemsg { position: fixed; bottom: 190px; left: 16px; z-index: 6; pointer-events: none; max-width: 52%;
-      font-size: 14px; color: #e6f2f3; text-shadow: 0 2px 4px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.4s ease; }
+    #wc-input, #chat-input { width: 100%; padding: 8px 10px; border-radius: 6px; color: var(--ink); font-size: 13px;
+      background: linear-gradient(180deg,#0c0804,#16100a); border: 1px solid #4a3417;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.8); }
+    #wc-input::placeholder, #chat-input::placeholder, #login input::placeholder, #fr-input::placeholder { color: rgba(244,228,193,0.4); }
+    #wc-input:focus, #chat-input:focus, #login input:focus, #fr-input:focus { outline: none; border-color: var(--gold); box-shadow: inset 0 0 6px rgba(0,0,0,0.8), 0 0 8px rgba(255,210,119,0.35); }
+
+    #gamemsg { position: fixed; bottom: 196px; left: 16px; z-index: 6; pointer-events: none; max-width: 52%;
+      font-size: 14px; color: #f3e7c4; text-shadow: 0 0 8px rgba(255,210,119,0.35), 0 2px 4px rgba(0,0,0,0.95);
+      font-family: Georgia, serif; opacity: 0; transition: opacity 0.4s ease; }
+
     /* Floating NPC name labels. */
     .npc-label { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%,-50%);
       font-size: 12px; font-weight: 700; color: #ffe9a8; white-space: nowrap;
       text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.85); }
-    /* Shop window (centered, never full-screen). */
-    #shop { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 20; width: 380px;
-      background: rgba(28,20,14,0.97); border: 1px solid rgba(244,228,193,0.4); border-radius: 12px; padding: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+
+    /* ===================== Shop — medieval merchant's ledger ===================== */
+    #shop { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 20; width: 446px;
+      padding: 0; overflow: hidden; color: #3a2a18;
+      background: linear-gradient(160deg, #eddcb2 0%, #ddc695 100%);
+      border: 5px solid #5a3d22; border-radius: 6px;
+      box-shadow: 0 0 0 2px #2a1c10, 0 0 0 4px #8a6030, inset 0 0 50px rgba(120,90,50,0.4), 0 16px 50px rgba(0,0,0,0.75); }
     #shop[hidden] { display: none; }
-    .shop-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 800; color: #ffd87a; margin-bottom: 8px; }
-    #shop-close { background: rgba(0,0,0,0.3); color: #f4e4c1; border: 1px solid rgba(244,228,193,0.3); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
-    .shop-coins-row { font-size: 13px; margin-bottom: 10px; opacity: 0.9; }
-    .shop-coins-row b { color: #ffe08a; }
-    #shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .shop-item { background: rgba(0,0,0,0.28); border: 1px solid rgba(244,228,193,0.14); border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; }
-    .shop-item:hover { background: rgba(244,228,193,0.14); }
-    .shop-ic svg { width: 36px; height: 36px; }
-    .shop-nm { font-size: 11px; margin-top: 3px; }
-    .shop-pr { font-size: 12px; color: #ffe08a; font-weight: 700; }
-    .shop-foot { font-size: 11px; opacity: 0.6; margin-top: 10px; text-align: center; }
-    /* Login / account screen (shown before the game starts). */
-    #login { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
-      background: radial-gradient(circle at 50% 28%, #2a2018, #140f0a); }
-    #login[hidden] { display: none; }
-    .login-card { width: 320px; background: rgba(28,20,14,0.92); border: 1px solid rgba(244,228,193,0.3);
-      border-radius: 14px; padding: 26px 24px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
-    .login-logo { font-size: 40px; line-height: 1; }
-    .login-title { font-size: 26px; font-weight: 800; letter-spacing: 3px; color: #f4e4c1; }
-    .login-sub { font-size: 13px; opacity: 0.6; margin-bottom: 18px; }
-    #login input { width: 100%; margin: 6px 0; padding: 10px 12px; border-radius: 8px; font-size: 14px;
-      background: rgba(0,0,0,0.35); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; }
-    #login input:focus { outline: none; border-color: #ffd87a; }
-    .login-btns { display: flex; gap: 8px; margin-top: 12px; }
-    .login-btns button { flex: 1; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
-    #login-go { background: #5fa84a; color: #0e1a0a; border: none; }
-    #login-go:hover { background: #6fc257; }
-    #login-reg { background: rgba(244,228,193,0.12); color: #f4e4c1; border: 1px solid rgba(244,228,193,0.3); }
-    #login-reg:hover { background: rgba(244,228,193,0.22); }
-    #login-msg { font-size: 13px; margin-top: 14px; min-height: 18px; color: #f4e4c1; }
-    .login-note { font-size: 11px; opacity: 0.5; margin-top: 14px; line-height: 1.4; }
-    /* Friends tab */
-    .fr-add { display: flex; gap: 5px; margin-bottom: 8px; }
-    #fr-input { flex: 1; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 12px; }
-    #fr-input:focus { outline: none; border-color: #ffd87a; }
-    #fr-addbtn { width: 30px; border-radius: 6px; background: #5fa84a; color: #0e1a0a; border: none; cursor: pointer; font-weight: 800; font-size: 16px; }
-    #fr-list { max-height: 244px; overflow: auto; }
-    .fr-empty { font-size: 12px; opacity: 0.6; text-align: center; padding: 16px 6px; line-height: 1.5; }
-    .fr-row { display: flex; align-items: center; gap: 7px; padding: 5px 4px; border-bottom: 1px solid rgba(244,228,193,0.08); font-size: 13px; }
-    .fr-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-    .fr-dot.on { background: #5fd35f; box-shadow: 0 0 6px #5fd35f; }
-    .fr-dot.off { background: #777; }
-    .fr-name { flex: 1; }
-    .fr-btn { background: rgba(244,228,193,0.1); border: 1px solid rgba(244,228,193,0.2); color: #f4e4c1; border-radius: 5px; width: 24px; height: 24px; cursor: pointer; font-size: 12px; }
-    .fr-btn:hover { background: rgba(244,228,193,0.22); }
-    /* Private chat window */
-    #chat { position: fixed; bottom: 74px; left: 16px; z-index: 8; width: 300px;
-      background: rgba(20,16,12,0.93); border: 1px solid rgba(244,228,193,0.3); border-radius: 10px; padding: 9px; }
-    #chat[hidden] { display: none; }
-    .chat-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #ffd87a; margin-bottom: 6px; }
-    #chat-close { background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; border-radius: 5px; width: 22px; height: 22px; cursor: pointer; font-size: 11px; }
-    #chat-log { height: 118px; overflow: auto; font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
-    .chat-line { margin: 2px 0; word-wrap: break-word; }
-    #chat-input { width: 100%; padding: 7px 9px; border-radius: 6px; background: rgba(0,0,0,0.35); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 13px; }
-    #chat-input:focus { outline: none; border-color: #ffd87a; }
-    /* Remote player name labels */
-    .player-label { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%,-50%);
-      font-size: 12px; font-weight: 700; color: #9fe0ff; white-space: nowrap; text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.85); }
-    #msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 9; font-size: 18px; text-align: center; }
-    /* ===================== WoW-Classic theme ===================== */
-    #title, .login-title { font-family: Georgia, 'Times New Roman', serif; color: #ffd100;
-      text-shadow: 0 0 10px rgba(255,209,0,0.35), 0 2px 4px #000; }
-    #title span { color: #c9a25a; }
-
-    /* Ornate gold-framed dark-stone panels */
-    #vitals, #panel, #shop, #worldchat, #ctxmenu, #levelup, #chat, .login-card, #coords {
-      background: linear-gradient(180deg, #2b2218 0%, #16100a 100%) !important;
-      border: 2px solid #b9892f !important;
-      box-shadow: inset 0 0 0 1px #3a2c18, inset 0 0 18px rgba(0,0,0,0.7), 0 0 0 1px #120c06, 0 8px 26px rgba(0,0,0,0.7) !important;
-      border-radius: 7px !important;
-    }
-    #saved { border: 1px solid #b9892f !important; }
-    #logout { border: 1px solid #b9892f !important; background: linear-gradient(180deg, #3c2d1a, #211710) !important; color: #ffe08a !important; }
-    #logout:hover { border-color: #ffd100 !important; }
-
-    /* Gold serif headers + accents */
-    #shop-title, .chat-head, .inv-head { font-family: Georgia, serif; color: #ffd100 !important; }
-    .vlabel b, .skills-foot b, .shop-coins-row b, #shop b { color: #ffd100 !important; }
-
-    /* Tabs: carved gold-rimmed stone */
-    .tab { background: linear-gradient(180deg, #3c2d1a, #211710) !important; border: 1px solid #6e572f !important; }
-    .tab:hover { background: linear-gradient(180deg, #4d3a22, #2c2012) !important; }
-    .tab.active { background: linear-gradient(180deg, #6a4f29, #3a2a16) !important; border-color: #ffd100 !important; box-shadow: 0 0 8px rgba(255,209,0,0.3); }
-
-    /* Item slots: sunken stone squares */
-    .inv-slot, .shop-item { background: #0f0a05 !important; border: 1px solid #4a3a22 !important;
-      box-shadow: inset 0 0 7px rgba(0,0,0,0.85) !important; border-radius: 4px !important; }
-    .inv-slot.filled { border-color: #8a6d3a !important; }
-    .inv-slot.filled:hover, .shop-item:hover { border-color: #ffd100 !important; background: #1a130b !important; }
-    .equip-slot { background: #0f0a05 !important; border: 2px solid #4a3a22 !important;
-      box-shadow: inset 0 0 8px rgba(0,0,0,0.9) !important; border-radius: 4px !important; }
-    .equip-slot.filled { border-color: #b9892f !important; }
-    .equip-slot.filled:hover { border-color: #ffd100 !important; }
-
-    /* Equipment paper-doll: character silhouette behind the slots */
-    #tab-equip { position: relative; }
-    #equip-figure { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%); width: 78px; z-index: 0; pointer-events: none; }
-    #equip-grid { position: relative; z-index: 1; }
-
-    /* Buttons */
-    #login-go { background: linear-gradient(180deg, #4e7a36, #2f5022) !important; border: 1px solid #2a3f18 !important; }
-    #login-reg, #fr-addbtn, #shop-close, #chat-close { border: 1px solid #b9892f !important; }
-    .fr-btn { border: 1px solid #6e572f !important; }
-    /* ===================== Medieval shops ===================== */
-    #shop { width: 440px !important; padding: 0 !important; overflow: hidden; color: #3a2a18;
-      background: linear-gradient(160deg, #eadcb4 0%, #ddc89a 100%) !important;
-      border: 6px solid #5a3d22 !important;
-      box-shadow: 0 0 0 2px #2a1c10, inset 0 0 40px rgba(120,90,50,0.35), 0 14px 44px rgba(0,0,0,0.7) !important;
-      border-radius: 4px !important; }
-    .shop-sign { background: linear-gradient(180deg, #6b4a2a, #432d19); text-align: center; padding: 13px 10px 11px; border-bottom: 3px solid #2a1c10; }
-    #shop-title { font-family: 'Old English Text MT', 'Blackadder ITC', Georgia, serif !important; color: #f0d8a0 !important;
-      font-size: 23px; letter-spacing: 1px; text-shadow: 0 2px 3px #000; }
+    /* hammered-bronze sign with engraved corner studs */
+    .shop-sign { position: relative; text-align: center; padding: 14px 36px 12px; border-bottom: 3px solid #2a1c10;
+      background: linear-gradient(180deg, #7a5530, #432d19); }
+    .shop-sign::before, .shop-sign::after { content: ''; position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%;
+      transform: translateY(-50%); background: radial-gradient(circle at 35% 30%, #ffe6a8, #8a6030 65%, #3a2410);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+    .shop-sign::before { left: 12px; } .shop-sign::after { right: 12px; }
+    #shop-title { font-family: 'Old English Text MT', 'Blackadder ITC', Georgia, serif; color: #f4dca4;
+      font-size: 23px; letter-spacing: 1px; text-shadow: 0 2px 3px #000, 0 0 8px rgba(255,210,119,0.3); }
     .shop-greet { font-style: italic; text-align: center; color: #6b4a2a; font-size: 13px; padding: 11px 18px 4px; font-family: Georgia, serif; }
-    #shop-grid { display: block !important; padding: 8px 16px 10px; max-height: 340px; overflow-y: auto; }
-    .shop-row { display: flex; align-items: center; gap: 11px; padding: 9px 4px; border-bottom: 1px solid rgba(90,61,34,0.28); }
-    .shop-ic { width: 42px; flex: none; text-align: center; }
-    .shop-ic svg { width: 38px; height: 38px; }
+    #shop-grid { display: block; padding: 8px 16px 10px; max-height: 344px; overflow-y: auto; }
+    .shop-row { display: flex; align-items: center; gap: 11px; padding: 9px 6px; border-bottom: 1px solid rgba(90,61,34,0.3); }
+    .shop-row:hover { background: rgba(120,90,50,0.13); }
+    .shop-ic { width: 46px; height: 46px; flex: none; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(180deg,#f5e8c4,#d8c290); border: 1px solid #8a6030; border-radius: 6px;
+      box-shadow: inset 0 0 8px rgba(120,90,50,0.4); }
+    .shop-ic svg { width: 36px; height: 36px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
     .shop-info { flex: 1; }
     .shop-nm { font-weight: 700; font-size: 14px; color: #3a2818; font-family: Georgia, serif; }
     .shop-desc { font-size: 11px; color: #6b5535; font-style: italic; margin-top: 1px; }
-    .shop-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .shop-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
     .shop-pr { font-size: 13px; font-weight: 700; color: #7a5410; }
-    .shop-buybtn { background: linear-gradient(180deg, #6b4a2a, #4a3018); color: #f0d8a0; border: 1px solid #2a1c10;
-      border-radius: 5px; padding: 5px 16px; cursor: pointer; font-weight: 700; font-size: 12px; font-family: Georgia, serif; }
-    .shop-buybtn:hover { background: linear-gradient(180deg, #8a6030, #5a3d22); }
-    #shop-close { position: absolute !important; top: 9px; right: 11px; background: #4a3018 !important; color: #f0d8a0 !important;
-      border: 1px solid #2a1c10 !important; border-radius: 5px; width: 26px; height: 26px; cursor: pointer; z-index: 2; }
-    .shop-foot { background: rgba(90,61,34,0.16); border-top: 2px solid #5a3d22; padding: 9px 14px; font-size: 12px; color: #5a4326; text-align: center; }
-    .shop-foot b { color: #7a5410 !important; }
+    .shop-buybtn { background: linear-gradient(180deg, #7a5530, #4a3018); color: #f4dca4; border: 1px solid #2a1c10;
+      border-radius: 5px; padding: 5px 18px; cursor: pointer; font-weight: 700; font-size: 12px; font-family: Georgia, serif;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.25); }
+    .shop-buybtn:hover { background: linear-gradient(180deg, #9a6c38, #5a3d22); box-shadow: inset 0 1px 0 rgba(255,214,119,0.35), 0 0 8px rgba(255,210,119,0.4); }
+    /* legacy grid item styling kept for safety */
+    .shop-item { background: linear-gradient(180deg,#f5e8c4,#d8c290); border: 1px solid #8a6030; border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; }
+    .shop-item:hover { border-color: var(--gold-deep); }
+    .shop-item .shop-nm { font-size: 11px; margin-top: 3px; }
+    #shop-close { position: absolute; top: 10px; right: 12px; background: #4a3018; color: #f4dca4;
+      border: 1px solid #2a1c10; border-radius: 5px; width: 26px; height: 26px; cursor: pointer; z-index: 2; font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.2); }
+    #shop-close:hover { background: #6b4a2a; }
+    .shop-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
+    .shop-coins-row { font-size: 13px; margin-bottom: 10px; opacity: 0.9; }
+    .shop-coins-row b { color: #7a5410; }
+    .shop-foot { background: rgba(90,61,34,0.18); border-top: 2px solid #5a3d22; padding: 10px 14px; font-size: 12px; color: #5a4326; text-align: center; }
+    .shop-foot b { color: #7a5410; }
+
+    /* ===================== Login / account screen ===================== */
+    #login { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(90,64,30,0.55), transparent 55%),
+        radial-gradient(circle at 50% 30%, #2a2018, #120c07 80%); }
+    #login::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+      background: radial-gradient(circle at 50% 120%, rgba(255,210,119,0.10), transparent 60%); }
+    #login[hidden] { display: none; }
+    .login-card { position: relative; width: 332px; padding: 28px 26px 24px; text-align: center; }
+    .login-logo { font-size: 42px; line-height: 1; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+    .login-title { font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 800; letter-spacing: 4px;
+      color: var(--gold); text-shadow: 0 0 14px rgba(255,210,119,0.5), 0 2px 4px #000, 0 1px 0 #5a3d12; margin-top: 4px; }
+    .login-sub { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #c9a25a; margin: 4px 0 20px; }
+    #login input { width: 100%; margin: 6px 0; padding: 11px 13px; border-radius: 7px; font-size: 14px; color: var(--ink);
+      background: linear-gradient(180deg,#0c0804,#17100a); border: 1px solid #4a3417;
+      box-shadow: inset 0 0 7px rgba(0,0,0,0.8); }
+    .login-btns { display: flex; gap: 9px; margin-top: 14px; }
+    .login-btns button { flex: 1; padding: 11px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: Georgia, serif; }
+    #login-go { background: linear-gradient(180deg,#5e9a3e,#2f5022); color: #f4ffe6; border: 1px solid #20330f;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
+    #login-go:hover { background: linear-gradient(180deg,#6fb84a,#3a6029); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 10px rgba(120,200,90,0.4); }
+    #login-reg { background: linear-gradient(180deg,#4a3620,#241708); color: var(--gold-bright); border: 1px solid var(--bronze);
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.18); }
+    #login-reg:hover { border-color: var(--gold); box-shadow: inset 0 1px 0 rgba(255,214,119,0.3), 0 0 10px rgba(255,210,119,0.35); }
+    /* Solo button is injected by main.js with inline styles; re-skin it to match (own ID, restyle only). */
+    #login-solo { margin-top: 11px !important; width: 100% !important; padding: 11px !important; cursor: pointer;
+      font: 700 15px Georgia, serif !important; border-radius: 7px !important; letter-spacing: 0.5px;
+      color: #f4ffe6 !important; background: linear-gradient(180deg,#6a4f9a,#3a2766) !important; border: 1px solid #2a1c4a !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 12px rgba(0,0,0,0.5) !important; }
+    #login-solo:hover { background: linear-gradient(180deg,#7d60b6,#473079) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 12px rgba(150,110,220,0.5) !important; }
+    #login-msg { font-size: 13px; margin-top: 16px; min-height: 18px; color: #d8c8a0; font-style: italic; }
+    .login-note { font-size: 11px; opacity: 0.55; margin-top: 14px; line-height: 1.4; color: #c9b890; }
+
+    /* ===================== Friends tab ===================== */
+    .fr-add { display: flex; gap: 6px; margin-bottom: 9px; }
+    #fr-input { flex: 1; padding: 7px 9px; border-radius: 6px; color: var(--ink); font-size: 12px;
+      background: linear-gradient(180deg,#0c0804,#16100a); border: 1px solid #4a3417; box-shadow: inset 0 0 6px rgba(0,0,0,0.8); }
+    #fr-addbtn { width: 32px; border-radius: 6px; background: linear-gradient(180deg,#5e9a3e,#2f5022); color: #f4ffe6;
+      border: 1px solid #20330f; cursor: pointer; font-weight: 800; font-size: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
+    #fr-addbtn:hover { background: linear-gradient(180deg,#6fb84a,#3a6029); }
+    #fr-list { max-height: 248px; overflow: auto; }
+    .fr-empty { font-size: 12px; opacity: 0.6; text-align: center; padding: 16px 6px; line-height: 1.5; }
+    .fr-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid rgba(255,214,119,0.1); font-size: 13px; }
+    .fr-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .fr-dot.on { background: #5fd35f; box-shadow: 0 0 7px #5fd35f; }
+    .fr-dot.off { background: #6a5a44; }
+    .fr-name { flex: 1; }
+    .fr-btn { background: linear-gradient(180deg,#3a2a17,#1d1207); border: 1px solid #6e552c; color: var(--ink); border-radius: 5px;
+      width: 25px; height: 25px; cursor: pointer; font-size: 12px; box-shadow: inset 0 1px 0 rgba(255,214,119,0.1); }
+    .fr-btn:hover { border-color: var(--gold); color: #fff3d6; }
+
+    /* ===================== Private chat window ===================== */
+    #chat { position: fixed; bottom: 80px; left: 16px; z-index: 8; width: 312px; padding: 10px; }
+    #chat[hidden] { display: none; }
+    .chat-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;
+      color: var(--gold); font-family: Georgia, serif; margin-bottom: 7px; }
+    #chat-close { background: linear-gradient(180deg,#3a2a17,#1d1207); border: 1px solid var(--bronze); color: var(--gold-bright);
+      border-radius: 5px; width: 23px; height: 23px; cursor: pointer; font-size: 11px; }
+    #chat-close:hover { border-color: var(--gold); }
+    #chat-log { height: 120px; overflow: auto; font-size: 12.5px; line-height: 1.55; margin-bottom: 7px; padding: 6px 8px;
+      border-radius: 5px; background: linear-gradient(180deg, rgba(10,7,3,0.55), rgba(6,4,2,0.7));
+      border: 1px solid #3c2c16; box-shadow: inset 0 0 10px rgba(0,0,0,0.7); }
+    .chat-line { margin: 2px 0; word-wrap: break-word; }
+
+    /* Remote player name labels */
+    .player-label { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%,-50%);
+      font-size: 12px; font-weight: 700; color: #9fe0ff; white-space: nowrap; text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.85); }
+    #msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 9; font-size: 18px; text-align: center;
+      font-family: Georgia, serif; color: var(--gold); text-shadow: 0 0 12px rgba(255,210,119,0.4), 0 2px 5px #000; }
+
+    /* Equipment paper-doll: character silhouette behind the slots */
+    #tab-equip { position: relative; }
+    #equip-figure { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%); width: 80px; z-index: 0; pointer-events: none; }
+    #equip-grid { position: relative; z-index: 1; }
   </style>
 </head>
 <body>
