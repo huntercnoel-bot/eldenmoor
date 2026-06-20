@@ -120,6 +120,26 @@
       box-shadow: inset 0 1px 0 rgba(255,230,168,0.35), 0 0 9px rgba(255,210,119,0.4); }
     .tab-page { display: none; }
     .tab-page.active { display: block; }
+    /* Inline-SVG tab icon (Quests) — sits like the emoji glyphs, inherits ink colour. */
+    .tab { display: flex; align-items: center; justify-content: center; }
+    .tab .tab-ico { display: block; color: var(--ink); filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5)); transition: color 0.12s ease; }
+    .tab:hover .tab-ico { color: var(--bronze-lit); }
+    .tab.active .tab-ico { color: var(--gold); }
+    /* When a quest is available/active, the Quests tab pulses a soft gold glow. */
+    .tab[data-tab="quests"].quest-alert:not(.active) {
+      border-color: var(--gold);
+      box-shadow: inset 0 1px 0 rgba(255,230,168,0.25), 0 0 9px rgba(255,210,119,0.45);
+      animation: em-quest-pulse 1.8s ease-in-out infinite; }
+    .tab[data-tab="quests"].quest-alert:not(.active) .tab-ico { color: var(--gold); }
+    @keyframes em-quest-pulse {
+      0%, 100% { box-shadow: inset 0 1px 0 rgba(255,230,168,0.25), 0 0 6px rgba(255,210,119,0.30); }
+      50%      { box-shadow: inset 0 1px 0 rgba(255,230,168,0.35), 0 0 12px rgba(255,210,119,0.65); } }
+
+    /* Quest journal, now living inside its panel tab. */
+    .quest-tab-head { color: var(--gold); font: 700 15px Georgia, serif; margin-bottom: 9px;
+      padding-bottom: 7px; border-bottom: 1px solid rgba(255,214,119,0.16); text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+    #tab-quests { max-height: 46vh; overflow-y: auto; }
+    #quest-tab-body { color: #f3ead3; font: 13px/1.45 Georgia, serif; }
 
     /* Item slots — deep-sunken stone squares with bronze rim (OSRS bag feel). */
     #inv-grid { display: grid; grid-template-columns: repeat(4, 44px); grid-auto-rows: 44px; gap: 5px; justify-content: center; }
@@ -471,6 +491,13 @@
       <button class="tab active" data-tab="inv" title="Inventory (I)">🎒</button>
       <button class="tab" data-tab="equip" title="Equipment">🛡️</button>
       <button class="tab" data-tab="skills" title="Skills">📊</button>
+      <button class="tab" data-tab="quests" title="Quest Journal (J)" aria-label="Quests">
+        <svg class="tab-ico" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+          <path d="M5 3.5h11a2.5 2.5 0 0 1 2.5 2.5v13.5a1 1 0 0 1-1.6.8L14 18l-2.9 2.3a1 1 0 0 1-1.2 0L7 18l-2.4 1.8A1 1 0 0 1 3 19V6a2.5 2.5 0 0 1 2-2.5Z"
+                fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M7.5 8h7M7.5 11h7M7.5 14h4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
       <button class="tab" data-tab="friends" title="Friends">👥</button>
     </div>
     <div id="tab-inv" class="tab-page active"><div id="inv-grid"></div></div>
@@ -479,6 +506,10 @@
       <div id="equip-grid"></div>
     </div>
     <div id="tab-skills" class="tab-page"><div id="skills-tab"></div></div>
+    <div id="tab-quests" class="tab-page">
+      <div class="quest-tab-head">📜 Quest Journal</div>
+      <div id="quest-tab-body"></div>
+    </div>
     <div id="tab-friends" class="tab-page">
       <div class="fr-add">
         <input id="fr-input" placeholder="Add a friend…" maxlength="16" autocomplete="off" />
@@ -519,11 +550,21 @@
       const which = tab.dataset.tab;
       document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.tab-page').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + which));
+      if (which === 'quests') {
+        tab.classList.remove('quest-alert');           // viewed — drop the glow
+        const q = window.eldenmoor && window.eldenmoor.quests;
+        if (q && q.renderLog) q.renderLog();            // refresh the relocated journal
+      }
     });
     window.addEventListener('keydown', (e) => {
       const a = document.activeElement;
       if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return; // don't toggle while typing
       if (e.code === 'KeyI') { const p = document.getElementById('panel'); if (p) p.classList.toggle('hidden'); }
+      if (e.code === 'KeyJ') {                               // J — jump to the Quests tab
+        const p = document.getElementById('panel'); if (p) p.classList.remove('hidden');
+        const qt = document.querySelector('.tab[data-tab="quests"]');
+        if (qt) qt.click();
+      }
     });
   </script>
 
