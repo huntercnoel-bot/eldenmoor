@@ -143,6 +143,7 @@ function makeNpc(def) {
   const cyl = (rt, rb, h, c, s = 14) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, s), M(c));
   const box = (w, h, d, c) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
   const cone = (r, h, c, s = 10) => new THREE.Mesh(new THREE.ConeGeometry(r, h, s), M(c));
+  const ring = (r, t, c) => new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 20), M(c));
   const at = (o, x, y, z, rx = 0, ry = 0, rz = 0, sx, sy, sz) => { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); if (sx !== undefined) o.scale.set(sx, sy, sz); return o; };
   const add = (p, o) => { o.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } }); p.add(o); return o; };
 
@@ -205,29 +206,77 @@ function makeNpc(def) {
     else add(g, at(ball(0.255, hairC), 0, 1.76, -0.04, 0, 0, 0, 1.05, 0.45, 1.07));    // balding ring
     if (hairStyle === 1) add(g, at(box(0.4, 0.5, 0.16, hairC), 0, 1.66, -0.2));         // long hair
   }
-  if (BEARDED.has(def.id)) { add(g, at(ball(0.17, hairC), 0, 1.66, 0.12, 0, 0, 0, 1.05, 1.0, 0.8)); add(g, at(box(0.15, 0.05, 0.06, hairC), 0, 1.76, 0.2)); }
+  if (BEARDED.has(def.id)) {
+    add(g, at(ball(0.2, hairC), 0, 1.61, 0.08, 0, 0, 0, 1.0, 0.9, 0.78));               // jaw beard (wraps the chin)
+    add(g, at(cyl(0.05, 0.13, 0.16, hairC), 0, 1.55, 0.12));                            // tapered point under the chin
+    add(g, at(box(0.18, 0.05, 0.07, hairC), 0, 1.74, 0.19));                            // moustache
+    for (const sx of [-1, 1]) add(g, at(box(0.05, 0.16, 0.06, hairC), sx * 0.18, 1.7, 0.07)); // sideburns up to the ears
+  }
 
   // ---- role-specific outfits & props ----
-  if (longRobe) add(g, at(cyl(0.27 * build, 0.5, 1.4, robeC), 0, 0.7, 0));            // floor-length robe over the legs
+  if (longRobe) {
+    const trimC = def.crown ? gold : M(0xcabf8a, 0.7, 0.1);                            // gold for the king, soft cream for the rest
+    add(g, at(cyl(0.28 * build, 0.52, 1.42, robeC), 0, 0.72, 0));                       // floor-length robe over the legs
+    add(g, at(cyl(0.53, 0.5, 0.07, robeC), 0, 0.06, 0));                                // hem
+    add(g, at(ring(0.5, 0.03, trimC), 0, 0.07, 0, Math.PI / 2, 0, 0));                  // hem trim
+    for (const sx of [-1, 1]) add(g, at(box(0.045, 1.25, 0.04, trimC), sx * 0.1, 0.78, 0.27 * build)); // vertical placket bands
+    add(g, at(cyl(0.32 * build, 0.3 * build, 0.1, trimC), 0, 1.02, 0));                 // sash at the waist
+  }
   if (def.crown) {
-    add(g, at(ball(0.3, white), 0, 1.55, 0, 0, 0, 0, 1.15, 0.5, 1.15));               // ermine collar
-    add(g, at(cyl(0.26, 0.26, 0.13, gold), 0, 2.04, 0));
-    for (const dx of [-0.16, 0, 0.16]) add(g, at(cone(0.06, 0.18, M(0xf2d24a), 6), dx, 2.18, 0));
-    add(armR.userData.lower, at(cyl(0.025, 0.025, 0.5, gold), 0, -0.32, 0.05));       // sceptre
-    add(armR.userData.lower, at(ball(0.06, M(0x6fb3e0)), 0, -0.08, 0.05));
+    add(g, at(ball(0.34, white), 0, 1.56, 0.02, 0, 0, 0, 1.2, 0.55, 1.25));            // ermine collar (mantle)
+    for (const dx of [-0.22, 0.22]) add(g, at(ball(0.07, dark), dx, 1.5, 0.26));       // ermine spots
+    add(g, at(box(0.06, 0.04, 0.05, dark), 0, 1.46, 0.3));
+    add(g, at(cyl(0.255, 0.27, 0.13, gold), 0, 2.05, 0));                              // crown band
+    add(g, at(ring(0.265, 0.02, M(0xf2d24a)), 0, 2.0, 0, Math.PI / 2, 0, 0));          // band lip
+    for (const dx of [-0.18, -0.09, 0, 0.09, 0.18]) add(g, at(cone(0.05, 0.17, M(0xf2d24a), 6), dx, 2.2, 0)); // crown points
+    for (const dx of [-0.18, 0, 0.18]) add(g, at(ball(0.03, M(0x6fb3e0)), dx, 2.04, 0.18)); // crown jewels
+    add(armR.userData.lower, at(cyl(0.028, 0.028, 0.56, gold), 0, -0.3, 0.06));        // sceptre shaft
+    add(armR.userData.lower, at(ball(0.07, M(0x6fb3e0)), 0, -0.02, 0.06));             // sceptre orb
+    add(armR.userData.lower, at(ring(0.075, 0.018, gold), 0, -0.02, 0.06, Math.PI / 2, 0, 0)); // orb collar
   }
   if (def.guard) {
-    add(g, at(cyl(0.31, 0.26, 0.46, steel), 0, 1.42, 0));                             // breastplate
-    for (const sx of [-1, 1]) add(g, at(ball(0.15, steel), sx * 0.3, 1.56, 0, 0, 0, 0, 1.1, 0.7, 1.1)); // pauldrons
-    add(g, at(ball(0.26, steel), 0, 1.86, 0, 0, 0, 0, 1.05, 1.0, 1.05));              // helm
-    add(g, at(box(0.1, 0.22, 0.05, M(0x6d737b)), 0, 1.8, 0.24));                      // visor
-    add(g, at(cyl(0.035, 0.035, 2.4, M(0x6b4a2f)), 0.42, 1.2, 0.05));                 // halberd shaft
-    add(g, at(cone(0.1, 0.34, steel), 0.42, 2.55, 0.05));                             // halberd head
+    const visorC = M(0x4a4f56, 0.5, 0.4);
+    // --- plate body (a lesser, trimmer version of the hero's cuirass) ---
+    add(g, at(cyl(0.33, 0.27, 0.48, steel), 0, 1.42, 0));                             // breastplate
+    add(g, at(box(0.09, 0.4, 0.1, steel), 0, 1.44, 0.25));                            // central ridge
+    add(g, at(ring(0.3, 0.025, gold), 0, 1.62, 0, Math.PI / 2, 0, 0));                // collar trim
+    add(g, at(cyl(0.28, 0.32, 0.12, steel), 0, 1.14, 0));                             // fauld skirt
+    add(g, at(ring(0.32, 0.022, gold), 0, 1.1, 0, Math.PI / 2, 0, 0));                // fauld trim
+    // --- flared gold-rimmed pauldrons (smaller than the hero's, but the same shape) ---
+    for (const sx of [-1, 1]) {
+      const pa = new THREE.Group();
+      pa.add(at(ball(0.2, steel), 0, 0, 0, 0, 0, 0, 1.25, 0.85, 1.15));               // dome
+      pa.add(at(ring(0.2, 0.035, gold), 0, -0.03, 0, Math.PI / 2, 0, 0));             // rim
+      pa.add(at(cone(0.06, 0.2, steel, 6), 0.06, 0.16, 0, 0, 0, -sx * 0.5));          // small spike
+      add(g, at(pa, sx * 0.34, 1.6, 0, 0, 0, -sx * 0.32));
+    }
+    // --- OSRS full helm: dome + brow band + nasal + face slit + plume ---
+    add(g, at(ball(0.255, steel), 0, 1.9, -0.01, 0, 0, 0, 1.0, 1.0, 1.04));           // dome
+    add(g, at(cyl(0.26, 0.265, 0.1, gold), 0, 1.78, 0, 0, 0, 0, 1.0, 1.0, 1.04));     // brow band
+    add(g, at(box(0.5, 0.16, 0.04, visorC), 0, 1.86, 0.235, 0, 0, 0, 1.0, 1.0, 1.0)); // eye slit (recessed)
+    add(g, at(box(0.05, 0.24, 0.06, steel), 0, 1.82, 0.255));                         // nasal bar
+    for (const sx of [-1, 1]) add(g, at(box(0.1, 0.26, 0.16, steel), sx * 0.21, 1.84, 0.08)); // cheek guards
+    add(g, at(box(0.04, 0.16, 0.4, M(0x8a2230)), 0, 2.18, -0.04));                    // red plume crest
+    // --- halberd, held to the side and angled in the off hand ---
+    add(g, at(cyl(0.032, 0.032, 2.3, M(0x6b4a2f)), 0.36, 1.25, 0.12, 0, 0, -0.06));   // shaft
+    add(g, at(cone(0.09, 0.32, steel), 0.43, 2.5, 0.12));                             // spear point
+    add(g, at(box(0.26, 0.22, 0.03, steel), 0.27, 2.18, 0.12, 0, 0, 0.3));            // axe blade
   }
   if (def.apron) add(g, at(box(0.4, 0.72, 0.06, white), 0, 0.95, 0.26));
-  if (def.id === 'cook') add(g, at(cyl(0.2, 0.18, 0.26, white), 0, 2.06, 0));         // chef's toque
+  if (def.id === 'cook') {                                                            // tall puffy chef's toque
+    add(g, at(cyl(0.175, 0.2, 0.16, white), 0, 1.98, 0));                             // headband
+    add(g, at(cyl(0.21, 0.18, 0.26, white), 0, 2.18, 0));                             // crown
+    add(g, at(ball(0.23, white), 0, 2.34, 0, 0, 0, 0, 1.0, 0.7, 1.0));               // puffed top
+  }
   if (def.id === 'farmer') { add(g, at(cone(0.42, 0.16, M(0xcba15a), 12), 0, 2.0, 0)); add(g, at(cyl(0.17, 0.17, 0.22, M(0xb8924a)), 0, 2.08, 0)); } // straw hat
-  if (def.id === 'nun') { add(g, at(ball(0.28, white), 0, 1.88, -0.02, 0, 0, 0, 1.06, 0.98, 1.06)); add(g, at(box(0.52, 0.5, 0.06, dark), 0, 1.74, -0.18)); } // wimple
+  if (def.id === 'nun') {                                                             // wimple that frames (not hides) the face
+    const habit = M(0x33333f);
+    add(g, at(ball(0.29, white), 0, 1.95, -0.05, 0, 0, 0, 1.08, 0.95, 1.0));         // white coif over the crown
+    for (const sx of [-1, 1]) add(g, at(box(0.07, 0.34, 0.34, white), sx * 0.24, 1.8, 0.04)); // coif sides framing the face
+    add(g, at(box(0.46, 0.16, 0.34, white), 0, 1.62, 0.02));                          // wimple under the chin
+    add(g, at(ball(0.31, habit), 0, 1.86, -0.12, 0, 0, 0, 1.12, 1.05, 0.7));         // dark veil behind
+    add(g, at(box(0.56, 0.7, 0.05, habit), 0, 1.5, -0.22));                           // veil drape down the back
+  }
   if (def.id === 'innkeep') add(armR.userData.lower, at(cyl(0.07, 0.07, 0.16, M(0xb08038)), 0, -0.32, 0.08)); // tankard
 
   if (def.scale) g.scale.setScalar(def.scale);
