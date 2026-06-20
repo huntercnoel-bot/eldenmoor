@@ -53,7 +53,7 @@
       "focus": "NPC dialogue & quests",
       "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
       "status": "working",
-      "task": "Designing a second quest + adding deeper, branching NPC dialogue.",
+      "task": "Second quest + deeper dialogue — then a HUD quest button that lights up when a quest is available to start or complete.",
       "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk"],
       "recent": [
         "Gave every NPC dialogue + an OSRS-style dialogue box (LIVE)",
