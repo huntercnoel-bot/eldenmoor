@@ -108,16 +108,10 @@ function tick() {
     if (em && em.scene && em.player) {
       clearInterval(iv);
       tick();
-      // Expose the pipeline for reuse elsewhere.
+      // Expose the pipeline for reuse (showcase.js, future NPC/monster swaps).
+      // Nothing is spawned into the town itself — new assets live in the
+      // separate showcase area so they don't mix with the existing build.
       em.assets = { loadGLTF, spawnCharacter, KAYKIT_CHARACTERS, mixers };
-      // Proof-of-concept: two stylized guards flanking the spawn courtyard,
-      // facing the player, idling. (First real glTF models in the world.)
-      try {
-        await Promise.all([
-          spawnCharacter('Knight',    { position: [-2.6, 0, -4.6], rotationY: Math.PI, anim: 'Idle' }),
-          spawnCharacter('Barbarian', { position: [ 2.6, 0, -4.6], rotationY: Math.PI, anim: 'Idle' }),
-        ]);
-      } catch (err) { console.error('[assets] guard spawn failed', err); }
     } else if (tries > 600) { clearInterval(iv); }
   }, 100);
 })();
