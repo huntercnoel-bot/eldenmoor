@@ -188,13 +188,13 @@ function startWind() {
   filt.Q.value = 0.7;
 
   const g = ctx.createGain();
-  g.gain.value = 0.14;
+  g.gain.value = 0.05;          // wind / water-rush bed — kept low so the music carries
 
   // a slow LFO breathing the wind's volume up and down (gusts)
   const lfo = ctx.createOscillator();
   lfo.frequency.value = 0.07;
   const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.09;
+  lfoGain.gain.value = 0.035;
   lfo.connect(lfoGain); lfoGain.connect(g.gain);
 
   // a second, slower LFO sweeping the filter for movement
