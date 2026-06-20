@@ -406,40 +406,18 @@ function getVolume() { return volume; }
 // ============================================================================
 //  Mute button (drawn from JS, no edits to index.html) + the M key.
 // ============================================================================
-let audioPanel = null, muteBtn = null, volSlider = null;
-function makeAudioControls() {
-  if (audioPanel) return;
-  audioPanel = document.createElement('div');
-  audioPanel.id = 'audio-controls';
-  audioPanel.style.cssText = [
-    'position:fixed', 'top:276px', 'right:14px', 'z-index:60',  // bottom of the top-right stack (under minimap/logout/saved)
-    'display:flex', 'align-items:center', 'gap:6px',
-    'background:rgba(20,16,10,0.82)', 'border:1px solid #b9892f', 'border-radius:8px',
-    'padding:3px 9px 3px 3px', 'user-select:none',
-  ].join(';');
-
-  muteBtn = document.createElement('button');
-  muteBtn.id = 'audio-mute';
-  muteBtn.title = 'Mute / unmute (M)';
-  muteBtn.style.cssText = [
-    'width:32px', 'height:32px', 'cursor:pointer', 'background:transparent',
-    'color:#ffd100', 'border:none', 'font:18px Georgia,serif', 'line-height:1',
-    'display:flex', 'align-items:center', 'justify-content:center',
-  ].join(';');
-  muteBtn.addEventListener('click', (e) => { e.stopPropagation(); startAudio(); toggleMute(); });
-
-  volSlider = document.createElement('input');
-  volSlider.type = 'range'; volSlider.min = '0'; volSlider.max = '100'; volSlider.step = '1';
-  volSlider.id = 'audio-vol'; volSlider.title = 'Volume';
+// Wire the Sound tab's controls (#ui-mute + #ui-volume + #ui-vol-pct, in
+// index.html's tabbed panel). Retries until the DOM is ready.
+let muteBtn = null, volSlider = null, volPct = null;
+function wireAudioControls() {
+  muteBtn = document.getElementById('ui-mute');
+  volSlider = document.getElementById('ui-volume');
+  volPct = document.getElementById('ui-vol-pct');
+  if (!muteBtn || !volSlider) { setTimeout(wireAudioControls, 300); return; }
   volSlider.value = String(Math.round(volume * 100));
-  volSlider.style.cssText = ['width:96px', 'cursor:pointer', 'accent-color:#ffd100'].join(';');
-  // a slider drag is a valid gesture to start audio; keep it from rotating the camera
+  muteBtn.addEventListener('click', (e) => { e.stopPropagation(); startAudio(); toggleMute(); });
   volSlider.addEventListener('input', (e) => { e.stopPropagation(); startAudio(); setVolume(parseInt(volSlider.value, 10) / 100); });
-  volSlider.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
-
-  audioPanel.appendChild(muteBtn);
-  audioPanel.appendChild(volSlider);
-  document.body.appendChild(audioPanel);
+  volSlider.addEventListener('pointerdown', (e) => { e.stopPropagation(); }); // don't rotate the camera
   updateAudioUI();
 }
 
@@ -449,6 +427,7 @@ function updateAudioUI() {
     muteBtn.style.color = muted ? '#9a8a7a' : '#ffd100';
   }
   if (volSlider && document.activeElement !== volSlider) volSlider.value = String(Math.round(volume * 100));
+  if (volPct) volPct.textContent = Math.round(volume * 100) + '%';
 }
 
 // ============================================================================
@@ -486,8 +465,8 @@ function installKeybind() {
 (function boot() {
   if (!AudioCtx) { console.warn('[audio] Web Audio API unavailable'); return; }
 
-  // Set up DOM + gesture handlers right away (login screen is fine).
-  makeAudioControls();
+  // Wire the Sound-tab controls + gesture handlers right away (login is fine).
+  wireAudioControls();
   installGestureStart();
   installKeybind();
 

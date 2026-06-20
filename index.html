@@ -606,6 +606,7 @@
         </svg>
       </button>
       <button class="tab" data-tab="friends" title="Friends">👥</button>
+      <button class="tab" data-tab="sound" title="Sound">🔊</button>
     </div>
     <div id="tab-inv" class="tab-page active"><div id="inv-grid"></div></div>
     <div id="tab-equip" class="tab-page">
@@ -616,6 +617,15 @@
     <div id="tab-quests" class="tab-page">
       <div class="quest-tab-head">📜 Quest Journal</div>
       <div id="quest-tab-body"></div>
+    </div>
+    <div id="tab-sound" class="tab-page">
+      <div class="quest-tab-head">🔊 Sound</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+        <button id="ui-mute" title="Mute / unmute (M)" style="width:34px;height:34px;cursor:pointer;background:rgba(20,16,10,0.6);color:#ffd100;border:1px solid #b9892f;border-radius:7px;font:18px Georgia,serif;line-height:1;">🔊</button>
+        <input id="ui-volume" type="range" min="0" max="100" step="1" value="90" title="Volume" style="flex:1;cursor:pointer;accent-color:#ffd100;" />
+        <span id="ui-vol-pct" style="min-width:40px;text-align:right;font-variant-numeric:tabular-nums;opacity:0.85;">90%</span>
+      </div>
+      <div style="font-size:12px;opacity:0.6;margin-top:12px;line-height:1.4;">Music, ambience &amp; sound effects. (M toggles mute.)</div>
     </div>
     <div id="tab-friends" class="tab-page">
       <div class="fr-add">
