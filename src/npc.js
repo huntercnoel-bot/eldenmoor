@@ -3,64 +3,157 @@
 
 import * as THREE from '../vendor/three.module.js';
 
+// Each NPC carries a `dialogue` array of in-character lines that the dialogue
+// box (see src/dialogue.js, wired in main.js) pages through. `flavor` is kept as
+// the one-line fallback used by the old game-message path. King Aldric carries a
+// `quest: 'king'` marker so the talk handler routes him to the quest system.
 const NPC_DEFS = [
   // --- shopkeepers (now standing behind the counter INSIDE each shop) ---
   { id: 'bramble', name: 'Bramble', role: 'General Store', x: -15, z: 16, robe: 0x3f6e44,
-    type: 'shop', shop: 'general', examine: 'A cheerful general-store keeper.', flavor: 'Finest oddments in all Eldenmoor! Come in, come in.' },
+    type: 'shop', shop: 'general', examine: 'A cheerful general-store keeper.', flavor: 'Finest oddments in all Eldenmoor! Come in, come in.',
+    dialogue: [
+      'Welcome, welcome! Finest oddments in all Eldenmoor — buckets, rope, tinderboxes, the lot.',
+      'If it isn\'t nailed down, I\'ll sell it to you. If it IS nailed down, I\'ll sell you the nails.',
+      'Browsing\'s free, but a coin\'s a coin, eh? Right-click me to trade.',
+    ] },
   { id: 'hilda', name: 'Hilda', role: "Hilda's Axes", x: 15, z: 16, robe: 0x6e3a3a,
-    type: 'shop', shop: 'axes', examine: 'A burly axe merchant.', flavor: 'A sharp axe makes light work, love. Step inside.' },
+    type: 'shop', shop: 'axes', examine: 'A burly axe merchant.', flavor: 'A sharp axe makes light work, love. Step inside.',
+    dialogue: [
+      'A sharp axe makes light work, love. Dull ones make for sore arms and bad language.',
+      'Bronze for the young\'uns, steel when you\'ve grown into it. I\'ll not sell you above your station.',
+      'Forged \'em myself. Well — most of \'em. Don\'t ask about the bronze ones.',
+    ] },
 
   // --- castle court ---
   { id: 'king', name: 'King Aldric', role: 'the Crown', x: 0, z: 62, robe: 0x5e2a8a, crown: true, hair: 0xcfc4b0,
-    type: 'royal', examine: 'The sovereign of Eldenmoor, draped in royal purple.',
+    type: 'royal', quest: 'king', examine: 'The sovereign of Eldenmoor, draped in royal purple.',
     flavor: 'Welcome to my hall, adventurer. Eldenmoor has need of brave souls like you.' },
   { id: 'duke', name: 'Duke Veylin', role: 'Royal Steward', x: 4, z: 61, robe: 0x274a7a,
     type: 'plain', examine: "The king's steward, keeper of the realm's affairs.",
-    flavor: 'Seek the King if you crave purpose — and mind your manners in his hall.' },
+    flavor: 'Seek the King if you crave purpose — and mind your manners in his hall.',
+    dialogue: [
+      'You stand in the great hall of His Majesty King Aldric. Comport yourself accordingly.',
+      'If it is purpose you seek, the King has tasks aplenty. Speak with him directly.',
+      'I keep the realm\'s ledgers, its grain stores, its taxes... someone must, while heroes go gallivanting.',
+    ] },
   { id: 'guard_l', name: 'Royal Guard', role: 'Gatehouse Watch', x: -3.5, z: 26, robe: 0x565b62, guard: true,
-    type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'The gate stands open to honest folk.' },
+    type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'The gate stands open to honest folk.',
+    dialogue: ['The gate stands open to honest folk. You look honest enough.', 'Move along. Nothing to see but me, standing here. All day.'] },
   { id: 'guard_r', name: 'Royal Guard', role: 'Gatehouse Watch', x: 3.5, z: 26, robe: 0x565b62, guard: true,
-    type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'Keep the peace within these walls, friend.' },
+    type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'Keep the peace within these walls, friend.',
+    dialogue: ['Keep the peace within these walls, friend.', 'No, I will not let you try on the helmet. Everyone asks.'] },
   { id: 'guard_il', name: 'Royal Guard', role: 'Keep Watch', x: -4, z: 44, robe: 0x565b62, guard: true,
-    type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'None pass to the King unannounced — but you seem alright.' },
+    type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'None pass to the King unannounced — but you seem alright.',
+    dialogue: ['None pass to the King unannounced — but you seem alright. Go on.', 'The great hall\'s just ahead. Don\'t touch anything shiny.'] },
   { id: 'guard_ir', name: 'Royal Guard', role: 'Keep Watch', x: 4, z: 44, robe: 0x565b62, guard: true,
-    type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'The great hall lies ahead. Tread proudly.' },
+    type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'The great hall lies ahead. Tread proudly.',
+    dialogue: ['The great hall lies ahead. Tread proudly — and quietly.', 'I\'ve stood this post eleven years. Eleven! Ask me anything about this wall.'] },
   { id: 'banker', name: 'Edra', role: 'Bank of Eldenmoor', x: 17, z: 38, robe: 0x3a5f3a,
     type: 'plain', examine: 'A sharp-eyed banker. (A proper bank is coming soon!)',
-    flavor: 'Your coin is safe with the Bank of Eldenmoor. The vaults open shortly!' },
+    flavor: 'Your coin is safe with the Bank of Eldenmoor. The vaults open shortly!',
+    dialogue: [
+      'Your coin is safe with the Bank of Eldenmoor. Safe as houses. Safer, honestly — houses burn down.',
+      'The vaults open shortly! We\'re just... waiting on the locks. And the vault. And the gold.',
+      'No, I can\'t hold your logs for you yet. Soon, as the scribes say.',
+    ] },
   { id: 'cook', name: 'Bessa', role: 'Castle Cook', x: -18, z: 37, robe: 0xb08a5a, apron: true,
-    type: 'plain', examine: 'The castle cook, flour to her elbows.', flavor: 'Mind the oven, dear — hot bread for the King’s table!' },
+    type: 'plain', examine: 'The castle cook, flour to her elbows.', flavor: 'Mind the oven, dear — hot bread for the King’s table!',
+    dialogue: [
+      'Mind the oven, dear — that\'s hot bread for the King\'s own table.',
+      'Flour to my elbows from dawn to dusk. His Majesty does love a fresh loaf.',
+      'Burnt one batch last week. Told the King it was "rustic". He believed me, bless him.',
+    ] },
 
   // --- townsfolk (the square) ---
   { id: 'tomas', name: 'Old Tomas', role: 'Townsfolk', x: 4, z: 11, robe: 0x6a5a3a, hair: 0xb9b2a4,
     type: 'plain', examine: 'A weathered old townsman, watching the square.',
-    flavor: 'Grand town, this. The King keeps us safe behind those walls.' },
+    flavor: 'Grand town, this. The King keeps us safe behind those walls.',
+    dialogue: [
+      'Grand town, this. The King keeps us safe behind those walls, and we\'re grateful for it.',
+      'Been watching this square sixty year. Seen it all, I have. Mostly pigeons.',
+      'In my day, adventurers said please and thank you. You young\'uns just run everywhere.',
+    ] },
   { id: 'mara', name: 'Mara', role: 'Market Trader', x: 4, z: 19, robe: 0x8a3a5a,
-    type: 'plain', examine: 'A bright-eyed market trader.', flavor: 'Fresh wares at the stalls! Mind the fountain, love.' },
+    type: 'plain', examine: 'A bright-eyed market trader.', flavor: 'Fresh wares at the stalls! Mind the fountain, love.',
+    dialogue: [
+      'Fresh wares at the stalls! Mind you don\'t fall in the fountain, love — last fellow did.',
+      'Whatever you need, someone in this square sells it. Or knows someone who does.',
+      'Trade\'s good when the roads are safe. Thank the King and his guards for that.',
+    ] },
   { id: 'smith', name: 'Garrett', role: 'Blacksmith', x: 10, z: 6, robe: 0x4a4640, hair: 0x2a2018, apron: true,
-    type: 'shop', shop: 'armoury', examine: 'A soot-streaked blacksmith with brawny arms.', flavor: 'Armour for the road? Step up to the anvil, friend.' },
+    type: 'shop', shop: 'armoury', examine: 'A soot-streaked blacksmith with brawny arms.', flavor: 'Armour for the road? Step up to the anvil, friend.',
+    dialogue: [
+      'Armour for the road? Step up to the anvil, friend. I\'ll see you kitted out.',
+      'Good steel between you and a goblin\'s blade — best coin you\'ll ever spend.',
+      'Mind the sparks. And the heat. And the hammer. Honestly, just stand back a bit.',
+    ] },
   { id: 'farmer', name: 'Pell', role: 'Farmer', x: 8, z: -9, robe: 0x6a7a3a, hair: 0xb9a06a,
-    type: 'plain', examine: 'A cheerful farmer with hay on his boots.', flavor: 'Good harvest this year, thank the King. Mind the windmill yonder.' },
+    type: 'plain', examine: 'A cheerful farmer with hay on his boots.', flavor: 'Good harvest this year, thank the King. Mind the windmill yonder.',
+    dialogue: [
+      'Good harvest this year, thank the King! Wheat\'s up to my chest out yonder.',
+      'See the windmill? Grinds our grain to flour for the castle ovens. Round and round it goes.',
+      'A scarecrow scares crows. A Pell scares everything else off my field. Off you pop!',
+    ] },
   { id: 'nun', name: 'Sister Adela', role: 'Chapel', x: -25, z: 13, robe: 0x4a4a5a, hair: 0xcccccc,
-    type: 'plain', examine: 'A gentle sister tending the chapel grounds.', flavor: 'Light a candle within, traveller. The Light watches over Eldenmoor.' },
+    type: 'plain', examine: 'A gentle sister tending the chapel grounds.', flavor: 'Light a candle within, traveller. The Light watches over Eldenmoor.',
+    dialogue: [
+      'Peace be with you, traveller. The Light watches over all of Eldenmoor.',
+      'Light a candle within, if you\'ve a moment. A little warmth goes a long way.',
+      'Even adventurers need rest for the soul. The chapel doors are always open to you.',
+    ] },
   { id: 'child', name: 'Wren', role: 'Townsfolk', x: -3, z: 14, scale: 0.68, robe: 0x8a5a8a, hair: 0x6a4a2a,
-    type: 'plain', examine: 'A small child darting about the square.', flavor: 'Wanna race to the fountain? Betcha can’t catch me!' },
+    type: 'plain', examine: 'A small child darting about the square.', flavor: 'Wanna race to the fountain? Betcha can’t catch me!',
+    dialogue: [
+      'Wanna race to the fountain? Betcha can\'t catch me!',
+      'When I grow up I\'m gonna be an adventurer like you! With a BIG axe!',
+      'Old Saul at the tavern says there\'s GHOSTS in the cellar. I\'m not scared. ...Are YOU scared?',
+    ] },
   { id: 'innkeep', name: 'Bram', role: 'The Prancing Stag', x: -16, z: -18.6, robe: 0x6a4a2a, hair: 0x3a2a1a, apron: true,
-    type: 'plain', examine: 'The barrel-chested innkeeper, polishing a tankard.', flavor: 'Pull up a stool! Best ale this side of the moat.' },
+    type: 'plain', examine: 'The barrel-chested innkeeper, polishing a tankard.', flavor: 'Pull up a stool! Best ale this side of the moat.',
+    dialogue: [
+      'Pull up a stool! Best ale this side of the moat — and the only ale this side of the moat.',
+      'The Prancing Stag\'s been in my family three generations. Stew\'s the same recipe, more\'s the pity.',
+      'Saul\'s been "about to leave" since noon. Pay his ghost stories no mind.',
+    ] },
   { id: 'patron1', name: 'Old Saul', role: 'Tavern Regular', x: -13, z: -11, robe: 0x4a5a6a, hair: 0xb9b2a4,
-    type: 'plain', examine: 'A grizzled regular nursing a drink.', flavor: 'Gold in that cellar, they say… or maybe ghosts. Hic!' },
+    type: 'plain', examine: 'A grizzled regular nursing a drink.', flavor: 'Gold in that cellar, they say… or maybe ghosts. Hic!',
+    dialogue: [
+      'Gold in that cellar, they say… or maybe ghosts. Hic!',
+      'I seen \'em. Down in the dungeon. Pale things, moanin\'. Or that was the ale. One o\' the two.',
+      'Buy old Saul a drink and I\'ll tell you where the treasure\'s buried. ...I forget. But I\'ll TELL you.',
+    ] },
   { id: 'patron2', name: 'Edda', role: 'Tavern Regular', x: -19, z: -11, robe: 0x7a3a5a, hair: 0x6a4a2a,
-    type: 'plain', examine: 'A traveller resting her feet by the fire.', flavor: 'Long road to Eldenmoor. The stew here makes it worth it.' },
+    type: 'plain', examine: 'A traveller resting her feet by the fire.', flavor: 'Long road to Eldenmoor. The stew here makes it worth it.',
+    dialogue: [
+      'Long road to Eldenmoor. The stew here makes it worth it — barely.',
+      'I\'ve walked from the eastern shires. Blisters on my blisters, I tell you.',
+      'Word is the King\'s looking for able hands. You\'ve the look of someone who could use the coin.',
+    ] },
 
   // --- upper floor (the royal apartments) ---
   { id: 'advisor', name: 'Lady Maelis', role: 'Royal Advisor', x: 2, z: 60, floor: 1, robe: 0x6e3a8a, hair: 0xb08a5a,
-    type: 'plain', examine: 'The King’s trusted advisor, poring over the maps.', flavor: 'Up here we plan the realm’s future. Welcome to the royal floor.' },
+    type: 'plain', examine: 'The King’s trusted advisor, poring over the maps.', flavor: 'Up here we plan the realm’s future. Welcome to the royal floor.',
+    dialogue: [
+      'Welcome to the royal floor. Up here we plan the realm\'s future — over a great many maps.',
+      'The King means well, but he\'d send a hero to fetch his slippers if I let him. I do not let him. ...Often.',
+      'If His Majesty has set you a task, see it through. He remembers those who do.',
+    ] },
 
   // --- basement (the cellar & dungeon) ---
   { id: 'jailer', name: 'Grix', role: 'Dungeon Keeper', x: -10, z: 52, floor: -1, robe: 0x3a3a30, hair: 0x2a2a22,
-    type: 'plain', examine: 'A grim jailer with a heavy ring of keys.', flavor: 'Mind the cells. Some things down here are best left locked away.' },
+    type: 'plain', examine: 'A grim jailer with a heavy ring of keys.', flavor: 'Mind the cells. Some things down here are best left locked away.',
+    dialogue: [
+      'Mind the cells. Some things down here are best left locked away.',
+      'Twenty-three keys on this ring. Don\'t ask me what twenty-two of \'em open. I forgot. Years ago.',
+      'No, the prisoner\'s NOT innocent. They\'re all innocent, to hear \'em tell it.',
+    ] },
   { id: 'prisoner', name: 'Old Hagen', role: 'Captive', x: -16, z: 55, floor: -1, robe: 0x7a6a5a, hair: 0xcfc8b6,
-    type: 'plain', examine: 'A ragged prisoner behind the bars.', flavor: 'Psst… get me out of here, friend? No? …worth a try.' },
+    type: 'plain', examine: 'A ragged prisoner behind the bars.', flavor: 'Psst… get me out of here, friend? No? …worth a try.',
+    dialogue: [
+      'Psst… get me out of here, friend? No? …worth a try.',
+      'I\'m innocent, I am! Mostly. Partly. Look, the goat had it coming.',
+      'Slip me Grix\'s keys and I\'ll make it worth your while. ...I won\'t. But I\'ll say I will.',
+    ] },
 ];
 
 const _v = new THREE.Vector3();

@@ -2,7 +2,7 @@
 // localStorage: every skill's XP, your whole inventory, and your worn equipment.
 // Auto-saves whenever something changes and again right before you close the tab.
 
-export function createSave(skills, inventory, equipment, user) {
+export function createSave(skills, inventory, equipment, user, quests) {
   // Each account gets its own save slot.
   const KEY = 'eldenmoor.save.v2.' + (user || 'guest');
   let lastJson = '';
@@ -13,6 +13,7 @@ export function createSave(skills, inventory, equipment, user) {
         skills: skills.serialize(),
         slots: inventory.slots,
         equip: equipment.serialize(),
+        quests: quests ? quests.serialize() : undefined,
       });
       if (json === lastJson) return;
       lastJson = json;
@@ -35,6 +36,7 @@ export function createSave(skills, inventory, equipment, user) {
 
       if (Array.isArray(data.slots)) inventory.load(data.slots);
       if (data.equip) equipment.load(data.equip);
+      if (quests && data.quests) quests.load(data.quests);
       return true;
     } catch (e) { return false; }
   }

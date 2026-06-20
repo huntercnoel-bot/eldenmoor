@@ -18,6 +18,8 @@ import { gameMessage } from './ui.js';
 import { createNet } from './net.js';
 import { createRemotePlayers } from './players.js';
 import { setupSocial } from './social.js';
+import { showDialogue } from './dialogue.js';
+import { createQuests, QUEST_DEFS } from './quests.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
@@ -96,6 +98,7 @@ function startGame(username) {
   const inventory = createInventory();
   const equipment = createEquipment(inventory);
   const shop = createShop(inventory);
+  const quests = createQuests({ skills, inventory, equipment });
 
   inventory.setClickHandler((itemId, def) => {
     if (shop.isOpen()) shop.sell(itemId);
@@ -103,7 +106,7 @@ function startGame(username) {
   });
 
   // 5) SAVE (per account) + starter kit.
-  const save = createSave(skills, inventory, equipment, username);
+  const save = createSave(skills, inventory, equipment, username, quests);
   const hadSave = save.load();
   if (!hadSave) {
     inventory.add('bronze_axe', 1);
@@ -125,7 +128,57 @@ function startGame(username) {
 
   // 6) INTERACTIONS + right-click menus.
   const interactions = setupInteractions(scene, camera, player, renderer.domElement, skills, inventory, equipment, showLevelUp);
-  const talkTo = (def) => gameMessage(def.name + ': "' + def.flavor + '"');
+
+  // --- Talking: quest-givers route through the quest system; everyone else
+  //     pages through their `dialogue` lines in the dialogue box (flavor fallback).
+  function talkTo(def) {
+    if (def.quest) { talkQuestGiver(def); return; }
+    if (def.id === 'cook') { talkCook(def); return; }
+    if (Array.isArray(def.dialogue) && def.dialogue.length) showDialogue(def.dialogue, { speaker: def.name });
+    else showDialogue(def.flavor || '...', { speaker: def.name });
+  }
+
+  // King Aldric — the giver of "The King's Hearth".
+  function talkQuestGiver(def) {
+    const id = def.quest;
+    if (quests.isComplete(id)) { showDialogue(QUEST_DEFS[id].doneDialogue, { speaker: def.name }); return; }
+    if (quests.isActive(id)) {
+      // Ready to hand in? Reward + complete. Otherwise nudge for the current stage.
+      if (quests.readyToComplete(id)) {
+        showDialogue(QUEST_DEFS[id].completeDialogue, { speaker: def.name, onDone: () => quests.complete(id) });
+      } else {
+        const st = QUEST_DEFS[id].stages[quests.stage(id)];
+        showDialogue((st && st.nudge) || [{ speaker: def.name, text: 'You\'ve work yet to do, friend.' }], { speaker: def.name });
+        quests.tryAdvance(id);
+      }
+      return;
+    }
+    // Not started — offer it.
+    showDialogue(QUEST_DEFS[id].startDialogue, {
+      speaker: def.name,
+      onDone: () => showDialogue({
+        speaker: def.name, text: 'Will you help warm the great hall of Eldenmoor?',
+        options: [
+          { label: 'Yes, your Majesty. I\'ll fetch the firewood.', onSelect: () => { quests.start(id); showDialogue('A true friend of the Crown! Off you go — 5 logs for the hearth.', { speaker: def.name }); } },
+          { label: 'Not just now.', onSelect: () => showDialogue('A pity. The hearth waits for no one — return when you\'re ready.', { speaker: def.name }) },
+        ],
+      }),
+    });
+  }
+
+  // Bessa the cook — advances the King's quest once you've gathered the wood.
+  function talkCook(def) {
+    if (quests.isActive('king') && quests.stage('king') === 1 && !quests.progress.king.flags.toldCook) {
+      showDialogue([
+        { speaker: def.name, text: 'Logs for the hall? Bless you, dear — His Majesty\'s been shivering on that throne for a week.' },
+        { speaker: def.name, text: 'I\'ll lay the fire at once. Run back and tell the King the hearth is set!' },
+      ], { speaker: def.name, onDone: () => quests.setFlag('king', 'toldCook', true) });
+      return;
+    }
+    if (Array.isArray(def.dialogue) && def.dialogue.length) showDialogue(def.dialogue, { speaker: def.name });
+    else showDialogue(def.flavor || '...', { speaker: def.name });
+  }
+
   const tradeNpc = (def) => { if (def.shop) shop.open(def.shop); };
   interactions.setNpcDefault((def) => { if (def.type === 'shop') shop.open(def.shop); else talkTo(def); });
   setupContextMenu({ dom: renderer.domElement, interactions, inventory, equipment, onTalk: talkTo, onTrade: tradeNpc });
@@ -184,7 +237,7 @@ function startGame(username) {
     gameMessage(n === 0 ? 'You step onto the ground floor.' : n === 1 ? 'You climb to the upper floor.' : 'You descend into the cellar.');
   }
 
-  let posTimer = 0, lastX = null, lastZ = null, lastRy = null;
+  let posTimer = 0, lastX = null, lastZ = null, lastRy = null, questPollTimer = 0;
 
   // 7) THE GAME LOOP.
   const clock = new THREE.Clock();
@@ -214,6 +267,8 @@ function startGame(username) {
       else if (!on) stairLatch = false;
     }
     updatePlayerAnimation(player, wasd || act.walking, t, act.chopping);
+    questPollTimer += dt;
+    if (questPollTimer >= 0.5) { questPollTimer = 0; quests.poll(); }
     updateNpcs(npcs, dt, t);
     updateNpcLabels(npcs, camera);
     remotePlayers.update(dt, t);
@@ -238,5 +293,7 @@ function startGame(username) {
   });
 
   // Exposed for debugging / tinkering.
-  window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor };
+  window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
+    // talk(npcId) — runs the same talk flow a click would (handy for testing/wiring).
+    talk: (npcId) => { const n = npcs.find((x) => x.def.id === npcId); if (n) talkTo(n.def); } };
 }
