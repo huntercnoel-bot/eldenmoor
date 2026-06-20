@@ -39,6 +39,40 @@ function cyl(rt, rb, h, seg, material, x, y, z) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material);
   m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m;
 }
+// A merlon (battlement tooth) chamfered on top instead of a raw cube — a short
+// prism with a small pyramidal cap, so the parapet reads sculpted. Centred on
+// (x,y,z) where y is the merlon's mid-height.
+function merlon(w, h, d, material, x, y, z) {
+  const grp = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.72, d), material);
+  body.position.y = -h * 0.14; body.castShadow = true; body.receiveShadow = true; grp.add(body);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.30, w * 0.6, h * 0.34, 4), material);
+  cap.rotation.y = Math.PI / 4; cap.position.y = h * 0.39; cap.castShadow = true; grp.add(cap);
+  grp.position.set(x, y, z); return grp;
+}
+// A chamfered coping rail (slab + a pyramidal crown) — caps wall tops so the
+// masonry reads rounded rather than raw-cut. Centred at (x,y,z).
+function coping(w, h, d, material, x, y, z) {
+  const grp = new THREE.Group();
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h * 0.5, d + 0.2), material);
+  lip.position.y = -h * 0.12; lip.castShadow = true; lip.receiveShadow = true; grp.add(lip);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.3, w * 0.62, h * 0.6, 4), material); // chamfered crown
+  top.rotation.y = Math.PI / 4; top.position.y = h * 0.3; top.castShadow = true; grp.add(top);
+  grp.position.set(x, y, z); return grp;
+}
+// A semicircular arched opening surround: two jambs + a torus voussoir arch,
+// for doors/windows so openings curve instead of being square holes.
+function archFrame(width, jambH, depth, material, x, y, z, ry = 0) {
+  const grp = new THREE.Group();
+  const r = width / 2, jw = depth;
+  for (const s of [-1, 1]) {
+    const jamb = new THREE.Mesh(new THREE.BoxGeometry(jw, jambH, depth), material);
+    jamb.position.set(s * (r + jw * 0.5 - 0.05), jambH / 2, 0); jamb.castShadow = true; grp.add(jamb);
+  }
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(r + jw * 0.15, jw * 0.5, 8, 18, Math.PI), material);
+  arch.position.set(0, jambH, 0); arch.castShadow = true; grp.add(arch);
+  grp.rotation.y = ry; grp.position.set(x, y, z); return grp;
+}
 
 // ---------------------------------------------------------------------------
 // A big walk-in shop with a hideable roof. opts: { wall, roof, wares }
@@ -121,19 +155,22 @@ function makeCastle() {
 
   const merlons = (x0, z0, x1, z1, y, step = 1.7) => {
     const dx = x1 - x0, dz = z1 - z0, n = Math.max(1, Math.round(Math.hypot(dx, dz) / step));
-    for (let i = 0; i <= n; i++) { const t = i / n; g.add(deco(box(0.7, 0.8, 0.7, stone, x0 + dx * t, y, z0 + dz * t))); }
+    for (let i = 0; i <= n; i++) { const t = i / n; g.add(deco(merlon(0.72, 0.95, 0.72, stone, x0 + dx * t, y, z0 + dz * t))); }
   };
   const wallSeg = (x0, z0, x1, z1, h = WH, th = TH, cren = true) => {
     const w = Math.max(th, Math.abs(x1 - x0)), d = Math.max(th, Math.abs(z1 - z0));
     g.add(box(w, h, d, stone, (x0 + x1) / 2, h / 2, (z0 + z1) / 2));
-    if (cren) merlons(x0, z0, x1, z1, h + 0.4);
+    if (cren) {                                                        // chamfered coping + sculpted merlons
+      g.add(deco(coping(w + 0.1, 0.4, d + 0.1, stone, (x0 + x1) / 2, h + 0.1, (z0 + z1) / 2)));
+      merlons(x0, z0, x1, z1, h + 0.6);
+    }
   };
   const tower = (tx, tz, r = 2.8, h = 18, mat = grey, roof = roofMat) => {
     g.add(cyl(r, r + 0.4, h, 16, mat, tx, h / 2, tz));
     g.add(deco(cyl(r + 0.55, r + 0.55, 0.7, 16, mat, tx, h + 0.05, tz)));            // machicolation corbel ring
     g.add(deco(cyl(r + 0.35, r + 0.55, 0.9, 16, mat, tx, h - 0.65, tz)));            // corbel underside
     const mr = r + 0.55, mn = Math.max(12, Math.round(mr * 3.4));                    // battlement merlons
-    for (let k = 0; k < mn; k++) { const a = k / mn * Math.PI * 2; g.add(deco(box(0.62, 0.95, 0.62, mat, tx + Math.cos(a) * (mr - 0.2), h + 0.85, tz + Math.sin(a) * (mr - 0.2)))); }
+    for (let k = 0; k < mn; k++) { const a = k / mn * Math.PI * 2; const m = merlon(0.6, 1.0, 0.6, mat, tx + Math.cos(a) * (mr - 0.2), h + 0.85, tz + Math.sin(a) * (mr - 0.2)); m.rotation.y = a; deco(m); g.add(m); }
     const cone = new THREE.Mesh(new THREE.ConeGeometry(mr + 0.6, r * 2.0 + 1.4, 16), roof); cone.position.set(tx, h + 1.4 + (r + 0.7), tz); cone.castShadow = true; deco(cone); g.add(cone);
     const ringY = h + 1.4;
     g.add(deco(cyl(mr + 0.65, mr + 0.65, 0.35, 16, gold, tx, ringY, tz)));           // gilt eave ring
@@ -182,7 +219,7 @@ function makeCastle() {
   // ---- grand gatehouse: arch, raised portcullis, machicolated parapet ----
   g.add(deco(box(14, 2.0, 2.2, greyBig, 0, WH + 1.0, -HD)));               // gatehouse block over the arch
   g.add(deco(box(15.4, 0.7, 2.6, greyBig, 0, WH + 2.1, -HD)));             // corbelled machicolation
-  for (let k = -3; k <= 3; k++) g.add(deco(box(0.7, 0.95, 0.7, greyBig, k * 2.0, WH + 2.7, -HD)));   // parapet merlons
+  for (let k = -3; k <= 3; k++) g.add(deco(merlon(0.72, 1.0, 0.72, greyBig, k * 2.0, WH + 2.85, -HD)));   // parapet merlons
   for (const sx of [-1, 1]) g.add(deco(box(0.9, 4.6, 1.0, greyBig, sx * 3.0, WH - 0.7, -HD - 0.2))); // arch jambs
   { const arch = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.55, 8, 10, Math.PI), greyBig); arch.position.set(0, WH - 0.9, -HD - 0.25); deco(arch); g.add(arch); } // round arch voussoir
   for (let i = -2; i <= 2; i++) g.add(deco(box(0.22, 2.0, 0.22, flat(0x2a2c30), i * 0.9, WH - 1.6, -HD - 0.1)));  // raised portcullis teeth
@@ -203,13 +240,13 @@ function makeCastle() {
   // barbican: a forward stone arch at the outer (moat) edge, flanked by twin turrets
   for (const sx of [-1, 1]) {
     g.add(deco(cyl(1.5, 1.7, 9.0, 12, bridgeMat, sx * 4.4, 4.5, -28.5)));           // turret
-    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2; g.add(deco(box(0.4, 0.6, 0.4, bridgeMat, sx * 4.4 + Math.cos(a) * 1.7, 9.2, -28.5 + Math.sin(a) * 1.7))); }
+    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2; const m = merlon(0.42, 0.66, 0.42, bridgeMat, sx * 4.4 + Math.cos(a) * 1.7, 9.25, -28.5 + Math.sin(a) * 1.7); m.rotation.y = a; deco(m); g.add(m); }
     const tc = new THREE.Mesh(new THREE.ConeGeometry(2.1, 3.4, 12), roofMatDk); tc.position.set(sx * 4.4, 11.0, -28.5); deco(tc); g.add(tc);
     g.add(deco(box(0.1, 1.7, 0.1, wood, sx * 4.4, 13.4, -28.5))); g.add(deco(box(1.0, 0.6, 0.05, red, sx * 4.4 + 0.55, 13.6, -28.5)));
   }
   g.add(deco(box(11.0, 2.2, 1.6, bridgeMat, 0, 8.0, -28.5)));                       // barbican arch span
   g.add(deco(box(12.0, 0.7, 1.9, bridgeMat, 0, 9.2, -28.5)));                       // machicolation
-  for (let k = -2; k <= 2; k++) g.add(deco(box(0.7, 0.9, 0.7, bridgeMat, k * 2.2, 9.85, -28.5)));   // merlons
+  for (let k = -2; k <= 2; k++) g.add(deco(merlon(0.72, 0.95, 0.72, bridgeMat, k * 2.2, 9.95, -28.5)));   // merlons
   { const arch = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.5, 8, 10, Math.PI), bridgeMat); arch.position.set(0, 4.6, -28.4); deco(arch); g.add(arch); }
   g.add(deco(box(11.6, 4.2, 0.2, mapped(T.heraldry, 0x27406e), 0, 5.2, -29.0)));    // big banner over the outer arch (smaller-tiled look)
   // approach statues + braziers guarding the causeway mouth
@@ -454,14 +491,14 @@ function makeUpper() {
   const candle = new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffcf6a, emissiveIntensity: 1.5, roughness: 0.5 });
   const sg = new THREE.MeshStandardMaterial({ map: T.stainedGlass, emissive: 0xffffff, emissiveMap: T.stainedGlass, emissiveIntensity: 0.5, roughness: 0.3 });
   const wallSeg = (x0, z0, x1, z1, h = WH, th = TH) => { const w = Math.max(th, Math.abs(x1 - x0)), d = Math.max(th, Math.abs(z1 - z0)); g.add(box(w, h, d, stone, (x0 + x1) / 2, h / 2, (z0 + z1) / 2)); };
-  const merlon = (x0, z0, x1, z1) => { const n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0) / 1.6)); for (let i = 0; i <= n; i++) { const t = i / n; g.add(deco(box(0.5, 0.5, 0.5, stone, x0 + (x1 - x0) * t, WH + 0.25, z0 + (z1 - z0) * t))); } };
+  const merlonRun = (x0, z0, x1, z1) => { const w = Math.max(0.1, Math.abs(x1 - x0)), d = Math.max(0.1, Math.abs(z1 - z0)); g.add(deco(coping(w + 0.1, 0.3, d + 0.1, stone, (x0 + x1) / 2, WH + 0.05, (z0 + z1) / 2))); const n = Math.max(1, Math.round(Math.hypot(x1 - x0, z1 - z0) / 1.6)); for (let i = 0; i <= n; i++) { const t = i / n; g.add(deco(merlon(0.52, 0.62, 0.52, stone, x0 + (x1 - x0) * t, WH + 0.4, z0 + (z1 - z0) * t))); } };
   const sconce = (x, z) => { g.add(deco(box(0.14, 0.4, 0.14, wood, x, 2.3, z))); g.add(deco(box(0.24, 0.28, 0.24, candle, x, 2.6, z))); };
   const chandelier = (x, z, lit) => { g.add(deco(box(0.05, 1.6, 0.05, flat(0x2a2622), x, 4.4, z))); g.add(deco(cyl(0.9, 0.9, 0.12, 12, gold, x, 3.5, z))); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.add(deco(box(0.1, 0.28, 0.1, candle, x + Math.cos(a) * 0.8, 3.7, z + Math.sin(a) * 0.8))); } if (lit) { const pl = new THREE.PointLight(0xffce7a, 4, 18, 2); pl.position.set(x, 3.3, z); g.add(pl); } };
 
   g.add(deco(box(HW * 2, 0.16, HD * 2, woodF, 0, 0.0, 0, false)));                 // wood floor
-  wallSeg(-HW, HD, HW, HD); merlon(-HW, HD, HW, HD);
-  wallSeg(-HW, -HD, -HW, HD); merlon(-HW, -HD, -HW, HD);
-  wallSeg(HW, -HD, HW, HD); merlon(HW, -HD, HW, HD);
+  wallSeg(-HW, HD, HW, HD); merlonRun(-HW, HD, HW, HD);
+  wallSeg(-HW, -HD, -HW, HD); merlonRun(-HW, -HD, -HW, HD);
+  wallSeg(HW, -HD, HW, HD); merlonRun(HW, -HD, HW, HD);
   wallSeg(-HW, -HD, -6, -HD); wallSeg(6, -HD, HW, -HD);                            // front wall (balcony gap)
   for (let x = -6; x <= 6; x += 1.3) g.add(deco(box(0.16, 0.9, 0.16, stone, x, 0.45, -HD)));   // balcony railing
   g.add(deco(box(12.6, 0.2, 0.3, stone, 0, 0.9, -HD)));
