@@ -16,6 +16,32 @@ const deco = (m) => { m.userData.noCollide = true; return m; };
 function box(w, h, d, mat, x, y, z, sh = true) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = sh; m.receiveShadow = true; return m; }
 function cyl(rt, rb, h, seg, mat, x, y, z) { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; }
 
+// An arched opening: a flat panel (door/glass) topped with a half-disc, framed by
+// a slim surround — so doors/windows curve instead of being square holes. Decorative.
+// Faces -z by default; `ry` rotates it. Returns a group placed at (x,y,z).
+function archedOpening(w, h, panelMat, frameMat, x, y, z, ry = 0) {
+  const g = new THREE.Group();
+  const r = w / 2, fr = 0.13;
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), panelMat); deco(panel); g.add(panel);          // straight panel
+  const top = new THREE.Mesh(new THREE.CircleGeometry(r, 14, 0, Math.PI), panelMat);                          // half-disc head
+  top.position.y = h / 2; deco(top); g.add(top);
+  const jamb = (s) => { const m = new THREE.Mesh(new THREE.BoxGeometry(fr, h, fr * 1.4), frameMat); m.position.set(s * (r + fr * 0.5), 0, 0.03); return deco(m); };
+  g.add(jamb(-1)); g.add(jamb(1));
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(r + fr * 0.25, fr * 0.7, 6, 16, Math.PI), frameMat);
+  ring.position.set(0, h / 2, 0.03); deco(ring); g.add(ring);
+  g.rotation.y = ry; g.position.set(x, y, z); return g;
+}
+// A smooth, steeply-swept roof: a many-sided cone (round silhouette) plus a small
+// flared eave ring, so cottages/chapels get rounded rooflines, not 4-faced pyramids.
+function sweptRoof(radius, height, mat, x, y, z, sides = 12) {
+  const g = new THREE.Group();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, sides), mat);
+  cone.position.y = height / 2; cone.castShadow = true; deco(cone); g.add(cone);
+  const eave = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.99, radius + 0.18, height * 0.12, sides), mat);
+  eave.position.y = height * 0.06; deco(eave); g.add(eave);
+  g.position.set(x, y, z); return g;
+}
+
 const COTTAGES = [
   [-24, 4, 0.1], [24, 4, -0.1], [-27, 13, 0.25], [27, 13, -0.25], [-12, -6, 0.1], [12, -6, -0.1],
 ];
@@ -75,7 +101,9 @@ export function buildTown(scene) {
   // --- market stalls ---
   const stall = (x, z, col) => {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(cyl(0.08, 0.08, 2.0, 6, wood, x + sx * 1.3, 1.0, z + sz * 0.9));
-    g.add(deco(box(3.2, 0.22, 2.4, flat(col), x, 2.2, z)));        // awning
+    { const awn = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 3.3, 16, 1, false, Math.PI, Math.PI), flat(col));   // curved (barrel) awning
+      awn.rotation.z = Math.PI / 2; awn.position.set(x, 2.15, z); deco(awn); g.add(awn); }
+    g.add(deco(box(3.3, 0.12, 0.16, wood, x, 2.05, z - 1.15))); g.add(deco(box(3.3, 0.12, 0.16, wood, x, 2.05, z + 1.15)));   // awning eaves
     g.add(box(2.8, 0.9, 1.6, wood, x, 0.45, z));                   // table
     const produce = [0xc44536, 0xe3b04b, 0x6a8d3a, 0x8a1f1f, 0xd9822b];
     for (let i = 0; i < 5; i++) g.add(deco(box(0.4, 0.4, 0.4, flat(produce[i]), x - 1 + i * 0.5, 1.1, z)));
@@ -86,19 +114,25 @@ export function buildTown(scene) {
   const cwalls = [0xcdb98c, 0xd8c49a, 0xc2a98a], croofs = [0x7a4a2a, 0x6e3a2a, 0x46586a];
   const cottage = (x, z, rot, wallc, roofc) => {
     const c = new THREE.Group();
-    c.add(box(6, 3, 5, mapped(T.plaster, wallc), 0, 1.5, 0));
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) c.add(deco(box(0.3, 3, 0.3, flat(0x4a3220), sx * 3, 1.5, sz * 2.5)));
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.6, 2.6, 4), mapped(T.shingle, roofc)); roof.position.y = 4.3; roof.rotation.y = Math.PI / 4; roof.castShadow = true; deco(roof); c.add(roof);
-    { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.4, 6), flat(0x6e3a2a)); fin.position.set(0, 5.7, 0); deco(fin); c.add(fin); }   // roof finial
-    c.add(deco(box(1.2, 2.0, 0.2, flat(0x4a3220), 0, 1.0, -2.55)));                          // door
-    c.add(deco(box(1.4, 0.18, 0.16, flat(0x6b4a2c), 0, 2.1, -2.58)));                        // door lintel
-    c.add(deco(box(1.0, 1.0, 0.16, flat(0x86bcd6), 1.8, 1.7, -2.55)));                       // window glass
-    for (const ss of [-1, 1]) c.add(deco(box(0.42, 1.1, 0.1, flat(0x6e3a2a), 1.8 + ss * 0.66, 1.7, -2.57)));   // shutters
-    c.add(deco(box(1.32, 0.16, 0.12, flat(0x4a3220), 1.8, 2.28, -2.57)));                    // window lintel
-    c.add(deco(box(1.3, 0.14, 0.2, flat(0x4a3018), 1.8, 1.12, -2.6)));                       // flower box
-    for (let i = 0; i < 3; i++) c.add(deco(box(0.1, 0.16, 0.1, flat([0xc0392b, 0xd4ac0d, 0xe6e6e6][i]), 1.4 + i * 0.4, 1.26, -2.62)));   // blooms
-    c.add(deco(box(0.7, 1.8, 0.7, stone, 2.0, 2.6, 1.8)));                                   // chimney
-    for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.2 + i * 0.08, 8, 6), new THREE.MeshStandardMaterial({ color: 0xbfc0c2, transparent: true, opacity: 0.42 - i * 0.1 })); sm.position.set(2.0 + i * 0.12, 3.7 + i * 0.55, 1.8); deco(sm); c.add(sm); }   // chimney smoke
+    const plaster = mapped(T.plaster, wallc), beam = flat(0x4a3220);
+    c.add(box(6, 3, 5, plaster, 0, 1.5, 0));                                                 // solid body (collider)
+    // chamfered corner buttresses (rounded posts) soften the silhouette
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) c.add(deco(cyl(0.34, 0.42, 3.0, 10, beam, sx * 3, 1.5, sz * 2.5)));
+    // a rounded plaster eave band tucks the wall-top into the roof
+    c.add(deco(cyl(3.6, 3.5, 0.4, 12, plaster, 0, 3.1, 0)));
+    // smooth, steeply-swept 12-sided roof + finial
+    c.add(sweptRoof(4.5, 2.8, mapped(T.shingle, roofc), 0, 3.3, 0, 12));
+    { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 8), flat(0x6e3a2a)); fin.position.set(0, 6.2, 0); deco(fin); c.add(fin); }   // roof finial
+    // arched plank door
+    c.add(archedOpening(1.2, 1.7, flat(0x4a3220), flat(0x6b4a2c), 0, 1.05, -2.56));
+    // arched window with shutters + sill
+    c.add(archedOpening(1.0, 1.0, flat(0x86bcd6), flat(0x6e3a2a), 1.8, 1.75, -2.56));
+    for (const ss of [-1, 1]) c.add(deco(box(0.42, 1.4, 0.1, flat(0x6e3a2a), 1.8 + ss * 0.74, 1.85, -2.58)));   // shutters
+    c.add(deco(box(1.3, 0.14, 0.2, flat(0x4a3018), 1.8, 1.12, -2.62)));                      // flower box
+    for (let i = 0; i < 3; i++) c.add(deco(box(0.1, 0.16, 0.1, flat([0xc0392b, 0xd4ac0d, 0xe6e6e6][i]), 1.4 + i * 0.4, 1.26, -2.64)));   // blooms
+    c.add(deco(cyl(0.42, 0.46, 1.9, 10, stone, 2.0, 2.7, 1.8)));                             // round chimney
+    c.add(deco(cyl(0.5, 0.46, 0.22, 10, stone, 2.0, 3.7, 1.8)));                             // chimney cap
+    for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.2 + i * 0.08, 8, 6), new THREE.MeshStandardMaterial({ color: 0xbfc0c2, transparent: true, opacity: 0.42 - i * 0.1 })); sm.position.set(2.0 + i * 0.12, 4.0 + i * 0.55, 1.8); deco(sm); c.add(sm); }   // chimney smoke
     c.position.set(x, 0, z); c.rotation.y = rot; g.add(c);
   };
   COTTAGES.forEach(([x, z, rot], i) => cottage(x, z, rot, cwalls[i % 3], croofs[i % 3]));
@@ -106,14 +140,22 @@ export function buildTown(scene) {
   // --- chapel (Lumbridge-style church with a steeple) ---
   const chapel = (x, z) => {
     const c = new THREE.Group();
-    c.add(box(7, 4.5, 11, mapped(T.plaster, 0xd6cbb0), 0, 2.25, 0));
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(5.6, 3.0, 4), mapped(T.shingle, 0x5a4a6a)); roof.position.y = 6.0; roof.rotation.y = Math.PI / 4; roof.castShadow = true; deco(roof); c.add(roof);
-    c.add(box(2.4, 7, 2.4, mapped(T.wall), 0, 3.5, -6.5));          // steeple tower
-    const st = new THREE.Mesh(new THREE.ConeGeometry(1.9, 3.0, 4), mapped(T.shingle, 0x5a4a6a)); st.position.set(0, 8.5, -6.5); st.rotation.y = Math.PI / 4; deco(st); c.add(st);
-    c.add(deco(box(0.25, 1.4, 0.25, flat(0xd8b24a), 0, 10.6, -6.5))); // cross
-    c.add(deco(box(1.0, 0.25, 0.25, flat(0xd8b24a), 0, 10.4, -6.5)));
-    c.add(deco(box(1.6, 2.6, 0.2, flat(0x4a3220), 0, 1.3, 5.55)));   // door
-    for (const sz of [-2, 0, 2]) c.add(deco(box(0.18, 1.8, 1.0, flat(0x9a6cff), 3.55, 2.4, sz))); // stained glass
+    const plaster = mapped(T.plaster, 0xd6cbb0), shingle = mapped(T.shingle, 0x5a4a6a), gold = flat(0xd8b24a);
+    c.add(box(7, 4.5, 11, plaster, 0, 2.25, 0));                                       // nave body (collider)
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) c.add(deco(cyl(0.4, 0.46, 4.5, 10, plaster, sx * 3.5, 2.25, sz * 5.5)));   // chamfered corner pilasters
+    c.add(deco(cyl(4.0, 3.9, 0.4, 14, plaster, 0, 4.55, 0)));                          // rounded eave band
+    // a long swept ridge roof: an octagonal cone stretched along z reads as a smooth gable
+    { const roof = new THREE.Mesh(new THREE.ConeGeometry(5.4, 3.0, 8), shingle); roof.scale.set(1, 1, 1.4); roof.position.y = 6.0; roof.rotation.y = Math.PI / 8; roof.castShadow = true; deco(roof); c.add(roof); }
+    // steeple: round drum tower + smooth octagonal spire
+    c.add(cyl(1.4, 1.5, 7, 12, mapped(T.wall), 0, 3.5, -6.5));                          // round steeple tower (collider)
+    c.add(deco(cyl(1.6, 1.5, 0.4, 12, mapped(T.wall), 0, 7.1, -6.5)));                  // corbel ring
+    { const st = new THREE.Mesh(new THREE.ConeGeometry(1.7, 3.2, 12), shingle); st.position.set(0, 8.9, -6.5); deco(st); c.add(st); }   // octagonal spire
+    c.add(deco(cyl(0.13, 0, 0.5, 8, gold, 0, 10.7, -6.5)));                             // spire finial
+    c.add(deco(box(0.22, 1.3, 0.22, gold, 0, 11.4, -6.5))); c.add(deco(box(0.9, 0.22, 0.22, gold, 0, 11.5, -6.5)));   // cross
+    // arched chapel door + arched lancet windows
+    c.add(archedOpening(1.6, 2.2, flat(0x4a3220), gold, 0, 1.25, 5.56));
+    for (const sz of [-2.5, 0, 2.5]) c.add(archedOpening(1.0, 1.8, flat(0x9a6cff), gold, 3.56, 2.0, sz, Math.PI / 2));   // east windows
+    for (const sz of [-2.5, 0, 2.5]) c.add(archedOpening(1.0, 1.8, flat(0x9a6cff), gold, -3.56, 2.0, sz, -Math.PI / 2)); // west windows
     c.position.set(x, 0, z); g.add(c);
   };
   chapel(CHAPEL[0], CHAPEL[1]);
@@ -138,8 +180,9 @@ export function buildTown(scene) {
   // --- windmill (Lumbridge-style) ---
   const windmill = (x, z) => {
     g.add(cyl(2.2, 2.6, 7, 12, stone, x, 3.5, z));
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.2, 12), mapped(T.shingle, 0x5a4a3a)); cap.position.set(x, 8.0, z); cap.rotation.y = Math.PI / 4; cap.castShadow = true; deco(cap); g.add(cap);
-    g.add(deco(box(1.2, 2.0, 0.2, flat(0x4a3220), x, 1.0, z - 2.5)));
+    g.add(deco(cyl(2.5, 2.4, 0.45, 12, stone, x, 7.0, z)));                                  // rounded eave ring
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.4, 12), mapped(T.shingle, 0x5a4a3a)); cap.position.set(x, 8.2, z); cap.castShadow = true; deco(cap); g.add(cap);
+    g.add(archedOpening(1.2, 1.8, flat(0x4a3220), flat(0x6b4a2c), x, 0.95, z - 2.62));        // arched door
     const hub = new THREE.Group(); hub.position.set(x, 6.0, z - 2.7); hub.rotation.z = 0.3;
     hub.add(deco(cyl(0.3, 0.3, 0.4, 8, flat(0x4a3220), 0, 0, 0)));
     for (let i = 0; i < 4; i++) { const blade = new THREE.Group(); blade.rotation.z = i / 4 * Math.PI * 2; blade.add(deco(box(0.18, 3.6, 0.12, wood, 0, 1.9, 0.1))); blade.add(deco(box(0.7, 2.6, 0.06, flat(0xe6ddc8), 0.45, 2.3, 0.16))); hub.add(blade); }
@@ -170,7 +213,7 @@ export function buildTown(scene) {
   const stable = (cx, cz) => {
     const barn = flat(0x8a5a32);
     g.add(box(0.3, 3, 5, barn, cx + 2.8, 1.5, cz)); g.add(box(5.6, 3, 0.3, barn, cx, 1.5, cz - 2.4)); g.add(box(5.6, 3, 0.3, barn, cx, 1.5, cz + 2.4));
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.4, 2.0, 4), mapped(T.shingle, 0x6e3a2a)); roof.position.set(cx, 4.0, cz); roof.rotation.y = Math.PI / 4; roof.castShadow = true; deco(roof); g.add(roof);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.2, 8), mapped(T.shingle, 0x6e3a2a)); roof.scale.set(1, 1, 1.25); roof.position.set(cx, 4.1, cz); roof.rotation.y = Math.PI / 8; roof.castShadow = true; deco(roof); g.add(roof);
     g.add(deco(cyl(0.7, 0.7, 1.0, 10, flat(0xc9a24a), cx + 1.5, 0.5, cz + 1.6)));
     g.add(box(1.6, 0.5, 0.6, wood, cx - 1, 0.25, cz - 1.7));
     horse(cx, cz);
