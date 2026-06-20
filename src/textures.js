@@ -53,20 +53,22 @@ export function dirtTexture(rep = 6) {
 export function barkTexture() {
   const c = cv(64), g = c.getContext('2d');
   g.fillStyle = '#5e3f27'; g.fillRect(0, 0, 64, 64);
-  for (let x = 0; x < 64; x += 4) {                                    // vertical bark staves
-    const v = 58 + Math.random() * 40;
-    g.fillStyle = `rgb(${v | 0},${(v * 0.66) | 0},${(v * 0.4) | 0})`;
-    g.fillRect(x, 0, 3, 64);
+  for (let x = 0; x < 64; x += 4) {                                    // soft vertical bark staves
+    const v = 64 + Math.random() * 30;
+    g.fillStyle = `rgba(${v | 0},${(v * 0.66) | 0},${(v * 0.42) | 0},0.7)`;
+    g.fillRect(x, 0, 4, 64);
   }
-  for (let i = 0; i < 24; i++) {                                       // deep grooves between the staves
-    const x = Math.random() * 64;
-    g.strokeStyle = 'rgba(28,16,8,0.5)'; g.lineWidth = 1 + Math.random() * 1.5;
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 5, 64); g.stroke();
+  for (let i = 0; i < 16; i++) {                                       // gentle wandering grooves (softer than before)
+    let x = Math.random() * 64, y = 0;
+    g.strokeStyle = 'rgba(34,20,10,0.32)'; g.lineWidth = 1 + Math.random();
+    g.beginPath(); g.moveTo(x, y);
+    while (y < 64) { x += (Math.random() - 0.5) * 3; y += 8; g.lineTo(x, y); } g.stroke();
   }
-  for (let i = 0; i < 12; i++) {                                       // catch-light ridges
-    const x = Math.random() * 64;
-    g.strokeStyle = 'rgba(150,112,72,0.22)'; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 4, 64); g.stroke();
+  for (let i = 0; i < 14; i++) {                                       // catch-light ridges
+    let x = Math.random() * 64, y = 0;
+    g.strokeStyle = 'rgba(156,118,78,0.2)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, y);
+    while (y < 64) { x += (Math.random() - 0.5) * 3; y += 10; g.lineTo(x, y); } g.stroke();
   }
   const t = finish(c); t.repeat.set(2, 2); return t;
 }

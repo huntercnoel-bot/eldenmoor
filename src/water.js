@@ -8,12 +8,30 @@ import * as THREE from '../vendor/three.module.js';
 
 const deco = (m) => { m.userData.noCollide = true; return m; };
 
+// Shared water material: deep RuneScape blue, low roughness for a soft sheen,
+// slight metalness so the sun glints gently across the surface.
+function waterMat() {
+  return new THREE.MeshStandardMaterial({
+    color: 0x2f6ea5, roughness: 0.1, metalness: 0.3,
+    transparent: true, opacity: 0.85,
+  });
+}
+
+// A water band drawn as a subtly rippled plane with smooth normals, so the
+// surface catches light with a gentle undulation instead of reading as a flat
+// slab. Stays cheap: a coarse grid, no per-frame work.
 function waterSlab(x0, z0, x1, z1) {
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(Math.abs(x1 - x0), 0.2, Math.abs(z1 - z0)),
-    new THREE.MeshStandardMaterial({ color: 0x2f6ea5, roughness: 0.15, metalness: 0.25, transparent: true, opacity: 0.82 })
-  );
-  m.position.set((x0 + x1) / 2, 0.06, (z0 + z1) / 2);
+  const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0);
+  const geo = new THREE.PlaneGeometry(w, d, Math.max(2, Math.round(w / 4)), Math.max(2, Math.round(d / 4)));
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const px = p.getX(i), py = p.getY(i);
+    p.setZ(i, (Math.sin(px * 0.7) + Math.cos(py * 0.6)) * 0.04);  // gentle ripple
+  }
+  p.needsUpdate = true; geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, waterMat());
+  m.rotation.x = -Math.PI / 2;
+  m.position.set((x0 + x1) / 2, 0.16, (z0 + z1) / 2);
   m.receiveShadow = false;
   return deco(m);
 }
@@ -42,11 +60,19 @@ export function buildWater(scene) {
   const g = new THREE.Group();
   for (const [x0, z0, x1, z1] of BANDS) g.add(waterSlab(x0, z0, x1, z1));
 
-  // stone embankment kerb along the island shore (decorative)
+  // stone embankment kerb along the island shore (decorative). A rounded,
+  // half-buried mossy rim — a low capsule-like cylinder run along each edge so
+  // the shoreline reads as a soft sculpted bank rather than a hard box kerb.
   const kerb = new THREE.MeshStandardMaterial({ color: 0x8f897d, roughness: 0.95 });
   const rim = (x0, z0, x1, z1) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.4, Math.abs(x1 - x0)), 0.4, Math.max(0.4, Math.abs(z1 - z0))), kerb);
-    m.position.set((x0 + x1) / 2, 0.18, (z0 + z1) / 2); m.receiveShadow = true; g.add(deco(m));
+    const w = Math.max(0.5, Math.abs(x1 - x0)), d = Math.max(0.5, Math.abs(z1 - z0));
+    const long = Math.max(w, d), horiz = w >= d;
+    // a rounded bar: a thin cylinder laid on its side gives a smooth domed rim
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, long, 12), kerb);
+    m.rotation.z = Math.PI / 2;                          // lay it down
+    if (!horiz) m.rotation.y = Math.PI / 2;              // orient along z for side shores
+    m.position.set((x0 + x1) / 2, 0.16, (z0 + z1) / 2);
+    m.castShadow = true; m.receiveShadow = true; g.add(deco(m));
   };
   rim(-23.5, 18.6, -10, 19); rim(10, 18.6, 23.5, 19);   // front shore (sides of the causeway)
   rim(-23.9, 19, -23.5, 69.5); rim(23.5, 19, 23.9, 69.5); // east/west shore
