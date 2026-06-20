@@ -11,20 +11,20 @@
       "recent": ["Particle system (hits/gather/coin/level-up) LIVE", "Now: fire on real torches"]
     },
     {
-      "id": "skills", "name": "Skill Master", "emoji": "📈",
-      "focus": "Skills & progression", "scope": ["src/skills.js", "src/resources.js"],
+      "id": "skills", "name": "Forester", "emoji": "🪓",
+      "focus": "Woodcutting & trees", "scope": ["src/skills.js", "src/world.js", "src/items.js"],
       "status": "working",
-      "task": "Mining, fishing, cooking, firemaking + resource nodes, XP & levels — researching OSRS skill mechanics.",
-      "match": ["skill", "mining", "fishing", "cooking", "xp", "level", "ore", "fish"],
-      "recent": ["Batch 2 — gathering skills + resource nodes (in progress)"]
+      "task": "Deepening Woodcutting (oak/willow/maple/yew tiers, XP/levels, chop feedback) + nicer, varied tree assets — researching OSRS. New skills dropped by request.",
+      "match": ["woodcutting", "tree", "log", "oak", "willow", "yew", "forest", "chop"],
+      "recent": ["New-skills work dropped per request", "Now: better Woodcutting + better trees (in progress)"]
     },
     {
       "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
       "focus": "Dialogue & quests", "scope": ["src/ambient.js"],
-      "status": "working",
-      "task": "Ambient 'overheard' NPC chatter bubbles as you pass. No new quests (per orders).",
+      "status": "idle",
+      "task": "Ambient 'overheard' NPC chatter bubbles (LIVE). Standing by — no new quests until you say so.",
       "match": ["dialogue", "quest", "ambient", "chatter", "marker", "talk"],
-      "recent": ["Dialogue + King's quest + ! / ? markers + city journal (LIVE)", "Batch 2 — ambient chatter (in progress)"]
+      "recent": ["Dialogue + King's quest + ! / ? markers + city journal (LIVE)", "Ambient overheard NPC chatter (LIVE)"]
     },
     {
       "id": "combat", "name": "Combat Smith", "emoji": "🗡️",
@@ -69,10 +69,10 @@
     {
       "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
       "focus": "Cel-shaded toon look (global)", "scope": ["src/toon.js", "render layer"],
-      "status": "idle",
-      "task": "Queued (final pass): global cel-shade + crisp outlines + rim light — runs LAST so it re-skins every model, monster, prop and resource node at once.",
+      "status": "working",
+      "task": "RUNNING NOW — global cel-shade + crisp outlines + rim light, re-skinning every model/monster/prop into hand-painted toon art. The big visual upgrade.",
       "match": ["toon", "cel", "shader", "outline", "render", "style"],
-      "recent": ["Queued for the final cel-shade pass once gameplay models settle"]
+      "recent": ["Now: whole-game cel-shade + outline pass (in progress)"]
     }
   ]
 }
