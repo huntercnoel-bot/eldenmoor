@@ -3,76 +3,76 @@
   "repo": "huntercnoel-bot/eldenmoor",
   "agents": [
     {
+      "id": "vfx", "name": "VFX Artist", "emoji": "✨",
+      "focus": "Particles & effects", "scope": ["src/vfx.js"],
+      "status": "working",
+      "task": "Reworking fire — anchoring flames to the real torches & braziers (flickering, rising), researching how games render torch fire. No more random embers.",
+      "match": ["vfx", "particle", "effect", "spark", "fire", "ember", "torch", "flame"],
+      "recent": ["Particle system (hits/gather/coin/level-up) LIVE", "Now: fire on real torches"]
+    },
+    {
+      "id": "skills", "name": "Skill Master", "emoji": "📈",
+      "focus": "Skills & progression", "scope": ["src/skills.js", "src/resources.js"],
+      "status": "working",
+      "task": "Mining, fishing, cooking, firemaking + resource nodes, XP & levels — researching OSRS skill mechanics.",
+      "match": ["skill", "mining", "fishing", "cooking", "xp", "level", "ore", "fish"],
+      "recent": ["Batch 2 — gathering skills + resource nodes (in progress)"]
+    },
+    {
+      "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
+      "focus": "Dialogue & quests", "scope": ["src/ambient.js"],
+      "status": "working",
+      "task": "Ambient 'overheard' NPC chatter bubbles as you pass. No new quests (per orders).",
+      "match": ["dialogue", "quest", "ambient", "chatter", "marker", "talk"],
+      "recent": ["Dialogue + King's quest + ! / ? markers + city journal (LIVE)", "Batch 2 — ambient chatter (in progress)"]
+    },
+    {
       "id": "combat", "name": "Combat Smith", "emoji": "🗡️",
       "focus": "Combat & monsters", "scope": ["src/combat.js", "src/monsters.js"],
-      "status": "working",
-      "task": "Wandering/aggro monsters, melee combat, HP & damage, death + respawn, loot drops.",
-      "match": ["combat", "monster", "mob", "fight", "attack", "damage", "loot", "hp", "respawn", "goblin", "rat"],
-      "recent": ["Batch 1 — building mobs + melee + loot (in progress)"]
+      "status": "idle",
+      "task": "Monsters (rats/goblins), melee combat, HP bars, damage/loot numbers, death/respawn, loot pickups — LIVE.",
+      "match": ["combat", "monster", "mob", "fight", "attack", "loot", "hp", "goblin", "rat"],
+      "recent": ["Combat + monsters + loot (LIVE)"]
     },
     {
       "id": "audio", "name": "Audio Director", "emoji": "🔊",
       "focus": "Music & sound", "scope": ["src/audio.js"],
       "status": "idle",
-      "task": "Synth music + ambient (wind/birds) + SFX (chop/hit/pickup/level-up) + mute button (M) — LIVE.",
-      "match": ["audio", "music", "sound", "sfx", "ambient", "mute"],
-      "recent": ["Procedural Web-Audio music + ambient + SFX + mute (LIVE)"]
+      "task": "Synth music + birdsong + SFX, volume slider + mute (wind/water bed removed by request) — LIVE.",
+      "match": ["audio", "music", "sound", "sfx", "volume", "mute"],
+      "recent": ["Music + SFX + volume slider/mute (LIVE)"]
     },
     {
       "id": "world-builder", "name": "World Builder", "emoji": "🏰",
-      "focus": "Buildings & environment", "scope": ["src/world.js", "sky/fog/lighting"],
-      "status": "working",
-      "task": "Atmosphere pass — richer sky, fog and golden-hour lighting to make the world feel alive.",
-      "match": ["castle", "build", "texture", "tree", "world", "water", "sky", "fog", "light", "atmosphere"],
-      "recent": ["Expanded + smoothed castle/town (LIVE)", "Smooth trees/rocks/water (LIVE)", "Batch 1 — sky/fog/lighting (in progress)"]
+      "focus": "Buildings & environment", "scope": ["src/world.js", "buildings", "sky"],
+      "status": "idle",
+      "task": "Expanded smooth castle + town + smooth wilderness + golden-hour sky/fog/lighting — LIVE. Standing by.",
+      "match": ["castle", "build", "tree", "world", "water", "sky", "fog", "light", "atmosphere"],
+      "recent": ["Smooth castle/town + lush trees/rocks/water (LIVE)", "Golden-hour atmosphere — sky/fog/light + clouds (LIVE)"]
     },
     {
-      "id": "skills", "name": "Skill Master", "emoji": "📈",
-      "focus": "Skills & progression", "scope": ["src/skills.js", "src/resources.js"],
+      "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
+      "focus": "In-game interface", "scope": ["index.html", "src/ui.js"],
       "status": "idle",
-      "task": "Queued (batch 2): mining, fishing, cooking, firemaking + resource nodes, XP and levels.",
-      "match": ["skill", "mining", "fishing", "cooking", "smithing", "xp", "level", "ore", "fish"],
-      "recent": ["Queued for batch 2 (relaunching after batch 1 lands)"]
-    },
-    {
-      "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
-      "focus": "Dialogue & quests", "scope": ["src/ambient.js"],
-      "status": "idle",
-      "task": "Queued (batch 2): ambient 'overheard' NPC chatter bubbles. No new quests (per orders).",
-      "match": ["dialogue", "quest", "ambient", "chatter", "marker", "talk"],
-      "recent": ["Deep dialogue on every NPC + King's quest + ! / ? markers + city journal (LIVE)", "Queued: ambient chatter"]
+      "task": "Full OSRS×WoW HUD + minimap + tooltips + Quests tab + themed dialogue/markers, and all HUD overlaps fixed (0 overlaps at 3 sizes) — LIVE.",
+      "match": ["ui", "hud", "panel", "tooltip", "minimap", "tab", "overlap", "dialogue box", "marker"],
+      "recent": ["HUD restyle + minimap + Quests tab (LIVE)", "Fixed every overlapping HUD element (LIVE)"]
     },
     {
       "id": "art-director", "name": "Art Director", "emoji": "🎨",
       "focus": "NPCs & the player character", "scope": ["src/player.js", "src/npc.js"],
       "status": "idle",
-      "task": "Smooth hero + every NPC rebuilt rounded & organic — no more cubes (LIVE). Standing by.",
-      "match": ["npc", "character", "hero", "player", "gear", "smooth", "face"],
-      "recent": ["Smooth organic hero + gear (LIVE)", "Smoothed every NPC's geometry (LIVE)"]
-    },
-    {
-      "id": "vfx", "name": "VFX Artist", "emoji": "✨",
-      "focus": "Particles & effects", "scope": ["src/vfx.js"],
-      "status": "working",
-      "task": "Reworking fire — anchoring flames to the real torches & braziers (flickering, rising, purposeful), researching how games render torch fire. No more random embers.",
-      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "ember", "torch", "flame"],
-      "recent": ["Particle system (hits/gather/coin/level-up) LIVE", "Now: rework fire to anchor on real torches"]
+      "task": "Smooth, rounded, organic hero + every NPC — no more cubes — LIVE. Standing by.",
+      "match": ["npc", "character", "hero", "player", "gear", "smooth"],
+      "recent": ["Smooth hero + gear (LIVE)", "Smoothed every NPC (LIVE)"]
     },
     {
       "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
       "focus": "Cel-shaded toon look (global)", "scope": ["src/toon.js", "render layer"],
       "status": "idle",
-      "task": "Queued (final pass): global cel-shade + crisp outlines + rim light — runs LAST so it re-skins every finished model, monster and prop.",
+      "task": "Queued (final pass): global cel-shade + crisp outlines + rim light — runs LAST so it re-skins every model, monster, prop and resource node at once.",
       "match": ["toon", "cel", "shader", "outline", "render", "style"],
-      "recent": ["Unblocked (smooth NPCs landed) — runs after combat/skills add their models"]
-    },
-    {
-      "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
-      "focus": "In-game interface", "scope": ["index.html", "src/ui.js"],
-      "status": "working",
-      "task": "Fixing overlapping HUD elements — a deliberate layout pass, researching how OSRS/WoW anchor their HUDs (checked at 3 window sizes).",
-      "match": ["ui", "hud", "panel", "tooltip", "minimap", "tab", "dialogue box", "marker"],
-      "recent": ["HUD + minimap + tooltips + Quests tab + themed dialogue/markers (LIVE)"]
+      "recent": ["Queued for the final cel-shade pass once gameplay models settle"]
     }
   ]
 }
