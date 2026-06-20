@@ -170,6 +170,42 @@ ITEMS.goblin_charm = {
   icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 V14" stroke="#9c8a6a" stroke-width="2"/><circle cx="20" cy="22" r="9" fill="#cdbf95" stroke="#7a6a44" stroke-width="1.6"/><circle cx="20" cy="22" r="3.4" fill="#6f8f43"/><path d="M20 13 l2 4 -4 0 z" fill="#e7dcb8"/></svg>`,
 };
 
+// ---- Higher-tier logs (appended by the Woodcutting extension; additive only) ----
+// Values follow OSRS log spacing scaled down: better wood is worth more. Each
+// icon is the same banded log motif tinted to its species so they read at a
+// glance in the bag.
+ITEMS.oak_logs = {
+  id: 'oak_logs', name: 'Oak logs', stackable: true, value: 12, examine: 'Sturdy oak logs. Woodcutting level 15.',
+  icon: logIcon('#8a6a3a', '#5a3f20', '#b89060'),
+};
+ITEMS.willow_logs = {
+  id: 'willow_logs', name: 'Willow logs', stackable: true, value: 20, examine: 'Pale, supple willow logs. Woodcutting level 30.',
+  icon: logIcon('#9b8a52', '#6a5a2e', '#c8ba84'),
+};
+ITEMS.maple_logs = {
+  id: 'maple_logs', name: 'Maple logs', stackable: true, value: 32, examine: 'Reddish maple logs. Woodcutting level 45.',
+  icon: logIcon('#9c5a36', '#6a3520', '#cd8a5e'),
+};
+ITEMS.yew_logs = {
+  id: 'yew_logs', name: 'Yew logs', stackable: true, value: 64, examine: 'Dark, dense yew logs. Woodcutting level 60.',
+  icon: logIcon('#5a4a3a', '#332620', '#857060'),
+};
+ITEMS.magic_logs = {
+  id: 'magic_logs', name: 'Magic logs', stackable: true, value: 120, examine: 'Faintly glowing magic logs. They hum with power. Woodcutting level 75.',
+  icon: logIcon('#5a6aa8', '#33407a', '#a8b8ff', true),
+};
+
+// Helper: a banded bundle-of-logs icon in the given wood colours. `glow` adds a
+// soft aura behind the bundle (used by magic logs).
+function logIcon(fill, stroke, ring, glow) {
+  const g = glow ? `<circle cx="20" cy="20" r="16" fill="#9ab0ff" opacity="0.22"/>` : '';
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">${g}<g transform="rotate(-20 20 20)">
+    <rect x="7" y="15" width="26" height="11" rx="5.5" fill="${fill}" stroke="${stroke}" stroke-width="1.4"/>
+    <path d="M11 16.5 H31 M11 20 H31 M12 23.4 H30" stroke="${stroke}" stroke-width="0.8" opacity="0.7"/>
+    <ellipse cx="9" cy="20.5" rx="3.4" ry="5.5" fill="${ring}" stroke="${stroke}" stroke-width="1.3"/>
+    <ellipse cx="9" cy="20.5" rx="2.1" ry="3.4" fill="none" stroke="${stroke}" stroke-width="0.9"/></g></svg>`;
+}
+
 // Helper: a stylized axe icon in the given blade colours.
 function axeIcon(fill, stroke, shine, glow) {
   const g = glow ? `<circle cx="25" cy="13" r="11" fill="${fill}" opacity="0.22"/>` : '';

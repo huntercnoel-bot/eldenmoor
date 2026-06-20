@@ -13,7 +13,28 @@ const SKILL_DEFS = [
   { id: 'firemaking', name: 'Firemaking', icon: '🔥', base: 1 },
 ];
 
-// --- The Old School RuneScape experience formula ---
+// --- Tree tiers (Woodcutting) -------------------------------------------------
+// Modelled on OSRS conventions, scaled down for this small game. Each tier has a
+// Woodcutting level gate, the log it yields, the XP that log grants, and a base
+// per-tick success chance (your odds of getting a log on a given chop tick). The
+// per-tick chance scales gently with your level over the tier's "mastery" band so
+// higher tiers feel slow at the gate and smooth out as you grow into them — the
+// same satisfying curve OSRS gets from its hidden roll. Ordered low -> high.
+//
+// OSRS reference (XP/log): normal 25, oak 37.5, willow 67.5, maple 100, yew 175,
+// magic 250. We round to whole numbers and keep the relative spacing.
+export const TREE_TIERS = [
+  { id: 'normal', name: 'Tree',        level: 1,  log: 'logs',        xp: 25,  base: 0.70, mastery: 15, color: 0x6a8d3a, axe: 'a tree' },
+  { id: 'oak',    name: 'Oak',         level: 15, log: 'oak_logs',    xp: 38,  base: 0.55, mastery: 35, color: 0x5f7e2e, axe: 'an oak' },
+  { id: 'willow', name: 'Willow',      level: 30, log: 'willow_logs', xp: 68,  base: 0.45, mastery: 50, color: 0x7fa64a, axe: 'a willow' },
+  { id: 'maple',  name: 'Maple',       level: 45, log: 'maple_logs',  xp: 100, base: 0.38, mastery: 65, color: 0xc25a2a, axe: 'a maple' },
+  { id: 'yew',    name: 'Yew',         level: 60, log: 'yew_logs',    xp: 175, base: 0.30, mastery: 80, color: 0x2f4a33, axe: 'a yew' },
+  { id: 'magic',  name: 'Magic',       level: 75, log: 'magic_logs',  xp: 250, base: 0.22, mastery: 95, color: 0x4a78c8, axe: 'a magic tree' },
+];
+const TIER_BY_ID = Object.fromEntries(TREE_TIERS.map((t) => [t.id, t]));
+export function treeTier(id) { return TIER_BY_ID[id] || TREE_TIERS[0]; }
+
+// The Old School RuneScape experience formula ---------------------------------
 function xpForLevel(level) {
   let total = 0;
   for (let n = 1; n < level; n++) total += Math.floor(n + 300 * Math.pow(2, n / 7));
@@ -85,10 +106,33 @@ export function createSkills() {
     return { leveledUp, level: newLevel };
   }
 
-  // Award one chop's worth of Woodcutting XP.
-  function chopReward() {
-    const r = addXp('woodcutting', 25);
-    return { xp: 25, leveledUp: r.leveledUp, level: r.level };
+  // Can the player even attempt this tier? (Used by world.js so a too-low player
+  // gets a clear message instead of silently chopping for nothing.)
+  function canChopTier(tierId) {
+    const t = treeTier(tierId);
+    return (state.woodcutting.level || 1) >= t.level;
+  }
+
+  // The per-tick "do I get a log this swing?" roll. Like OSRS, success isn't
+  // guaranteed every tick: it starts at the tier's base chance at the level gate
+  // and eases up to a near-certain ~0.95 by the tier's mastery level, so harder
+  // trees feel meatier and progress smooths out as you grow into them.
+  function chopSuccess(tierId) {
+    const t = treeTier(tierId);
+    const lvl = state.woodcutting.level || 1;
+    const span = Math.max(1, t.mastery - t.level);
+    const f = Math.max(0, Math.min(1, (lvl - t.level) / span));
+    const chance = t.base + (0.95 - t.base) * f;
+    return Math.random() < chance;
+  }
+
+  // Award one successful chop's worth of Woodcutting XP for the given tier.
+  // Called with no argument it falls back to a normal tree (keeps the original
+  // interactions.js call site working unchanged).
+  function chopReward(tierId) {
+    const t = treeTier(tierId);
+    const r = addXp('woodcutting', t.xp);
+    return { xp: t.xp, log: t.log, tier: t.id, leveledUp: r.leveledUp, level: r.level };
   }
 
   // --- Save support ---
@@ -109,5 +153,5 @@ export function createSkills() {
 
   refreshVitals();
   renderSkillsTab();
-  return { state, addXp, chopReward, totalLevel, combatLevel, maxHp, serialize, load, renderSkillsTab };
+  return { state, addXp, chopReward, chopSuccess, canChopTier, treeTier, TREE_TIERS, totalLevel, combatLevel, maxHp, serialize, load, renderSkillsTab };
 }
