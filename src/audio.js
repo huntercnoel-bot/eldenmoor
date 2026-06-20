@@ -66,7 +66,7 @@ function startAudio() {
   if (ctx.state === 'suspended') ctx.resume();
   if (started) return;
   started = true;
-  startWind();
+  // wind/water-rush bed removed by request — keep music + birdsong only
   scheduleMusic();
   scheduleBird();
 }
