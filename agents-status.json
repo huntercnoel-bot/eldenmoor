@@ -61,6 +61,19 @@
         "King's first quest + OSRS dialogue box + quest log (LIVE)",
         "Now: ! / ? quest markers above NPCs + city-grouped journal (no new quests)"
       ]
+    },
+    {
+      "id": "render-stylist",
+      "name": "Render Stylist",
+      "emoji": "🖌️",
+      "focus": "Cel-shaded toon look (global)",
+      "scope": ["src/toon.js", "src/main.js", "render layer"],
+      "status": "idle",
+      "task": "Queued: global cel-shaded toon shading + crisp outlines + rim light — fires once the smooth-model passes land so it re-skins the finished geometry.",
+      "match": ["toon", "cel", "shader", "outline", "render", "rim light", "style", "material"],
+      "recent": [
+        "Standing by for the smooth-model passes, then a whole-game cel-shade + outline pass"
+      ]
     }
   ]
 }
