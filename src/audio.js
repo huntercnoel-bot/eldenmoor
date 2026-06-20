@@ -25,6 +25,11 @@ let musicGain = null;    // music bed bus
 let ambientGain = null;  // wind / birds bus
 let sfxGain = null;      // event sound bus
 let muted = false;
+let volume = 0.9;        // master volume 0..1 (persisted in localStorage)
+try {
+  const sv = localStorage.getItem('eldenmoor.volume'); if (sv != null) volume = Math.max(0, Math.min(1, parseFloat(sv) || 0));
+  if (localStorage.getItem('eldenmoor.muted') === '1') muted = true;
+} catch (e) { /* localStorage may be blocked */ }
 let started = false;     // have we begun the music/ambient beds?
 let musicTimer = null;   // setTimeout handle for the next bar
 let ambientTimer = null; // setTimeout handle for the next bird chirp
@@ -37,7 +42,7 @@ function ensureContext() {
   ctx = new AudioCtx();
 
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 0.9;
+  master.gain.value = muted ? 0 : volume;
   master.connect(ctx.destination);
 
   musicGain = ctx.createGain();
@@ -372,9 +377,10 @@ function setMuted(m) {
     const t = ctx ? now() : 0;
     master.gain.cancelScheduledValues(t);
     master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(muted ? 0 : 0.9, t + 0.08);
+    master.gain.linearRampToValueAtTime(muted ? 0 : volume, t + 0.08);
   }
-  updateMuteButton();
+  try { localStorage.setItem('eldenmoor.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  updateAudioUI();
 }
 
 function toggleMute() {
@@ -382,37 +388,67 @@ function toggleMute() {
   return muted;
 }
 
+// Master volume 0..1. Dragging the slider above zero also unmutes.
+function setVolume(v) {
+  volume = Math.max(0, Math.min(1, isFinite(v) ? v : 0));
+  if (volume > 0 && muted) muted = false;
+  if (master) {
+    const t = ctx ? now() : 0;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setValueAtTime(master.gain.value, t);
+    master.gain.linearRampToValueAtTime(muted ? 0 : volume, t + 0.05);
+  }
+  try { localStorage.setItem('eldenmoor.volume', String(volume)); localStorage.setItem('eldenmoor.muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  updateAudioUI();
+}
+function getVolume() { return volume; }
+
 // ============================================================================
 //  Mute button (drawn from JS, no edits to index.html) + the M key.
 // ============================================================================
-let muteBtn = null;
-function makeMuteButton() {
-  if (muteBtn) return;
+let audioPanel = null, muteBtn = null, volSlider = null;
+function makeAudioControls() {
+  if (audioPanel) return;
+  audioPanel = document.createElement('div');
+  audioPanel.id = 'audio-controls';
+  audioPanel.style.cssText = [
+    'position:fixed', 'top:166px', 'right:12px', 'z-index:60',  // sits under the minimap, clear of logout/coords
+    'display:flex', 'align-items:center', 'gap:6px',
+    'background:rgba(20,16,10,0.82)', 'border:1px solid #b9892f', 'border-radius:8px',
+    'padding:3px 9px 3px 3px', 'user-select:none',
+  ].join(';');
+
   muteBtn = document.createElement('button');
   muteBtn.id = 'audio-mute';
-  muteBtn.title = 'Mute / unmute sound (M)';
+  muteBtn.title = 'Mute / unmute (M)';
   muteBtn.style.cssText = [
-    'position:fixed', 'top:8px', 'right:8px', 'z-index:60',
-    'width:38px', 'height:38px', 'cursor:pointer',
-    'background:rgba(20,16,10,0.82)', 'color:#ffd100',
-    'border:1px solid #b9892f', 'border-radius:8px',
-    'font:18px Georgia,serif', 'line-height:1',
+    'width:32px', 'height:32px', 'cursor:pointer', 'background:transparent',
+    'color:#ffd100', 'border:none', 'font:18px Georgia,serif', 'line-height:1',
     'display:flex', 'align-items:center', 'justify-content:center',
-    'user-select:none',
   ].join(';');
-  muteBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    startAudio();        // a click on the button is a valid user gesture too
-    toggleMute();
-  });
-  document.body.appendChild(muteBtn);
-  updateMuteButton();
+  muteBtn.addEventListener('click', (e) => { e.stopPropagation(); startAudio(); toggleMute(); });
+
+  volSlider = document.createElement('input');
+  volSlider.type = 'range'; volSlider.min = '0'; volSlider.max = '100'; volSlider.step = '1';
+  volSlider.id = 'audio-vol'; volSlider.title = 'Volume';
+  volSlider.value = String(Math.round(volume * 100));
+  volSlider.style.cssText = ['width:96px', 'cursor:pointer', 'accent-color:#ffd100'].join(';');
+  // a slider drag is a valid gesture to start audio; keep it from rotating the camera
+  volSlider.addEventListener('input', (e) => { e.stopPropagation(); startAudio(); setVolume(parseInt(volSlider.value, 10) / 100); });
+  volSlider.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+
+  audioPanel.appendChild(muteBtn);
+  audioPanel.appendChild(volSlider);
+  document.body.appendChild(audioPanel);
+  updateAudioUI();
 }
 
-function updateMuteButton() {
-  if (!muteBtn) return;
-  muteBtn.textContent = muted ? '🔇' : '🔊';
-  muteBtn.style.color = muted ? '#9a8a7a' : '#ffd100';
+function updateAudioUI() {
+  if (muteBtn) {
+    muteBtn.textContent = muted ? '🔇' : (volume < 0.34 ? '🔈' : (volume < 0.67 ? '🔉' : '🔊'));
+    muteBtn.style.color = muted ? '#9a8a7a' : '#ffd100';
+  }
+  if (volSlider && document.activeElement !== volSlider) volSlider.value = String(Math.round(volume * 100));
 }
 
 // ============================================================================
@@ -451,7 +487,7 @@ function installKeybind() {
   if (!AudioCtx) { console.warn('[audio] Web Audio API unavailable'); return; }
 
   // Set up DOM + gesture handlers right away (login screen is fine).
-  makeMuteButton();
+  makeAudioControls();
   installGestureStart();
   installKeybind();
 
@@ -462,7 +498,7 @@ function installKeybind() {
     if (em) {
       clearInterval(iv);
       try {
-        em.audio = { play, toggleMute, isMuted: () => muted, ctx: () => ctx };
+        em.audio = { play, toggleMute, isMuted: () => muted, setVolume, getVolume, ctx: () => ctx };
       } catch (err) {
         console.error('[audio] failed to attach', err);
       }
