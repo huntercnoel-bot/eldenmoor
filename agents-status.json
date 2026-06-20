@@ -1,0 +1,26 @@
+{
+  "updated": "2026-06-20",
+  "repo": "huntercnoel-bot/eldenmoor",
+  "agents": [
+    {
+      "id": "art-director",
+      "name": "Art Director",
+      "emoji": "🎨",
+      "focus": "NPCs & the player character",
+      "scope": ["src/player.js", "src/npc.js", "item icons"],
+      "status": "working",
+      "task": "Polishing the rebuilt NPCs and the hero model — Old School RuneScape × WoW Classic.",
+      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "wearable", "face", "beard"]
+    },
+    {
+      "id": "world-builder",
+      "name": "World Builder",
+      "emoji": "🏰",
+      "focus": "Buildings & environment",
+      "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
+      "status": "idle",
+      "task": "Standing by for the next environment pass.",
+      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "varrock", "falador", "dirt", "plaster"]
+    }
+  ]
+}
