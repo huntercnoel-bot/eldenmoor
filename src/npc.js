@@ -116,26 +116,35 @@ export function updateNpcs(npcs, dt, clock) {
       n._next = clock + 2.5 + Math.random() * 4.5;                 // pause a few seconds at each spot
     }
     const dx = n._tgt.x - g.position.x, dz = n._tgt.z - g.position.z, dist = Math.hypot(dx, dz);
+    const rig = g.userData.rig;
     if (dist > 0.06) {
       const step = Math.min(dist, (d.id === 'child' ? 1.4 : 0.6) * dt);
       g.position.x += (dx / dist) * step; g.position.z += (dz / dist) * step;
       g.rotation.y = Math.atan2(dx, dz);
-      g.position.y = Math.abs(Math.sin((clock + n._ph) * 7)) * 0.04;   // little walking bob
-    } else g.position.y = 0;
+      g.position.y = Math.abs(Math.sin((clock + n._ph) * 8)) * 0.035;          // walking bob
+      if (rig) { const sw = Math.sin((clock + n._ph) * 8) * 0.5; rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw; rig.armL.rotation.x = -sw * 0.6; rig.armR.rotation.x = sw * 0.6; }  // swing legs + arms
+    } else {
+      g.position.y = 0;
+      if (rig) for (const part of [rig.legL, rig.legR, rig.armL, rig.armR]) part.rotation.x *= 0.82;   // settle to a stand
+    }
   }
 }
 
 const BEARDED = new Set(['king', 'duke', 'guard_l', 'guard_r', 'guard_il', 'guard_ir', 'smith', 'farmer', 'jailer', 'patron1', 'tomas']);
 const SKINS = [0xf0c8a0, 0xe7b08a, 0xd9a06e, 0xc68a5a, 0xa9744a];
 const HAIRS = [0x2a2018, 0x3a2a1a, 0x5b3f29, 0x8a6a3a, 0x9a9a9a, 0xb9b2a4, 0x6a4a2a];
+const LONG_ROBE = new Set(['king', 'duke', 'advisor', 'nun', 'banker', 'jailer']);   // floor-length robe over the legs
 
 function makeNpc(def) {
   const g = new THREE.Group();
-  const sm = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 });   // smooth-shaded
-  const cap = (r, len, c, x, y, z) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
-  const ball = (r, c, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
-  const cyl = (rt, rb, h, c, x, y, z) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 14), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
-  const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
+  const M = (c, r = 0.85, mt = 0) => (c && c.isMaterial ? c : new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt }));
+  const cap = (r, len, c) => new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), M(c));
+  const ball = (r, c) => new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), M(c));
+  const cyl = (rt, rb, h, c, s = 14) => new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, s), M(c));
+  const box = (w, h, d, c) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c));
+  const cone = (r, h, c, s = 10) => new THREE.Mesh(new THREE.ConeGeometry(r, h, s), M(c));
+  const at = (o, x, y, z, rx = 0, ry = 0, rz = 0, sx, sy, sz) => { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); if (sx !== undefined) o.scale.set(sx, sy, sz); return o; };
+  const add = (p, o) => { o.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } }); p.add(o); return o; };
 
   // deterministic per-NPC variety (seeded by id, so it's stable across reloads)
   let s = 2166136261; for (let i = 0; i < (def.id || '').length; i++) s = (Math.imul(s ^ def.id.charCodeAt(i), 16777619)) >>> 0;
@@ -143,30 +152,86 @@ function makeNpc(def) {
   const skinC = def.skin || SKINS[(rnd() * SKINS.length) | 0];
   const hairC = def.hair || HAIRS[(rnd() * HAIRS.length) | 0];
   const hairStyle = (rnd() * 3) | 0;          // 0 short · 1 long · 2 balding
-  const build = 0.9 + rnd() * 0.2;            // body width
-  const bald = hairStyle === 2 && !def.crown;
+  const build = 0.92 + rnd() * 0.18;          // body width
+  const robeC = def.robe, pantsC = def.pants ?? 0x3a2f22, bootC = 0x33251a;
+  const longRobe = LONG_ROBE.has(def.id);
+  const steel = M(0x9aa0a8, 0.45, 0.55), gold = M(0xe9c33a, 0.3, 0.7), white = M(0xece6d6), dark = M(0x2a2620);
 
-  cyl(0.26 * build, 0.46 * build, 1.2, def.robe, 0, 0.6, 0);          // robe (flares at the hem)
-  ball(0.2 * build, def.robe, 0, 1.22, 0);                            // chest / shoulders
-  for (const sx of [-1, 1]) { cap(0.085, 0.42, def.robe, sx * 0.32 * build, 0.96, 0); ball(0.1, skinC, sx * 0.32 * build, 0.68, 0); }  // arms + hands
-  cyl(0.09, 0.1, 0.14, skinC, 0, 1.46, 0);                           // neck
-  const head = ball(0.25, skinC, 0, 1.67, 0); head.scale.set(0.95, 1.05, 0.96);
-  for (const sx of [-1, 1]) { ball(0.045, 0x141414, sx * 0.1, 1.7, 0.2); const eb = box(0.1, 0.025, 0.04, hairC, sx * 0.1, 1.77, 0.21); ball(0.055, skinC, sx * 0.24, 1.67, 0.02); }  // eyes, brows, ears
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 8), sm(skinC)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.63, 0.23); g.add(nose);
-  const mouth = ball(0.05, 0x8a4a44, 0, 1.55, 0.21); mouth.scale.set(1.5, 0.4, 0.5);     // mouth
+  // ---- legs (jointed: hip → knee, so they swing when walking) ----
+  const makeLeg = () => {
+    const hip = new THREE.Group();
+    add(hip, at(cap(0.1, 0.2, pantsC), 0, -0.18, 0));
+    const lo = new THREE.Group(); lo.position.set(0, -0.36, 0);
+    add(lo, at(cap(0.085, 0.2, pantsC), 0, -0.16, 0));
+    const foot = add(lo, at(ball(0.12, bootC), 0, -0.36, 0.05)); foot.scale.set(1, 0.6, 1.5);
+    hip.add(lo); hip.userData.lower = lo; return hip;
+  };
+  const legL = makeLeg(); legL.position.set(0.13 * build, 0.84, 0);
+  const legR = makeLeg(); legR.position.set(-0.13 * build, 0.84, 0);
+  g.add(legL, legR);
 
-  // hair styles
-  if (!bald) { const hc = ball(0.27, hairC, 0, 1.76, -0.03); hc.scale.set(1.03, 0.82, 1.05); }
-  else { const ring = ball(0.27, hairC, 0, 1.6, -0.04); ring.scale.set(1.04, 0.45, 1.06); }   // balding: side/back ring
-  if (hairStyle === 1) { const bk = box(0.42, 0.5, 0.18, hairC, 0, 1.48, -0.2); }              // long hair down the back
-  if (BEARDED.has(def.id)) { const b = ball(0.18, hairC, 0, 1.52, 0.13); b.scale.set(1.05, 1.0, 0.8); g.add(box(0.16, 0.06, 0.06, hairC, 0, 1.62, 0.22)); }  // beard + moustache
+  // ---- torso (V-tapered tunic) + belt ----
+  add(g, at(cyl(0.23 * build, 0.26 * build, 0.3, pantsC), 0, 0.9, 0));               // hips
+  add(g, at(cyl(0.3 * build, 0.24 * build, 0.42, robeC), 0, 1.42, 0));               // chest
+  add(g, at(cyl(0.25 * build, 0.23 * build, 0.3, robeC), 0, 1.08, 0));               // waist
+  for (const sx of [-1, 1]) add(g, at(ball(0.13, robeC), sx * 0.26 * build, 1.52, 0, 0, 0, 0, 1, 0.92, 1.05)); // deltoids
+  add(g, at(cyl(0.255 * build, 0.255 * build, 0.1, M(0x3a2a1a)), 0, 1.0, 0));        // belt
 
-  if (def.crown) { cyl(0.27, 0.27, 0.14, 0xe9c33a, 0, 1.88, 0); for (const dx of [-0.16, 0, 0.16]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 6), sm(0xf2d24a)); t.position.set(dx, 2.02, 0); g.add(t); } }
-  if (def.guard) { const h = ball(0.27, 0x9aa0a8, 0, 1.73, 0); h.scale.set(1.05, 1.0, 1.05); box(0.12, 0.24, 0.05, 0x6d737b, 0, 1.63, 0.24); cyl(0.04, 0.04, 2.4, 0x6b4a2f, 0.46, 1.2, 0.05); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 8), sm(0xc8ccd2)); tip.position.set(0.46, 2.5, 0.05); g.add(tip); }
-  if (def.apron) box(0.42, 0.7, 0.06, 0xeae0c8, 0, 0.78, 0.24);
+  // ---- arms (jointed: shoulder → elbow → hand) ----
+  const makeArm = () => {
+    const sh = new THREE.Group();
+    add(sh, at(cap(0.08, 0.18, robeC), 0, -0.15, 0));
+    const lo = new THREE.Group(); lo.position.set(0, -0.32, 0);
+    add(lo, at(cap(0.07, 0.18, robeC), 0, -0.14, 0));
+    add(lo, at(ball(0.08, skinC), 0, -0.3, 0.02));
+    sh.add(lo); sh.userData.lower = lo; return sh;
+  };
+  const armL = makeArm(); armL.position.set(0.3 * build, 1.5, 0); armL.rotation.z = 0.12;
+  const armR = makeArm(); armR.position.set(-0.3 * build, 1.5, 0); armR.rotation.z = -0.12;
+  g.add(armL, armR);
+
+  // ---- neck + head + face ----
+  add(g, at(cyl(0.08, 0.1, 0.13, skinC), 0, 1.62, 0));
+  add(g, at(ball(0.24, skinC), 0, 1.82, 0, 0, 0, 0, 0.96, 1.06, 0.96));              // head
+  add(g, at(ball(0.17, skinC), 0, 1.72, 0.04, 0, 0, 0, 0.95, 0.7, 0.9));            // jaw
+  for (const sx of [-1, 1]) { add(g, at(ball(0.042, 0x141414), sx * 0.1, 1.85, 0.19)); add(g, at(box(0.1, 0.025, 0.04, hairC), sx * 0.1, 1.92, 0.2)); add(g, at(ball(0.05, skinC), sx * 0.235, 1.82, 0.01)); } // eyes, brows, ears
+  add(g, at(cone(0.042, 0.12, skinC, 8), 0, 1.78, 0.22, Math.PI / 2, 0, 0));        // nose
+  add(g, at(ball(0.05, M(0x8a4a44)), 0, 1.7, 0.2, 0, 0, 0, 1.5, 0.4, 0.5));         // mouth
+
+  // ---- hair / beard ----
+  const bald = hairStyle === 2 && !def.crown && !def.guard;
+  if (!def.guard && def.id !== 'nun') {
+    if (!bald) add(g, at(ball(0.255, hairC), 0, 1.92, -0.03, 0, 0, 0, 1.04, 0.82, 1.06));
+    else add(g, at(ball(0.255, hairC), 0, 1.76, -0.04, 0, 0, 0, 1.05, 0.45, 1.07));    // balding ring
+    if (hairStyle === 1) add(g, at(box(0.4, 0.5, 0.16, hairC), 0, 1.66, -0.2));         // long hair
+  }
+  if (BEARDED.has(def.id)) { add(g, at(ball(0.17, hairC), 0, 1.66, 0.12, 0, 0, 0, 1.05, 1.0, 0.8)); add(g, at(box(0.15, 0.05, 0.06, hairC), 0, 1.76, 0.2)); }
+
+  // ---- role-specific outfits & props ----
+  if (longRobe) add(g, at(cyl(0.27 * build, 0.5, 1.4, robeC), 0, 0.7, 0));            // floor-length robe over the legs
+  if (def.crown) {
+    add(g, at(ball(0.3, white), 0, 1.55, 0, 0, 0, 0, 1.15, 0.5, 1.15));               // ermine collar
+    add(g, at(cyl(0.26, 0.26, 0.13, gold), 0, 2.04, 0));
+    for (const dx of [-0.16, 0, 0.16]) add(g, at(cone(0.06, 0.18, M(0xf2d24a), 6), dx, 2.18, 0));
+    add(armR.userData.lower, at(cyl(0.025, 0.025, 0.5, gold), 0, -0.32, 0.05));       // sceptre
+    add(armR.userData.lower, at(ball(0.06, M(0x6fb3e0)), 0, -0.08, 0.05));
+  }
+  if (def.guard) {
+    add(g, at(cyl(0.31, 0.26, 0.46, steel), 0, 1.42, 0));                             // breastplate
+    for (const sx of [-1, 1]) add(g, at(ball(0.15, steel), sx * 0.3, 1.56, 0, 0, 0, 0, 1.1, 0.7, 1.1)); // pauldrons
+    add(g, at(ball(0.26, steel), 0, 1.86, 0, 0, 0, 0, 1.05, 1.0, 1.05));              // helm
+    add(g, at(box(0.1, 0.22, 0.05, M(0x6d737b)), 0, 1.8, 0.24));                      // visor
+    add(g, at(cyl(0.035, 0.035, 2.4, M(0x6b4a2f)), 0.42, 1.2, 0.05));                 // halberd shaft
+    add(g, at(cone(0.1, 0.34, steel), 0.42, 2.55, 0.05));                             // halberd head
+  }
+  if (def.apron) add(g, at(box(0.4, 0.72, 0.06, white), 0, 0.95, 0.26));
+  if (def.id === 'cook') add(g, at(cyl(0.2, 0.18, 0.26, white), 0, 2.06, 0));         // chef's toque
+  if (def.id === 'farmer') { add(g, at(cone(0.42, 0.16, M(0xcba15a), 12), 0, 2.0, 0)); add(g, at(cyl(0.17, 0.17, 0.22, M(0xb8924a)), 0, 2.08, 0)); } // straw hat
+  if (def.id === 'nun') { add(g, at(ball(0.28, white), 0, 1.88, -0.02, 0, 0, 0, 1.06, 0.98, 1.06)); add(g, at(box(0.52, 0.5, 0.06, dark), 0, 1.74, -0.18)); } // wimple
+  if (def.id === 'innkeep') add(armR.userData.lower, at(cyl(0.07, 0.07, 0.16, M(0xb08038)), 0, -0.32, 0.08)); // tankard
 
   if (def.scale) g.scale.setScalar(def.scale);
   g.position.set(def.x, 0, def.z);
-  g.userData = { kind: 'npc', def };
+  g.userData = { kind: 'npc', def, rig: { legL, legR, armL, armR } };
   return g;
 }
