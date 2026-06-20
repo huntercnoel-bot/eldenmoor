@@ -47,16 +47,31 @@ export function barkTexture() {
   const t = finish(c); t.repeat.set(2, 2); return t;
 }
 
+// RuneScape-style ashlar masonry: chunky running-bond blocks, each a slightly
+// different sandstone-grey, with carved bevels (light top/left, dark
+// bottom/right) and dark recessed mortar. Block tones come from a wrapped
+// lattice hash so the pattern tiles seamlessly even on the half-offset courses.
 export function stoneTexture(rep = 2) {
-  const c = cv(128), g = c.getContext('2d');
-  g.fillStyle = '#928d83'; g.fillRect(0, 0, 128, 128);
-  g.strokeStyle = 'rgba(58,55,50,0.55)'; g.lineWidth = 2;
-  for (let row = 0, y = 0; y <= 128; y += 21, row++) {
-    g.beginPath(); g.moveTo(0, y); g.lineTo(128, y); g.stroke();
-    const off = row % 2 ? 32 : 0;
-    for (let x = off; x <= 128; x += 64) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 21); g.stroke(); }
+  const S = 256, c = cv(S), g = c.getContext('2d');
+  g.fillStyle = '#544f47'; g.fillRect(0, 0, S, S);                  // dark mortar shows in the gaps
+  const bw = 64, bh = 32, gap = 3, COLS = S / bw, ROWS = S / bh;   // tiles cleanly (4 x 8 blocks)
+  const hash = (a, b) => { let h = ((a * 73856093) ^ (b * 19349663)) >>> 0; h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; return (h % 1000) / 1000; };
+  for (let row = 0; row < ROWS; row++) {
+    const y = row * bh, off = (row % 2) ? -bw / 2 : 0;
+    for (let x = off - bw; x < S; x += bw) {
+      const col = ((Math.round((x - off) / bw) % COLS) + COLS) % COLS;  // wrapped so seam blocks match
+      const v = 138 + hash(col, row) * 44;                              // per-block lightness
+      const bx = x + gap, by = y + gap, w = bw - gap * 2, h = bh - gap * 2;
+      g.fillStyle = `rgb(${(v + 13) | 0},${(v + 4) | 0},${(v - 11) | 0})`;  // warm sandstone grey
+      g.fillRect(bx, by, w, h);
+      g.fillStyle = 'rgba(255,248,232,0.22)'; g.fillRect(bx, by, w, 2); g.fillRect(bx, by, 2, h);                  // carved highlight
+      g.fillStyle = 'rgba(26,22,17,0.34)';    g.fillRect(bx, by + h - 2, w, 2); g.fillRect(bx + w - 2, by, 2, h);  // carved shadow
+      for (let s = 0; s < 16; s++) {                                       // weathering speckle (deterministic = tileable)
+        g.fillStyle = `rgba(70,62,50,${(0.10 + hash(col * 31 + s, row * 17) * 0.10).toFixed(2)})`;
+        g.fillRect(bx + hash(s, col + row) * w, by + hash(s + 9, row) * h, 2, 2);
+      }
+    }
   }
-  for (let i = 0; i < 1600; i++) { g.fillStyle = `rgba(${(130 + Math.random() * 45) | 0},${(125 + Math.random() * 42) | 0},${(114 + Math.random() * 36) | 0},0.28)`; g.fillRect(Math.random() * 128, Math.random() * 128, 2, 2); }
   return finish(c, rep);
 }
 
@@ -67,17 +82,21 @@ export function plasterTexture() {
   return finish(c, 1);
 }
 
-// Roof shingles — neutral grey so a material's `color` can tint it any roof hue.
+// Roof tiles — neutral grey running-bond slate (a material's `color` tints it
+// any roof hue). Crisp, slightly varied tiles with a top highlight read more
+// like RuneScape slate roofing.
 export function shingleTexture(rep = 4) {
   const c = cv(64), g = c.getContext('2d');
-  g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, 64, 64);
-  for (let y = 0; y < 64; y += 10) {
-    const off = ((y / 10) % 2) ? 8 : 0;
-    for (let x = off - 16; x < 64; x += 16) {
-      const v = 150 + Math.random() * 45;
-      g.fillStyle = `rgb(${v | 0},${v | 0},${v | 0})`;
-      g.fillRect(x + 1, y, 14, 9);
-      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.strokeRect(x + 1, y, 14, 9);
+  g.fillStyle = '#7e7e7e'; g.fillRect(0, 0, 64, 64);
+  const tw = 16, th = 10;
+  for (let y = 0, row = 0; y < 64; y += th, row++) {
+    const off = (row % 2) ? tw / 2 : 0;
+    for (let x = off - tw; x < 64; x += tw) {
+      const v = 150 + Math.random() * 46;
+      g.fillStyle = `rgb(${v | 0},${v | 0},${(v + 5) | 0})`;
+      g.fillRect(x + 1, y, tw - 2, th - 1);
+      g.fillStyle = 'rgba(255,255,255,0.16)'; g.fillRect(x + 1, y, tw - 2, 1);          // top highlight
+      g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1; g.strokeRect(x + 1, y, tw - 2, th - 1);
     }
   }
   return finish(c, rep);

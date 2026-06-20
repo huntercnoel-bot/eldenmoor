@@ -101,7 +101,7 @@ function makeCastle() {
   const g = new THREE.Group();
   const HW = 23, HD = 22, WH = 6, TH = 0.9;
   const stone = mapped(T.wall), floorMat = mapped(T.floor, 0xb6b1a6), marble = mapped(T.marble),
-        roofMat = mapped(T.shingle, 0x6e2f2f), wood = flat(0x4a3320), gold = flat(0xd8b24a, 0.4),
+        roofMat = mapped(T.shingle, 0x5d6e82), wood = flat(0x4a3320), gold = flat(0xd8b24a, 0.4),
         red = flat(0x8a1f1f), purple = flat(0x4a2c6e);
   const ember = new THREE.MeshStandardMaterial({ color: 0xff7a1e, emissive: 0xff5500, emissiveIntensity: 1.1, roughness: 0.7 });
   const flameMat = new THREE.MeshStandardMaterial({ color: 0xffb33a, emissive: 0xff7b00, emissiveIntensity: 1.7, roughness: 0.5 });
