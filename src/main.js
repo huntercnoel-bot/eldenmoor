@@ -21,6 +21,7 @@ import { setupSocial } from './social.js';
 import { showDialogue } from './dialogue.js';
 import { createQuests, QUEST_DEFS } from './quests.js';
 import { createQuestMarkers } from './questmarkers.js';
+import { toonify, applyToonTo } from './toon.js';
 import './vfx.js';
 import './audio.js';
 import './combat.js';
@@ -97,6 +98,11 @@ function startGame(username) {
   const npcs = buildNpcs(scene);
   const collision = createCollision(scene);   // walls/towers/buildings/trees block movement
 
+  // GLOBAL CEL-SHADE PASS — re-skin the finished world, hero and townsfolk into
+  // flat toon bands + inverted-hull outlines. Idempotent, so we can re-run it
+  // freely after dynamic meshes (worn gear, weapons, monsters) appear.
+  toonify(scene);
+
   // 4) SYSTEMS.
   const controls = setupControls(player, camera, renderer.domElement);
   const skills = createSkills();
@@ -131,6 +137,7 @@ function startGame(username) {
   equipment.setEquipChangeHandler((slot, def) => {
     if (slot === 'weapon') setHeldWeapon(player, def);
     else setWornGear(player, slot, def);
+    applyToonTo(player);   // cel-shade newly-attached gear / weapon meshes
   });
 
   // 6) INTERACTIONS + right-click menus.
@@ -338,6 +345,8 @@ function startGame(username) {
 
   // Exposed for debugging / tinkering.
   window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, questMarkers, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
+    // cel-shade helper exposed so async-spawned meshes (monsters) can toon-ify themselves
+    applyToonTo,
     // talk(npcId) — runs the same talk flow a click would (handy for testing/wiring).
     talk: (npcId) => { const n = npcs.find((x) => x.def.id === npcId); if (n) talkTo(n.def); } };
 
