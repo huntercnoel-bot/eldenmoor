@@ -28,6 +28,7 @@ import './combat.js';
 import './ambient.js';
 import './assets.js';
 import './showcase.js';
+import './villageModels.js';
 
 // ============================ LOGIN ============================
 const net = createNet();

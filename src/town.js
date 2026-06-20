@@ -42,7 +42,9 @@ function sweptRoof(radius, height, mat, x, y, z, sides = 12) {
   g.position.set(x, y, z); return g;
 }
 
-const COTTAGES = [
+// Village house spots [x, z, rotation]. The visible buildings are realistic
+// glTF models placed by villageModels.js; here we keep only invisible colliders.
+export const COTTAGES = [
   [-24, 4, 0.1], [24, 4, -0.1], [-27, 13, 0.25], [27, 13, -0.25], [-12, -6, 0.1], [12, -6, -0.1],
 ];
 const CHAPEL = [-28, 16];
@@ -110,32 +112,15 @@ export function buildTown(scene) {
   };
   stall(6, 13, 0x8a1f1f); stall(6, 20, 0x274a8a); stall(-6, 9, 0x2f8a4a); stall(-6, 22, 0xc9a24a);
 
-  // --- cottages (solid scenery) ---
-  const cwalls = [0xcdb98c, 0xd8c49a, 0xc2a98a], croofs = [0x7a4a2a, 0x6e3a2a, 0x46586a];
-  const cottage = (x, z, rot, wallc, roofc) => {
-    const c = new THREE.Group();
-    const plaster = mapped(T.plaster, wallc), beam = flat(0x4a3220);
-    c.add(box(6, 3, 5, plaster, 0, 1.5, 0));                                                 // solid body (collider)
-    // chamfered corner buttresses (rounded posts) soften the silhouette
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) c.add(deco(cyl(0.34, 0.42, 3.0, 10, beam, sx * 3, 1.5, sz * 2.5)));
-    // a rounded plaster eave band tucks the wall-top into the roof
-    c.add(deco(cyl(3.6, 3.5, 0.4, 12, plaster, 0, 3.1, 0)));
-    // smooth, steeply-swept 12-sided roof + finial
-    c.add(sweptRoof(4.5, 2.8, mapped(T.shingle, roofc), 0, 3.3, 0, 12));
-    { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 8), flat(0x6e3a2a)); fin.position.set(0, 6.2, 0); deco(fin); c.add(fin); }   // roof finial
-    // arched plank door
-    c.add(archedOpening(1.2, 1.7, flat(0x4a3220), flat(0x6b4a2c), 0, 1.05, -2.56));
-    // arched window with shutters + sill
-    c.add(archedOpening(1.0, 1.0, flat(0x86bcd6), flat(0x6e3a2a), 1.8, 1.75, -2.56));
-    for (const ss of [-1, 1]) c.add(deco(box(0.42, 1.4, 0.1, flat(0x6e3a2a), 1.8 + ss * 0.74, 1.85, -2.58)));   // shutters
-    c.add(deco(box(1.3, 0.14, 0.2, flat(0x4a3018), 1.8, 1.12, -2.62)));                      // flower box
-    for (let i = 0; i < 3; i++) c.add(deco(box(0.1, 0.16, 0.1, flat([0xc0392b, 0xd4ac0d, 0xe6e6e6][i]), 1.4 + i * 0.4, 1.26, -2.64)));   // blooms
-    c.add(deco(cyl(0.42, 0.46, 1.9, 10, stone, 2.0, 2.7, 1.8)));                             // round chimney
-    c.add(deco(cyl(0.5, 0.46, 0.22, 10, stone, 2.0, 3.7, 1.8)));                             // chimney cap
-    for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.2 + i * 0.08, 8, 6), new THREE.MeshStandardMaterial({ color: 0xbfc0c2, transparent: true, opacity: 0.42 - i * 0.1 })); sm.position.set(2.0 + i * 0.12, 4.0 + i * 0.55, 1.8); deco(sm); c.add(sm); }   // chimney smoke
-    c.position.set(x, 0, z); c.rotation.y = rot; g.add(c);
-  };
-  COTTAGES.forEach(([x, z, rot], i) => cottage(x, z, rot, cwalls[i % 3], croofs[i % 3]));
+  // --- cottages: invisible solid colliders only ---
+  // The visible houses are realistic glTF models placed by villageModels.js. We
+  // keep a hidden body box at each spot so collision still blocks the footprint
+  // (and so it blocks immediately, before the async model finishes loading).
+  COTTAGES.forEach(([x, z, rot]) => {
+    const body = box(6, 3, 5, flat(0x3a2a1a), x, 1.5, z);   // collider footprint
+    body.rotation.y = rot; body.visible = false; body.castShadow = false;
+    g.add(body);
+  });
 
   // --- chapel (Lumbridge-style church with a steeple) ---
   const chapel = (x, z) => {
