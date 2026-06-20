@@ -20,6 +20,7 @@ import { createRemotePlayers } from './players.js';
 import { setupSocial } from './social.js';
 import { showDialogue } from './dialogue.js';
 import { createQuests, QUEST_DEFS } from './quests.js';
+import { createQuestMarkers } from './questmarkers.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
@@ -99,6 +100,8 @@ function startGame(username) {
   const equipment = createEquipment(inventory);
   const shop = createShop(inventory);
   const quests = createQuests({ skills, inventory, equipment });
+  // WoW-style "!" / "?" markers floating above quest-giver NPCs.
+  const questMarkers = createQuestMarkers(npcs, quests);
 
   inventory.setClickHandler((itemId, def) => {
     if (shop.isOpen()) shop.sell(itemId);
@@ -307,6 +310,7 @@ function startGame(username) {
     if (questPollTimer >= 0.5) { questPollTimer = 0; quests.poll(); }
     updateNpcs(npcs, dt, t);
     updateNpcLabels(npcs, camera);
+    questMarkers.update(camera);
     remotePlayers.update(dt, t);
     posTimer += dt;
     if (posTimer >= 0.08) {
@@ -329,7 +333,7 @@ function startGame(username) {
   });
 
   // Exposed for debugging / tinkering.
-  window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
+  window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, questMarkers, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
     // talk(npcId) — runs the same talk flow a click would (handy for testing/wiring).
     talk: (npcId) => { const n = npcs.find((x) => x.def.id === npcId); if (n) talkTo(n.def); } };
 
