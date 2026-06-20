@@ -8,8 +8,8 @@
       "emoji": "🎨",
       "focus": "NPCs & the player character",
       "scope": ["src/player.js", "src/npc.js"],
-      "status": "idle",
-      "task": "Re-briefed for a SMOOTH (non-blocky) RS/WoW style — smooth character & NPC overhaul queued next.",
+      "status": "working",
+      "task": "Rebuilding the hero in a smooth, heroic RS3/WoW style (no more cubes) — smooth NPCs next.",
       "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "smooth", "face", "beard"],
       "recent": [
         "Rebuilt the NPCs as jointed humanoids — helms, robes, beards, hats",
