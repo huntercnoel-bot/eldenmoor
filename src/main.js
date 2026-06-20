@@ -24,6 +24,7 @@ import { createQuestMarkers } from './questmarkers.js';
 import './vfx.js';
 import './audio.js';
 import './combat.js';
+import './ambient.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
