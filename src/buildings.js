@@ -88,24 +88,30 @@ function makeShop(opts) {
   g.add(deco(box(HW * 2, 0.2, HD * 2, floorMat, 0, 0.06, 0, false)));            // wood floor
   g.add(deco(box(DOOR * 2 + 1, 0.18, 1.2, mapped(T.road), 0, 0.05, -HD - 0.6, false))); // doorstep
 
+  // The exterior shell (walls, windows, door frame) lives in its own group so a
+  // glTF building can replace it: storeModels.js hides the shell + roof when you
+  // stand outside and shows them again when you step in (the walls still collide
+  // even while hidden, so the doorway stays a doorway).
+  const shell = new THREE.Group();
   const wallSeg = (x0, z0, x1, z1) => {
     const w = Math.max(TH, Math.abs(x1 - x0)), d = Math.max(TH, Math.abs(z1 - z0));
-    g.add(box(w, H, d, wallMat, (x0 + x1) / 2, H / 2, (z0 + z1) / 2));
+    shell.add(box(w, H, d, wallMat, (x0 + x1) / 2, H / 2, (z0 + z1) / 2));
   };
   wallSeg(-HW, HD, HW, HD); wallSeg(-HW, -HD, -HW, HD); wallSeg(HW, -HD, HW, HD); // back + sides
   wallSeg(-HW, -HD, -DOOR, -HD); wallSeg(DOOR, -HD, HW, -HD);                     // front (door gap)
-  for (const sx of [-1, 1]) g.add(box(0.3, 2.6, 0.5, beam, sx * DOOR, 1.3, -HD)); // door frame
-  g.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, -HD));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD)); // corner posts
-  for (const sz of [-1, 1]) g.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));                 // timber band
+  for (const sx of [-1, 1]) shell.add(box(0.3, 2.6, 0.5, beam, sx * DOOR, 1.3, -HD)); // door frame
+  shell.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, -HD));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) shell.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD)); // corner posts
+  for (const sz of [-1, 1]) shell.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));                 // timber band
   for (const sz of [-2.2, 2.2]) for (const sx of [-1, 1]) {
     const wx = sx * (HW - 0.02);
-    g.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));                                                 // glass
-    g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));   // lintel + sill
-    for (const ss of [-1, 1]) { g.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); g.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }  // jambs + open shutters
-    g.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));                          // flower box
-    for (let i = 0; i < 4; i++) g.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));  // blooms
+    shell.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));                                                 // glass
+    shell.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); shell.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));   // lintel + sill
+    for (const ss of [-1, 1]) { shell.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); shell.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }  // jambs + open shutters
+    shell.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));                          // flower box
+    for (let i = 0; i < 4; i++) shell.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));  // blooms
   }
+  g.add(shell); g.userData.shell = shell;
 
   // hideable roof
   const roof = new THREE.Group();
@@ -662,24 +668,26 @@ function makeTavern() {
   const glass = new THREE.MeshStandardMaterial({ color: 0x86bcd6, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.55 });
   const ember = new THREE.MeshStandardMaterial({ color: 0xff7a1e, emissive: 0xff5500, emissiveIntensity: 1.1, roughness: 0.7 });
   const candle = new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.3, roughness: 0.5 });
-  const wallSeg = (x0, z0, x1, z1) => { const w = Math.max(TH, Math.abs(x1 - x0)), d = Math.max(TH, Math.abs(z1 - z0)); g.add(box(w, H, d, wallMat, (x0 + x1) / 2, H / 2, (z0 + z1) / 2)); };
+  const shell = new THREE.Group();
+  const wallSeg = (x0, z0, x1, z1) => { const w = Math.max(TH, Math.abs(x1 - x0)), d = Math.max(TH, Math.abs(z1 - z0)); shell.add(box(w, H, d, wallMat, (x0 + x1) / 2, H / 2, (z0 + z1) / 2)); };
 
   g.add(deco(box(HW * 2, 0.2, HD * 2, floorMat, 0, 0.06, 0, false)));
   wallSeg(-HW, -HD, HW, -HD);                                   // back
   wallSeg(-HW, -HD, -HW, HD); wallSeg(HW, -HD, HW, HD);         // sides
   wallSeg(-HW, HD, -DOOR, HD); wallSeg(DOOR, HD, HW, HD);       // front (door faces +z, the town)
-  for (const sx of [-1, 1]) g.add(box(0.3, 2.6, 0.5, beam, sx * DOOR, 1.3, HD));
-  g.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, HD));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD));
-  for (const sz of [-1, 1]) g.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));
+  for (const sx of [-1, 1]) shell.add(box(0.3, 2.6, 0.5, beam, sx * DOOR, 1.3, HD));
+  shell.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, HD));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) shell.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD));
+  for (const sz of [-1, 1]) shell.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));
   for (const sz of [-2.5, 2.5]) for (const sx of [-1, 1]) {
     const wx = sx * (HW - 0.02);
-    g.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));
-    g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));
-    for (const ss of [-1, 1]) { g.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); g.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }
-    g.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));
-    for (let i = 0; i < 4; i++) g.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));
+    shell.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));
+    shell.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); shell.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));
+    for (const ss of [-1, 1]) { shell.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); shell.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }
+    shell.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));
+    for (let i = 0; i < 4; i++) shell.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));
   }
+  g.add(shell); g.userData.shell = shell;
   // hideable roof + chimney + signpost
   const roof = new THREE.Group();
   const cone = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 4), mapped(T.shingle, 0x5a3a2a)); cone.scale.set(HW + 1.4, 3.6, HD + 1.4); cone.position.y = H + 1.7; cone.rotation.y = Math.PI / 4; cone.castShadow = true; deco(cone); roof.add(cone);
@@ -738,6 +746,12 @@ export function buildStructures(scene) {
   scene.userData.basementBuildings = [basement];
   scene.userData.keep = { ground: castle, upper, basement };
   (scene.userData.outdoor = scene.userData.outdoor || []).push(general, axes, tavern);
+  // Shops whose exterior shell can be swapped for a glTF building (storeModels.js).
+  scene.userData.shops = [
+    { group: general, x: -15, z: 12, glb: 'inn', face: -1 },  // door faces -z
+    { group: axes, x: 15, z: 12, glb: 'inn', face: -1 },
+    { group: tavern, x: -16, z: -14, glb: 'inn', face: 1 },   // door faces +z
+  ];
   scene.userData.stairs = [
     { floor: 0, x: 8, z: 49, r: 1.7, to: 1, lx: 8, lz: 52 },    // ground → upper
     { floor: 0, x: -8, z: 49, r: 1.7, to: -1, lx: -8, lz: 52 }, // ground → cellar
