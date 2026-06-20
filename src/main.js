@@ -130,12 +130,40 @@ function startGame(username) {
   const interactions = setupInteractions(scene, camera, player, renderer.domElement, skills, inventory, equipment, showLevelUp);
 
   // --- Talking: quest-givers route through the quest system; everyone else
-  //     pages through their `dialogue` lines in the dialogue box (flavor fallback).
+  //     gets a greeting + a little "ask about..." topic menu (OSRS style). NPCs
+  //     with only `dialogue` lines (and no `topics`) page through those; `flavor`
+  //     is the last-ditch fallback.
   function talkTo(def) {
     if (def.quest) { talkQuestGiver(def); return; }
     if (def.id === 'cook') { talkCook(def); return; }
+    if (Array.isArray(def.topics) && def.topics.length) { talkTopics(def); return; }
     if (Array.isArray(def.dialogue) && def.dialogue.length) showDialogue(def.dialogue, { speaker: def.name });
     else showDialogue(def.flavor || '...', { speaker: def.name });
+  }
+
+  // A branching "ask about..." chat. `def.greeting` is shown first (string or
+  // array of lines), then a menu built from `def.topics` (each { q, a }). Picking
+  // a topic pages through its answer lines and returns to the menu; "Goodbye"
+  // closes. Topics can also carry their own nested menu via `a` being a function.
+  function talkTopics(def) {
+    const greeting = def.greeting != null ? def.greeting
+      : (Array.isArray(def.dialogue) && def.dialogue.length ? def.dialogue[0] : (def.flavor || '...'));
+    const greetPages = (Array.isArray(greeting) ? greeting : [greeting])
+      .map((t) => ({ speaker: def.name, text: t }));
+
+    function asPages(a) {
+      const arr = Array.isArray(a) ? a : [a];
+      return arr.map((t) => (typeof t === 'string' ? { speaker: def.name, text: t } : t));
+    }
+    function showMenu() {
+      const options = def.topics.map((t) => ({
+        label: t.q,
+        onSelect: () => showDialogue(asPages(t.a), { speaker: def.name, onDone: showMenu }),
+      }));
+      options.push({ label: '(Goodbye.)', onSelect: () => {} });
+      showDialogue({ speaker: def.name, text: def.prompt || 'What would you like to ask about?', options });
+    }
+    showDialogue(greetPages, { speaker: def.name, onDone: showMenu });
   }
 
   // King Aldric — the giver of "The King's Hearth".
@@ -157,10 +185,17 @@ function startGame(username) {
     showDialogue(QUEST_DEFS[id].startDialogue, {
       speaker: def.name,
       onDone: () => showDialogue({
-        speaker: def.name, text: 'Will you help warm the great hall of Eldenmoor?',
+        speaker: def.name, text: 'So — will you help warm the great hall of Eldenmoor?',
         options: [
-          { label: 'Yes, your Majesty. I\'ll fetch the firewood.', onSelect: () => { quests.start(id); showDialogue('A true friend of the Crown! Off you go — 5 logs for the hearth.', { speaker: def.name }); } },
-          { label: 'Not just now.', onSelect: () => showDialogue('A pity. The hearth waits for no one — return when you\'re ready.', { speaker: def.name }) },
+          { label: 'Yes, your Majesty. I\'ll fetch the firewood.', onSelect: () => { quests.start(id); showDialogue([
+            { speaker: def.name, text: 'Ha! A true friend of the Crown. I knew it the moment you walked in — one can always tell.' },
+            { speaker: def.name, text: 'Off you go, then. Find an axe, take to the woods beyond the square, and bring me 5 logs for the hearth. Bessa the cook will lay the fire.' },
+          ], { speaker: def.name }); } },
+          { label: 'Tell me more about this hearth.', onSelect: () => showDialogue([
+            { speaker: def.name, text: 'The great hall\'s hearth has burned in this keep for three hundred years — through siege, storm, and one very memorable royal wedding.' },
+            { speaker: def.name, text: 'To let it go cold would be an ill omen for the realm. And, frankly, my toes are like ice. Will you help?' },
+          ], { speaker: def.name, onDone: () => talkQuestGiver(def) }) },
+          { label: 'Not just now.', onSelect: () => showDialogue('A pity. The hearth waits for no one — and winter least of all. Return when your courage warms to it.', { speaker: def.name }) },
         ],
       }),
     });
@@ -175,6 +210,7 @@ function startGame(username) {
       ], { speaker: def.name, onDone: () => quests.setFlag('king', 'toldCook', true) });
       return;
     }
+    if (Array.isArray(def.topics) && def.topics.length) { talkTopics(def); return; }
     if (Array.isArray(def.dialogue) && def.dialogue.length) showDialogue(def.dialogue, { speaker: def.name });
     else showDialogue(def.flavor || '...', { speaker: def.name });
   }
