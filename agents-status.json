@@ -3,85 +3,76 @@
   "repo": "huntercnoel-bot/eldenmoor",
   "agents": [
     {
-      "id": "art-director", "name": "Art Director", "emoji": "🎨",
-      "focus": "NPCs & the player character",
-      "scope": ["src/player.js", "src/npc.js"],
-      "status": "working",
-      "task": "Smoothing every NPC's geometry to match the smooth hero (rounded, organic, no cubes).",
-      "match": ["npc", "character", "hero", "player", "gear", "smooth", "face", "beard", "pauldron"],
-      "recent": ["Smooth, organic hero + gear (LIVE)", "Now: smoothing every NPC to match"]
-    },
-    {
-      "id": "world-builder", "name": "World Builder", "emoji": "🏰",
-      "focus": "Buildings & environment",
-      "scope": ["src/world.js", "sky/fog/lighting"],
-      "status": "working",
-      "task": "Atmosphere pass — richer sky, fog, sunlight/shadows and time-of-day mood to make the world feel alive.",
-      "match": ["castle", "build", "texture", "tree", "terrain", "town", "world", "water", "sky", "fog", "light", "atmosphere"],
-      "recent": ["Expanded castle + smoothed castle/town (LIVE)", "Smooth lush trees, rocks & water (LIVE)", "Now: sky / fog / lighting atmosphere"]
-    },
-    {
-      "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
-      "focus": "In-game interface (HUD, panels)",
-      "scope": ["index.html", "src/ui.js"],
-      "status": "idle",
-      "task": "Dependency-gated: theme the combat HP bars, XP-drop popups, audio mute button & new skill UI the moment Combat/Skills/Audio land.",
-      "match": ["ui", "hud", "panel", "chat", "tooltip", "minimap", "tab", "dialogue box", "marker"],
-      "recent": ["HUD + minimap + tooltips (LIVE)", "Quests tab + scroll icon (LIVE)", "Themed dialogue box + ! / ? markers (LIVE)"]
-    },
-    {
-      "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
-      "focus": "Dialogue & quests",
-      "scope": ["src/ambient.js", "dialogue depth"],
-      "status": "working",
-      "task": "Ambient life — NPCs murmur idle 'overheard' lines as you pass (no new quests, per orders).",
-      "match": ["dialogue", "quest", "king", "talk", "ambient", "marker", "chatter"],
-      "recent": ["Deep dialogue on every NPC (LIVE)", "King's quest + ! / ? markers + city journal (LIVE)", "Now: ambient overheard NPC chatter"]
-    },
-    {
-      "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
-      "focus": "Cel-shaded toon look (global)",
-      "scope": ["src/toon.js", "render layer"],
-      "status": "idle",
-      "task": "Queued by dependency: the global cel-shade + outline pass fires the moment the smooth-NPC pass lands (can't re-skin geometry while it's being rewritten).",
-      "match": ["toon", "cel", "shader", "outline", "render", "style"],
-      "recent": ["Waiting on the smooth-NPC pass, then a whole-game cel-shade + outline pass"]
-    },
-    {
       "id": "combat", "name": "Combat Smith", "emoji": "🗡️",
-      "focus": "Combat & monsters",
-      "scope": ["src/combat.js", "src/monsters.js"],
+      "focus": "Combat & monsters", "scope": ["src/combat.js", "src/monsters.js"],
       "status": "working",
-      "task": "Wandering/aggro monsters, melee combat, HP & damage, death + respawn, and loot drops.",
-      "match": ["combat", "monster", "mob", "fight", "attack", "damage", "loot", "hp", "death", "respawn", "goblin", "rat"],
-      "recent": ["Spinning up — mobs, melee combat, HP/damage, loot (in progress)"]
-    },
-    {
-      "id": "skills", "name": "Skill Master", "emoji": "📈",
-      "focus": "Skills & progression",
-      "scope": ["src/skills.js", "src/resources.js"],
-      "status": "working",
-      "task": "New OSRS-style skills — mining, fishing, cooking, firemaking, smithing — with resource nodes, XP and levels.",
-      "match": ["skill", "mining", "fishing", "cooking", "smithing", "firemaking", "xp", "level", "ore", "fish", "progression"],
-      "recent": ["Spinning up — mining/fishing/cooking + resource nodes, XP & levels (in progress)"]
+      "task": "Wandering/aggro monsters, melee combat, HP & damage, death + respawn, loot drops.",
+      "match": ["combat", "monster", "mob", "fight", "attack", "damage", "loot", "hp", "respawn", "goblin", "rat"],
+      "recent": ["Batch 1 — building mobs + melee + loot (in progress)"]
     },
     {
       "id": "audio", "name": "Audio Director", "emoji": "🔊",
-      "focus": "Music & sound",
-      "scope": ["src/audio.js"],
+      "focus": "Music & sound", "scope": ["src/audio.js"],
       "status": "working",
-      "task": "Procedural Web-Audio music, ambient beds and SFX (chop, hit, UI) — no downloads, with a mute toggle.",
+      "task": "Procedural Web-Audio music, ambient beds and SFX (chop, hit, UI), with a mute toggle.",
       "match": ["audio", "music", "sound", "sfx", "ambient", "mute"],
-      "recent": ["Spinning up — synth music + ambient + SFX via Web Audio (in progress)"]
+      "recent": ["Batch 1 — synth music + ambient + SFX (in progress)"]
+    },
+    {
+      "id": "world-builder", "name": "World Builder", "emoji": "🏰",
+      "focus": "Buildings & environment", "scope": ["src/world.js", "sky/fog/lighting"],
+      "status": "working",
+      "task": "Atmosphere pass — richer sky, fog and golden-hour lighting to make the world feel alive.",
+      "match": ["castle", "build", "texture", "tree", "world", "water", "sky", "fog", "light", "atmosphere"],
+      "recent": ["Expanded + smoothed castle/town (LIVE)", "Smooth trees/rocks/water (LIVE)", "Batch 1 — sky/fog/lighting (in progress)"]
+    },
+    {
+      "id": "skills", "name": "Skill Master", "emoji": "📈",
+      "focus": "Skills & progression", "scope": ["src/skills.js", "src/resources.js"],
+      "status": "idle",
+      "task": "Queued (batch 2): mining, fishing, cooking, firemaking + resource nodes, XP and levels.",
+      "match": ["skill", "mining", "fishing", "cooking", "smithing", "xp", "level", "ore", "fish"],
+      "recent": ["Queued for batch 2 (relaunching after batch 1 lands)"]
+    },
+    {
+      "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
+      "focus": "Dialogue & quests", "scope": ["src/ambient.js"],
+      "status": "idle",
+      "task": "Queued (batch 2): ambient 'overheard' NPC chatter bubbles. No new quests (per orders).",
+      "match": ["dialogue", "quest", "ambient", "chatter", "marker", "talk"],
+      "recent": ["Deep dialogue on every NPC + King's quest + ! / ? markers + city journal (LIVE)", "Queued: ambient chatter"]
+    },
+    {
+      "id": "art-director", "name": "Art Director", "emoji": "🎨",
+      "focus": "NPCs & the player character", "scope": ["src/player.js", "src/npc.js"],
+      "status": "idle",
+      "task": "Smooth hero + every NPC rebuilt rounded & organic — no more cubes (LIVE). Standing by.",
+      "match": ["npc", "character", "hero", "player", "gear", "smooth", "face"],
+      "recent": ["Smooth organic hero + gear (LIVE)", "Smoothed every NPC's geometry (LIVE)"]
     },
     {
       "id": "vfx", "name": "VFX Artist", "emoji": "✨",
-      "focus": "Particles & effects",
-      "scope": ["src/vfx.js"],
-      "status": "working",
-      "task": "Particle effects — hit sparks, gathering puffs, spell glows, fire/water/dust — for game-wide juice.",
-      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "smoke", "juice"],
-      "recent": ["Spinning up — a particle system + hit/gather/fire effects (in progress)"]
+      "focus": "Particles & effects", "scope": ["src/vfx.js"],
+      "status": "idle",
+      "task": "Particle system — hit sparks, gather dust, coin sparkle, level-up, brazier embers, pond shimmer (LIVE).",
+      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "ember"],
+      "recent": ["Particle effects system + ambient embers/shimmer (LIVE)"]
+    },
+    {
+      "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
+      "focus": "Cel-shaded toon look (global)", "scope": ["src/toon.js", "render layer"],
+      "status": "idle",
+      "task": "Queued (final pass): global cel-shade + crisp outlines + rim light — runs LAST so it re-skins every finished model, monster and prop.",
+      "match": ["toon", "cel", "shader", "outline", "render", "style"],
+      "recent": ["Unblocked (smooth NPCs landed) — runs after combat/skills add their models"]
+    },
+    {
+      "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
+      "focus": "In-game interface", "scope": ["index.html", "src/ui.js"],
+      "status": "idle",
+      "task": "Dependency-gated: theme the combat HP bars, XP-drop popups, audio mute button & skill UI the moment Combat/Skills/Audio land.",
+      "match": ["ui", "hud", "panel", "tooltip", "minimap", "tab", "dialogue box", "marker"],
+      "recent": ["HUD + minimap + tooltips + Quests tab + themed dialogue/markers (LIVE)"]
     }
   ]
 }
