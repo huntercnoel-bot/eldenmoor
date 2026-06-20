@@ -5,27 +5,48 @@ import * as THREE from '../vendor/three.module.js';
 import { buildStructures, STRUCTURES } from './buildings.js';
 import { buildTown, townStructures } from './town.js';
 import { buildWater, waterStructures } from './water.js';
-import { grassTexture, dirtTexture, barkTexture, skyDome } from './textures.js';
+import { grassTexture, dirtTexture, barkTexture } from './textures.js';
 
 // The pond sits here. We also keep trees from spawning on top of it.
 const POND = { x: 22, z: -16, r: 6 };
 let EXTRA = [];   // extra tree-avoidance footprints from the town
 
 export function buildWorld(scene) {
-  // --- Sky color + distance fog (fog hides the far edges and adds depth) ---
-  scene.background = new THREE.Color(0xdde9f0);
-  scene.fog = new THREE.Fog(0xc6dcee, 55, 180);
+  // --- Atmosphere: a warm golden-hour fantasy sky + depth fog ---------------
+  // A soft, slightly hazy horizon colour drives both the fog and the sky's lower
+  // band so the far scenery melts into the same warm light. Fog is pulled in a
+  // little and given a gentle gradient so distant towers read with airy depth
+  // without crushing the foreground or blowing out the cel-shaded mid-tones.
+  const HORIZON = 0xead9bd;            // warm hazy gold at the skyline
+  scene.background = new THREE.Color(HORIZON);
+  scene.fog = new THREE.Fog(0xdcd2c4, 48, 205);
   scene.userData.outdoor = [];        // scenery toggled off when you go upstairs / underground
-  const sky = skyDome(); scene.add(sky); scene.userData.sky = sky;
 
-  // --- Lights ---
-  // Hemisphere light = soft fill: sky color from above, ground color from below.
-  const hemi = new THREE.HemisphereLight(0xbcd6f0, 0x55492f, 1.0); scene.add(hemi); scene.userData.hemi = hemi;
+  // Custom gradient sky dome (deep blue zenith -> warm gold horizon glow) with a
+  // soft sun bloom painted near the sun's bearing. Built locally so we can tune
+  // the golden-hour palette without touching the shared texture helpers.
+  const sky = goldenSkyDome();
+  scene.add(sky); scene.userData.sky = sky;
 
-  // The "sun": a strong directional light that casts shadows.
-  const sun = new THREE.DirectionalLight(0xfff1d4, 2.7);
+  // A few cheap, soft cloud puffs drifting high overhead for a touch of sky life.
+  const clouds = makeClouds();
+  scene.add(clouds); scene.userData.clouds = clouds;
+  scene.userData.outdoor.push(clouds);
+
+  // --- Lights ---------------------------------------------------------------
+  // Hemisphere fill: warm light from the sky, earthy bounce from the ground.
+  // Kept gentle so the flat toon bands stay readable and shadows don't go inky.
+  // NOTE: base surface intensity stays 1.0 so the floor-toggle in main.js (which
+  // resets this to 1.0 above ground) matches what we set here.
+  const hemi = new THREE.HemisphereLight(0xf3e2c2, 0x4d4126, 1.0);
+  scene.add(hemi); scene.userData.hemi = hemi;
+
+  // The "sun": a warm directional key that casts the shadows. Lowered + swung
+  // toward the horizon for a longer, golden-hour rake across the smooth forms.
+  // Intensity stays 2.7 to match main.js's surface reset.
+  const sun = new THREE.DirectionalLight(0xffe0ad, 2.7);
   scene.userData.sun = sun;
-  sun.position.set(35, 55, 20);
+  sun.position.set(48, 40, 26);                 // lower + warmer raking angle
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);          // shadow sharpness
   sun.shadow.camera.near = 1;
@@ -34,6 +55,13 @@ export function buildWorld(scene) {
   sun.shadow.camera.top = 90;    sun.shadow.camera.bottom = -90;
   sun.shadow.bias = -0.0004;                    // removes shadow "acne" specks
   scene.add(sun);
+
+  // A cool, dim sky-fill from the opposite side. It does NOT cast shadows; it
+  // just keeps the shaded sides from going dead-flat and adds gentle blue
+  // counter-light against the warm sun — the classic warm/cool form read.
+  const skyFill = new THREE.DirectionalLight(0x9fb8d8, 0.45);
+  skyFill.position.set(-38, 24, -30);
+  scene.add(skyFill); scene.userData.skyFill = skyFill;
 
   // --- Ground ---
   const ground = new THREE.Mesh(
@@ -112,6 +140,75 @@ export function buildWorld(scene) {
   scene.userData.rocks = rocks;
   scene.userData.outdoor.push(...rocks);
   for (let i = 0; i < 70; i++) { const p = spot(74); const gr = makeGrass(p.x, p.z); scene.add(gr); scene.userData.outdoor.push(gr); }
+}
+
+// --- Atmosphere helpers ----------------------------------------------------
+
+// A golden-hour gradient sky dome painted on a tall canvas: a deep blue zenith
+// easing down through soft cyan into a warm gold horizon haze, with a gentle sun
+// bloom feathered just above the skyline. BackSide + fog:false so it always sits
+// behind the world. Kept self-contained here so the mood is tunable in-file.
+function goldenSkyDome() {
+  const W = 16, H = 512;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  // Vertical gradient: top (zenith) -> bottom (horizon).
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, '#2a4f86');   // deep blue zenith
+  grad.addColorStop(0.32, '#4f7fb6');
+  grad.addColorStop(0.58, '#8db4d2');   // pale cyan mid-sky
+  grad.addColorStop(0.78, '#d3cdba');
+  grad.addColorStop(0.90, '#eccf9d');   // warming toward gold
+  grad.addColorStop(1.00, '#f5e2bf');   // warm hazy horizon
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+
+  // Soft sun glow feathered above the horizon for a golden-hour bloom. Reaches a
+  // little higher up the dome so the warm band still reads at normal play pitch.
+  const glow = g.createLinearGradient(0, H * 0.55, 0, H);
+  glow.addColorStop(0, 'rgba(255,224,160,0)');
+  glow.addColorStop(0.5, 'rgba(255,219,148,0.34)');
+  glow.addColorStop(1, 'rgba(255,238,192,0.60)');
+  g.fillStyle = glow; g.fillRect(0, H * 0.55, W, H * 0.45);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(440, 32, 18), mat);
+  dome.renderOrder = -1;
+  return dome;
+}
+
+// A scatter of soft, flattened cloud puffs high in the sky. Each puff is a
+// low-poly sphere with smooth normals, lit only by the unshadowed fill so it
+// stays bright and gauzy. Purely decorative; tagged out of the way and never
+// collided (it's never pushed into buildings).
+function makeClouds() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xfdf6ec, roughness: 1, metalness: 0,
+    emissive: 0xf3e6cf, emissiveIntensity: 0.25,
+    transparent: true, opacity: 0.85, fog: false, depthWrite: false,
+  });
+  const clusters = 9;
+  for (let i = 0; i < clusters; i++) {
+    const cl = new THREE.Group();
+    const puffs = 3 + ((Math.random() * 3) | 0);
+    for (let p = 0; p < puffs; p++) {
+      const s = 7 + Math.random() * 9;
+      const m = new THREE.Mesh(lumpify(new THREE.SphereGeometry(s, 10, 8), 0.12, Math.random() * 10), mat);
+      m.position.set((Math.random() - 0.5) * 26, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 18);
+      m.scale.set(1.5, 0.55, 1.2);
+      cl.add(m);
+    }
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 120 + Math.random() * 160;
+    cl.position.set(Math.cos(ang) * rad, 95 + Math.random() * 55, Math.sin(ang) * rad);
+    cl.rotation.y = Math.random() * Math.PI * 2;
+    g.add(cl);
+  }
+  g.renderOrder = -1;
+  return g;
 }
 
 // --- Helpers ---------------------------------------------------------------
