@@ -26,6 +26,7 @@ import './vfx.js';
 import './audio.js';
 import './combat.js';
 import './ambient.js';
+import './assets.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
