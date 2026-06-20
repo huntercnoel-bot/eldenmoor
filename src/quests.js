@@ -26,6 +26,10 @@ export const QUEST_DEFS = {
     id: 'king',
     name: "The King's Hearth",
     giver: 'king',
+    // City/area this quest belongs to. The journal groups quests by `city`, so a
+    // future city's quests slot into the same panel automatically just by setting
+    // this field. Unset quests fall back to 'Eldenmoor'.
+    city: 'Eldenmoor',
     intro: 'King Aldric has asked you to help warm the great hall before winter.',
     startDialogue: [
       { speaker: 'King Aldric', text: 'Ah, an adventurer! Splendid. You arrive at a fortunate hour — Eldenmoor has need of willing hands.' },
@@ -167,6 +171,39 @@ export function createQuests({ skills, inventory, equipment }) {
     return p.stage >= def.stages.length - 1;
   }
 
+  // A quest can be started if it exists and has not yet been begun.
+  function canStart(id) {
+    return !!QUEST_DEFS[id] && status(id) === STATUS.NOT_STARTED;
+  }
+
+  // True when *any* quest is startable or waiting to be handed in. The HUD reads
+  // this to make a tab/button glow ("you have something to do").
+  function anyAvailable() {
+    for (const id of Object.keys(QUEST_DEFS)) {
+      if (canStart(id) || readyToComplete(id)) return true;
+    }
+    return false;
+  }
+
+  // WoW-style marker state for a given giver NPC id:
+  //   'available'   → a "!" (a quest you can start)
+  //   'in-progress' → a "?" (a quest you're on / ready to hand in)
+  //   null          → no marker
+  // `def.quest` (or a quest's `giver`) maps an NPC to its quest.
+  function questIdForGiver(npcId) {
+    for (const id of Object.keys(QUEST_DEFS)) {
+      if (QUEST_DEFS[id].giver === npcId || id === npcId) return id;
+    }
+    return null;
+  }
+  function markerFor(npcId) {
+    const id = questIdForGiver(npcId);
+    if (!id) return null;
+    if (canStart(id)) return 'available';
+    if (isActive(id)) return 'in-progress';
+    return null; // complete or otherwise → no marker
+  }
+
   // Poll every active quest's objective (called from the game loop, throttled).
   function poll() {
     for (const id of Object.keys(QUEST_DEFS)) {
@@ -227,36 +264,64 @@ export function createQuests({ skills, inventory, equipment }) {
     if (show) renderLog();
   }
 
+  // The city/area a quest belongs to (defaults to 'Eldenmoor').
+  function cityOf(def) { return def.city || def.area || 'Eldenmoor'; }
+
+  // Render one quest entry's HTML. Includes a per-quest status word so the panel
+  // reads as a proper journal (available / in progress / complete).
+  function questEntryHtml(id) {
+    const p = progress[id], def = QUEST_DEFS[id];
+    const done = p.status === STATUS.COMPLETE;
+    const started = p.status === STATUS.IN_PROGRESS;
+    const statusWord = done ? 'complete' : (started ? 'in progress' : 'available');
+    const statusColor = done ? '#7ddf7d' : (started ? '#ffd100' : '#cfe2ff');
+    let html = `<div class="quest-entry quest-${done ? 'complete' : started ? 'in-progress' : 'available'}" data-quest="${id}" style="margin-bottom:12px;">`;
+    html += `<div class="quest-title" style="font-weight:700;color:${statusColor};">` +
+      (done ? '✔ ' : started ? '◆ ' : '! ') + def.name +
+      ` <span class="quest-status" style="font-weight:400;font-size:12px;opacity:0.85;">(${statusWord})</span></div>`;
+    if (started) {
+      const st = def.stages[Math.min(p.stage, def.stages.length - 1)];
+      html += `<div class="quest-journal" style="color:#e7dcc0;margin-top:3px;">${st.journal}</div>`;
+      html += `<div class="quest-hint" style="color:#b9892f;font-style:italic;margin-top:3px;">› ${st.objective.hint}</div>`;
+      html += '<div class="quest-stages" style="margin-top:5px;font-size:12px;color:#9a8e72;">';
+      def.stages.forEach((s, i) => {
+        const mark = i < p.stage ? '☑' : (i === p.stage ? '☐' : '·');
+        html += `<div>${mark} ${s.name}</div>`;
+      });
+      html += '</div>';
+    } else if (done) {
+      html += `<div class="quest-journal" style="color:#9a8e72;margin-top:3px;">Reward claimed: ${def.reward ? def.reward.text : '—'}.</div>`;
+    } else {
+      // Available but not yet started — tease the quest and where to begin it.
+      html += `<div class="quest-journal" style="color:#cfe2ff;margin-top:3px;">${def.intro || 'A new quest awaits.'}</div>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // City-grouped journal. Every defined quest is shown under its city heading,
+  // so a future city's quests slot in automatically (just give them a `city`).
   function renderLog() {
     if (!logBodyEl) return;
+    // Group quest ids by city, preserving definition order within each city.
+    const byCity = new Map();
+    for (const id of Object.keys(QUEST_DEFS)) {
+      const city = cityOf(QUEST_DEFS[id]);
+      if (!byCity.has(city)) byCity.set(city, []);
+      byCity.get(city).push(id);
+    }
     let html = '';
-    const ids = Object.keys(QUEST_DEFS);
-    let any = false;
-    for (const id of ids) {
-      const p = progress[id], def = QUEST_DEFS[id];
-      if (p.status === STATUS.NOT_STARTED) continue;
-      any = true;
-      const done = p.status === STATUS.COMPLETE;
-      html += `<div class="quest-entry" data-quest="${id}" style="margin-bottom:12px;">`;
-      html += `<div class="quest-title" style="font-weight:700;color:${done ? '#7ddf7d' : '#ffd100'};">` +
-        (done ? '✔ ' : '◆ ') + def.name + (done ? ' (complete)' : '') + '</div>';
-      if (!done) {
-        const st = def.stages[Math.min(p.stage, def.stages.length - 1)];
-        html += `<div class="quest-journal" style="color:#e7dcc0;margin-top:3px;">${st.journal}</div>`;
-        html += `<div class="quest-hint" style="color:#b9892f;font-style:italic;margin-top:3px;">› ${st.objective.hint}</div>`;
-        // Stage checklist.
-        html += '<div class="quest-stages" style="margin-top:5px;font-size:12px;color:#9a8e72;">';
-        def.stages.forEach((s, i) => {
-          const mark = i < p.stage ? '☑' : (i === p.stage ? '☐' : '·');
-          html += `<div>${mark} ${s.name}</div>`;
-        });
-        html += '</div>';
-      } else {
-        html += `<div class="quest-journal" style="color:#9a8e72;margin-top:3px;">Reward claimed: ${def.reward ? def.reward.text : '—'}.</div>`;
-      }
+    let anyShown = false;
+    for (const [city, ids] of byCity) {
+      const entries = ids.map(questEntryHtml).join('');
+      if (!entries) continue;
+      anyShown = true;
+      html += `<div class="quest-city" data-city="${city}" style="margin-bottom:16px;">`;
+      html += `<div class="quest-city-head" style="color:#d9b85a;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;border-bottom:1px solid #5a4a28;padding-bottom:3px;margin-bottom:8px;">⚑ ${city}</div>`;
+      html += entries;
       html += '</div>';
     }
-    logBodyEl.innerHTML = any ? html : '<div style="color:#9a8e72;font-style:italic;">No quests yet. Seek out King Aldric in the great hall.</div>';
+    logBodyEl.innerHTML = anyShown ? html : '<div style="color:#9a8e72;font-style:italic;">No quests yet. Seek out King Aldric in the great hall.</div>';
   }
 
   // ---- Persistence (plugs into save.js) ----
@@ -289,6 +354,7 @@ export function createQuests({ skills, inventory, equipment }) {
     QUEST_DEFS, STATUS,
     start, complete, tryAdvance, setFlag, poll,
     status, stage, isComplete, isActive, readyToComplete,
+    canStart, anyAvailable, markerFor, questIdForGiver,
     toggleLog, renderLog, serialize, load, setChangeHandler,
     progress,
   };
