@@ -55,16 +55,35 @@ export function buildWorld(scene) {
   clearing.receiveShadow = true;
   scene.add(clearing);
 
-  // A little pond off to the side, as a landmark.
+  // A little pond off to the side, as a landmark. A muddy shore ring softens the
+  // edge into the grass, and a gently domed water disc reads smoother than a flat
+  // slab. The water surface is animated subtly in interactions/main if available.
+  const shore = new THREE.Mesh(
+    new THREE.RingGeometry(POND.r - 0.5, POND.r + 1.4, 44),
+    new THREE.MeshStandardMaterial({ map: dirtTexture(3), roughness: 1 })
+  );
+  shore.rotation.x = -Math.PI / 2;
+  shore.position.set(POND.x, 0.015, POND.z);
+  shore.receiveShadow = true;
+
+  const pondGeo = new THREE.CircleGeometry(POND.r, 48);
+  // bow the centre up a touch so the disc looks like a settled water surface
+  const pp = pondGeo.attributes.position;
+  for (let i = 0; i < pp.count; i++) {
+    const dx = pp.getX(i), dy = pp.getY(i);
+    pp.setZ(i, (1 - Math.min(1, Math.hypot(dx, dy) / POND.r)) * 0.12);
+  }
+  pp.needsUpdate = true; pondGeo.computeVertexNormals();
   const pond = new THREE.Mesh(
-    new THREE.CircleGeometry(POND.r, 40),
-    new THREE.MeshStandardMaterial({ color: 0x2f6ea5, roughness: 0.2, metalness: 0.1,
-      transparent: true, opacity: 0.85 })
+    pondGeo,
+    new THREE.MeshStandardMaterial({ color: 0x2f6ea5, roughness: 0.12, metalness: 0.25,
+      transparent: true, opacity: 0.88 })
   );
   pond.rotation.x = -Math.PI / 2;
-  pond.position.set(POND.x, 0.02, POND.z);
+  pond.position.set(POND.x, 0.05, POND.z);
+  scene.add(shore);
   scene.add(pond);
-  scene.userData.outdoor.push(ground, clearing, pond);
+  scene.userData.outdoor.push(ground, clearing, shore, pond);
 
   // --- The castle (home base) + the two shop buildings ---
   buildStructures(scene);
@@ -117,38 +136,70 @@ function spot(range) {
   return { x, z };
 }
 
-// A stylized autumn tree: a trunk + a couple of low-poly leafy blobs.
+// Gently warp a sphere's vertices outward by smooth low-frequency noise so each
+// canopy clump reads as an organic, rounded mass — not a perfect ball and not a
+// faceted blob. Smooth normals are recomputed so it lights softly.
+function lumpify(geo, amount, seed) {
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const len = v.length() || 1;
+    const n =
+      Math.sin(v.x * 1.7 + seed) * 0.5 +
+      Math.sin(v.y * 2.1 + seed * 1.7) * 0.3 +
+      Math.sin(v.z * 1.9 + seed * 2.3) * 0.4 +
+      Math.sin((v.x + v.z) * 3.1 + seed) * 0.15;
+    const s = 1 + n * amount;
+    v.multiplyScalar(s);
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();   // smooth normals -> soft rounded shading
+  return geo;
+}
+
+// A lush, rounded RS/WoW tree: a tapered smooth trunk and a few layered, softly
+// warped canopy clumps with smooth normals. Many instances, so kept light
+// (low-segment spheres reused, smooth-shaded).
 function makeTree(x, z, palette, bark) {
   const g = new THREE.Group();
-  const trunkH = 1.6 + Math.random() * 1.2;
+  const trunkH = 1.7 + Math.random() * 1.3;
 
+  // Tapered, smooth trunk — slightly bulged at the base for a sculpted root flare.
   const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.2, 0.3, trunkH, 8),
-    new THREE.MeshStandardMaterial({ map: bark, roughness: 1 })
+    new THREE.CylinderGeometry(0.16, 0.42, trunkH, 12, 1),
+    new THREE.MeshStandardMaterial({ map: bark, roughness: 0.95 })
   );
   trunk.position.y = trunkH / 2;
   trunk.castShadow = true; trunk.receiveShadow = true;
   g.add(trunk);
 
-  const color = palette[(Math.random() * palette.length) | 0];
-  const leaf = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
+  // Two leaf tones (a base + a slightly brighter top) for gentle depth.
+  const base = palette[(Math.random() * palette.length) | 0];
+  const c = new THREE.Color(base);
+  const top = c.clone().offsetHSL(0, 0.02, 0.08).getHex();
+  const leafLo = new THREE.MeshStandardMaterial({ color: base, roughness: 0.85 });
+  const leafHi = new THREE.MeshStandardMaterial({ color: top, roughness: 0.8 });
 
-  const r = 1.3 + Math.random() * 0.8;
-  const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), leaf);
-  blob.position.y = trunkH + r * 0.5;
-  blob.scale.y = 0.85;
-  blob.castShadow = true;
-  g.add(blob);
+  const r = 1.25 + Math.random() * 0.75;
+  const seed = Math.random() * 10;
 
-  const blob2 = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.7, 0), leaf);
-  blob2.position.set((Math.random() - 0.5) * 0.9, trunkH + r, (Math.random() - 0.5) * 0.9);
-  blob2.castShadow = true;
-  g.add(blob2);
+  // A wide rounded under-canopy + a couple of smaller upper clumps stacked to
+  // build a layered, billowing crown.
+  const clump = (radius, yOff, xz, mat, sy, sd) => {
+    const m = new THREE.Mesh(lumpify(new THREE.SphereGeometry(radius, 12, 9), 0.14, sd), mat);
+    m.position.set((Math.random() - 0.5) * xz, trunkH + yOff, (Math.random() - 0.5) * xz);
+    m.scale.y = sy;
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    return m;
+  };
 
-  const blob3 = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.6, 0), leaf);
-  blob3.position.set((Math.random() - 0.5) * 1.2, trunkH + r * 0.35, (Math.random() - 0.5) * 1.2);
-  blob3.castShadow = true;
-  g.add(blob3);
+  const blob = clump(r, r * 0.35, 0, leafLo, 0.9, seed);
+  const blob2 = clump(r * 0.78, r * 0.95, r * 0.7, leafHi, 0.95, seed + 3.1);
+  const blob3 = clump(r * 0.66, r * 0.55, r * 1.1, leafLo, 1.0, seed + 6.4);
+  const blob4 = clump(r * 0.55, r * 1.25, r * 0.5, leafHi, 0.95, seed + 9.2);
 
   g.position.set(x, 0, z);
   g.rotation.y = Math.random() * Math.PI * 2;
@@ -156,32 +207,37 @@ function makeTree(x, z, palette, bark) {
 
   // Data the Woodcutting system uses: which parts are the "leaves" (hidden when
   // the tree is chopped to a stump), plus its current state.
-  g.userData = { kind: 'tree', trunk, foliage: [blob, blob2, blob3], depleted: false, respawnAt: 0, shake: 0 };
+  g.userData = { kind: 'tree', trunk, foliage: [blob, blob2, blob3, blob4], depleted: false, respawnAt: 0, shake: 0 };
   return g;
 }
 
-// A chunky gray boulder.
+// A rounded, water-worn boulder: a higher-poly sphere warped into a few smooth
+// lobes with smooth normals, so it lights softly instead of showing hard facets.
 function makeRock(x, z) {
+  const size = 0.6 + Math.random() * 0.9;
   const rock = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.6 + Math.random() * 0.9, 0),
-    new THREE.MeshStandardMaterial({ color: 0x8b8780, roughness: 1, flatShading: true })
+    lumpify(new THREE.SphereGeometry(size, 14, 10), 0.22, Math.random() * 10),
+    new THREE.MeshStandardMaterial({ color: 0x8b8780, roughness: 0.85, metalness: 0.05 })
   );
-  rock.position.set(x, 0.1, z);
-  rock.scale.set(1, 0.6 + Math.random() * 0.5, 1);
-  rock.rotation.set(Math.random(), Math.random() * Math.PI * 2, Math.random());
+  rock.position.set(x, size * 0.32, z);
+  rock.scale.set(1, 0.55 + Math.random() * 0.45, 1);   // squat, settled into the ground
+  rock.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.4);
   rock.castShadow = true; rock.receiveShadow = true;
   rock.userData = { kind: 'rock' };
   return rock;
 }
 
-// A little tuft of grass blades.
+// A little tuft of grass blades — rounded, slightly curved, smooth-shaded.
 function makeGrass(x, z) {
   const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x5f7a32, roughness: 1, flatShading: true });
-  const n = 2 + ((Math.random() * 3) | 0);
+  const tint = 0x5f7a32 + ((Math.random() * 0x0a1006) | 0);
+  const mat = new THREE.MeshStandardMaterial({ color: tint, roughness: 1 });
+  const n = 3 + ((Math.random() * 3) | 0);
   for (let i = 0; i < n; i++) {
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.5 + Math.random() * 0.3, 4), mat);
-    blade.position.set((Math.random() - 0.5) * 0.5, 0.25, (Math.random() - 0.5) * 0.5);
+    const h = 0.45 + Math.random() * 0.35;
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.06, h, 6), mat);
+    blade.position.set((Math.random() - 0.5) * 0.55, h / 2, (Math.random() - 0.5) * 0.55);
+    blade.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.5);
     g.add(blade);
   }
   g.position.set(x, 0, z);
