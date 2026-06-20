@@ -9,12 +9,12 @@
       "focus": "NPCs & the player character",
       "scope": ["src/player.js", "src/npc.js"],
       "status": "working",
-      "task": "Rebuilding the hero in a smooth, heroic RS3/WoW style (no more cubes) — smooth NPCs next.",
+      "task": "Smooth NPC geometry — rebuilding the townsfolk & court rounded and organic (no cubes), to match the smooth hero.",
       "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "smooth", "face", "beard"],
       "recent": [
-        "Rebuilt the NPCs as jointed humanoids — helms, robes, beards, hats",
+        "Smooth, organic hero + gear rebuilt — no more cubes (LIVE)",
         "Heroic hero model + wearable gear system",
-        "Re-briefed to ditch the blocky cubes for smooth, rounded forms"
+        "Now: smoothing every NPC to match (in progress)"
       ]
     },
     {
