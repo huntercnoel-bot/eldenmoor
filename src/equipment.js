@@ -1,0 +1,102 @@
+// equipment.js — what the hero is wearing. Click a bag item to equip it; click a
+// worn item to take it off. Notifies a listener whenever the weapon changes (so
+// the hero's hand can hold the right axe).
+
+import { ITEMS } from './items.js';
+
+const SLOT_DEFS = [
+  { id: 'head',   name: 'Head',   icon: '🪖' },
+  { id: 'cape',   name: 'Cape',   icon: '🧣' },
+  { id: 'amulet', name: 'Amulet', icon: '📿' },
+  { id: 'weapon', name: 'Weapon', icon: '🗡️' },
+  { id: 'body',   name: 'Body',   icon: '👕' },
+  { id: 'shield', name: 'Shield', icon: '🛡️' },
+  { id: 'legs',   name: 'Legs',   icon: '👖' },
+  { id: 'hands',  name: 'Hands',  icon: '🧤' },
+  { id: 'feet',   name: 'Feet',   icon: '🥾' },
+  { id: 'ring',   name: 'Ring',   icon: '💍' },
+];
+
+// WoW-style paper-doll: gear down the left + right columns, a character
+// silhouette in the middle, and the weapon/shield across the bottom.
+const LAYOUT = [
+  'head',   null, 'hands',
+  'amulet', null, 'legs',
+  'cape',   null, 'feet',
+  'body',   null, 'ring',
+  'weapon', null, 'shield',
+];
+
+export function createEquipment(inventory) {
+  const slots = {};
+  for (const d of SLOT_DEFS) slots[d.id] = null;
+  const gridEl = document.getElementById('equip-grid');
+  let onWeaponChange = null;
+  let lastWeapon = undefined;
+
+  function getWeapon() { return slots.weapon ? ITEMS[slots.weapon] : null; }
+
+  // Tell the listener when the equipped weapon actually changes.
+  function notifyWeapon() {
+    if (slots.weapon !== lastWeapon) {
+      lastWeapon = slots.weapon;
+      if (onWeaponChange) onWeaponChange(getWeapon());
+    }
+  }
+  function setWeaponChangeHandler(fn) { onWeaponChange = fn; if (fn) fn(getWeapon()); }
+
+  function equip(itemId) {
+    const def = ITEMS[itemId];
+    if (!def || !def.equipable) return false;
+    if (!inventory.removeOne(itemId)) return false;
+    const previous = slots[def.slot];
+    slots[def.slot] = itemId;
+    if (previous) inventory.add(previous, 1);
+    render(); notifyWeapon();
+    return true;
+  }
+
+  function unequip(slotId) {
+    const itemId = slots[slotId];
+    if (!itemId) return false;
+    if (!inventory.add(itemId, 1)) return false;
+    slots[slotId] = null;
+    render(); notifyWeapon();
+    return true;
+  }
+
+  function render() {
+    if (!gridEl) return;
+    gridEl.innerHTML = '';
+    for (const slotId of LAYOUT) {
+      if (!slotId) { const sp = document.createElement('div'); sp.className = 'equip-spacer'; gridEl.appendChild(sp); continue; }
+      const def = SLOT_DEFS.find((d) => d.id === slotId);
+      const cell = document.createElement('div');
+      cell.className = 'equip-slot';
+      cell.dataset.slot = slotId;
+      const itemId = slots[slotId];
+      if (itemId) {
+        cell.innerHTML = ITEMS[itemId].icon;
+        cell.title = ITEMS[itemId].name + ' — click to unequip';
+        cell.classList.add('filled');
+        cell.onclick = () => unequip(slotId);
+      } else {
+        cell.innerHTML = `<span class="equip-empty">${def.icon}</span>`;
+        cell.title = def.name + ' slot';
+      }
+      gridEl.appendChild(cell);
+    }
+  }
+
+  function serialize() { return Object.assign({}, slots); }
+  function load(saved) {
+    for (const d of SLOT_DEFS) {
+      const v = saved && saved[d.id];
+      slots[d.id] = (v && ITEMS[v] && ITEMS[v].equipable) ? v : null;
+    }
+    render(); notifyWeapon();
+  }
+
+  render();
+  return { slots, equip, unequip, getWeapon, render, serialize, load, setWeaponChangeHandler };
+}

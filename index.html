@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eldenmoor — Prototype v0.1</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1410;
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #f4e4c1; }
+    canvas { display: block; }
+    .panelbg { background: rgba(20,16,12,0.62); border: 1px solid rgba(244,228,193,0.25); border-radius: 10px; }
+
+    /* HUD = small fixed corner panels. Never a full-screen layer over the canvas. */
+    #title {
+      position: fixed; top: 16px; left: 20px; z-index: 5; pointer-events: none;
+      font-size: 24px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 6px rgba(0,0,0,0.85);
+    }
+    #title span { font-size: 12px; font-weight: 400; opacity: 0.7; letter-spacing: 1px; }
+    #coords {
+      position: fixed; top: 52px; right: 20px; z-index: 5; pointer-events: none; font-size: 13px;
+      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25);
+      padding: 6px 12px; border-radius: 8px; font-variant-numeric: tabular-nums;
+    }
+
+    /* Vitals (top-left): HP bar + the Woodcutting "currently training" readout. */
+    #vitals { position: fixed; top: 52px; left: 20px; z-index: 5; pointer-events: none; width: 230px;
+      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25); padding: 9px 12px; border-radius: 10px; }
+    .vrow { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+    .vlabel { margin-top: 7px; }
+    .vlabel b { color: #ffd87a; }
+    .vico { font-size: 14px; }
+    .vnum { font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.9; }
+    .vsub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+    .bar { flex: 1; height: 9px; border-radius: 6px; overflow: hidden; margin: 5px 0 1px;
+      background: rgba(0,0,0,0.45); border: 1px solid rgba(244,228,193,0.18); }
+    .bar-fill { height: 100%; width: 0%; transition: width 0.25s ease; }
+    .bar-fill.hp { background: linear-gradient(90deg,#c0392b,#e74c3c); }
+    .bar-fill.xp { background: linear-gradient(90deg,#5fa84a,#a8e063); }
+
+    /* Bottom hint. */
+    #logout { position: fixed; top: 16px; right: 20px; z-index: 5;
+      background: rgba(20,16,12,0.6); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1;
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; font-size: 12px; font-weight: 700;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+    #logout:hover { background: rgba(244,228,193,0.18); border-color: #ffd87a; }
+    #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none;
+      font-size: 13px; white-space: nowrap; background: rgba(20,16,12,0.6);
+      border: 1px solid rgba(244,228,193,0.25); padding: 8px 16px; border-radius: 999px; }
+    #hint b { color: #ffd87a; }
+
+    /* Character panel (bottom-right): tabbed Inventory / Equipment / Skills. */
+    #panel { position: fixed; bottom: 16px; right: 16px; z-index: 5; width: 198px;
+      background: rgba(28,20,14,0.84); border: 1px solid rgba(244,228,193,0.3); border-radius: 12px; padding: 10px; }
+    #panel.hidden { display: none; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 9px; }
+    .tab { flex: 1; padding: 6px 0; font-size: 16px; cursor: pointer; border-radius: 7px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(244,228,193,0.15); color: #f4e4c1; }
+    .tab:hover { background: rgba(244,228,193,0.12); }
+    .tab.active { background: rgba(244,228,193,0.18); border-color: rgba(255,216,122,0.6); }
+    .tab-page { display: none; }
+    .tab-page.active { display: block; }
+
+    /* Inventory grid. */
+    #inv-grid { display: grid; grid-template-columns: repeat(4, 42px); grid-auto-rows: 42px; gap: 4px; }
+    .inv-slot { position: relative; width: 42px; height: 42px; border-radius: 6px;
+      background: rgba(0,0,0,0.28); border: 1px solid rgba(244,228,193,0.12);
+      display: flex; align-items: center; justify-content: center; }
+    .inv-slot.filled { background: rgba(244,228,193,0.07); cursor: pointer; }
+    .inv-slot.filled:hover { background: rgba(244,228,193,0.16); }
+    .inv-slot svg { width: 34px; height: 34px; display: block; }
+    .inv-qty { position: absolute; top: 1px; left: 3px; font-size: 11px; font-weight: 800; color: #ffe08a; text-shadow: 0 1px 2px #000; }
+
+    /* Equipment grid (3 columns, OSRS-style body layout). */
+    #equip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; justify-items: center; padding: 4px 8px; }
+    .equip-spacer { width: 46px; height: 46px; }
+    .equip-slot { width: 46px; height: 46px; border-radius: 8px;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.14);
+      display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .equip-slot.filled { background: rgba(244,228,193,0.08); border-color: rgba(255,216,122,0.4); cursor: pointer; }
+    .equip-slot.filled:hover { background: rgba(244,228,193,0.18); }
+    .equip-slot svg { width: 36px; height: 36px; }
+    .equip-empty { opacity: 0.32; font-size: 20px; }
+
+    /* Skills tab. */
+    #skills-tab { padding: 2px; }
+    .skills-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .skill-cell { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 0; border-radius: 7px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(244,228,193,0.12); }
+    .sc-icon { font-size: 15px; }
+    .sc-lv { font-size: 14px; font-weight: 800; color: #ffe08a; }
+    .skills-foot { text-align: center; font-size: 12px; margin-top: 9px; opacity: 0.9; }
+    .skills-foot b { color: #ffd87a; }
+
+    /* Floating "+xp" text. */
+    .xpfloat { position: fixed; z-index: 7; pointer-events: none; transform: translate(-50%,-50%);
+      color: #b6ffa6; font-weight: 800; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,0.9); white-space: nowrap; }
+    /* "Level up!" banner. */
+    #levelup { position: fixed; top: 92px; left: 50%; transform: translateX(-50%); z-index: 8; pointer-events: none;
+      color: #ffd87a; font-weight: 800; font-size: 22px; background: rgba(20,16,12,0.88);
+      border: 1px solid rgba(255,216,122,0.5); padding: 10px 20px; border-radius: 12px; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
+    #saved { position: fixed; top: 88px; right: 20px; z-index: 6; pointer-events: none; font-size: 13px; font-weight: 700;
+      color: #b6ffa6; background: rgba(20,16,12,0.7); border: 1px solid rgba(182,255,166,0.3);
+      padding: 5px 12px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease; }
+    /* Right-click context menu. */
+    #ctxmenu { position: fixed; z-index: 50; min-width: 152px; overflow: hidden;
+      background: rgba(20,16,12,0.97); border: 1px solid rgba(244,228,193,0.4); border-radius: 6px;
+      font-size: 13px; box-shadow: 0 8px 22px rgba(0,0,0,0.6); }
+    #ctxmenu[hidden] { display: none; }
+    .ctx-head { background: rgba(0,0,0,0.4); padding: 5px 11px; font-weight: 700; color: #ffd87a;
+      border-bottom: 1px solid rgba(244,228,193,0.18); }
+    .ctx-item { padding: 6px 11px; cursor: pointer; white-space: nowrap; }
+    .ctx-item:hover { background: rgba(120,170,90,0.45); }
+    .ctx-yellow { color: #ffd87a; }
+    /* Old School-style game message line. */
+    #worldchat { position: fixed; bottom: 16px; left: 16px; z-index: 7; width: 340px;
+      background: rgba(20,16,12,0.74); border: 1px solid rgba(244,228,193,0.22); border-radius: 10px; padding: 8px; }
+    #wc-log { height: 108px; overflow-y: auto; font-size: 12px; line-height: 1.5; margin-bottom: 6px; color: #e6dcc4; }
+    .wc-line { margin: 1px 0; word-wrap: break-word; }
+    #wc-input { width: 100%; padding: 7px 9px; border-radius: 6px; background: rgba(0,0,0,0.4); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 13px; }
+    #wc-input:focus { outline: none; border-color: #ffd87a; }
+    #gamemsg { position: fixed; bottom: 190px; left: 16px; z-index: 6; pointer-events: none; max-width: 52%;
+      font-size: 14px; color: #e6f2f3; text-shadow: 0 2px 4px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.4s ease; }
+    /* Floating NPC name labels. */
+    .npc-label { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%,-50%);
+      font-size: 12px; font-weight: 700; color: #ffe9a8; white-space: nowrap;
+      text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.85); }
+    /* Shop window (centered, never full-screen). */
+    #shop { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 20; width: 380px;
+      background: rgba(28,20,14,0.97); border: 1px solid rgba(244,228,193,0.4); border-radius: 12px; padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+    #shop[hidden] { display: none; }
+    .shop-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 800; color: #ffd87a; margin-bottom: 8px; }
+    #shop-close { background: rgba(0,0,0,0.3); color: #f4e4c1; border: 1px solid rgba(244,228,193,0.3); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
+    .shop-coins-row { font-size: 13px; margin-bottom: 10px; opacity: 0.9; }
+    .shop-coins-row b { color: #ffe08a; }
+    #shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .shop-item { background: rgba(0,0,0,0.28); border: 1px solid rgba(244,228,193,0.14); border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; }
+    .shop-item:hover { background: rgba(244,228,193,0.14); }
+    .shop-ic svg { width: 36px; height: 36px; }
+    .shop-nm { font-size: 11px; margin-top: 3px; }
+    .shop-pr { font-size: 12px; color: #ffe08a; font-weight: 700; }
+    .shop-foot { font-size: 11px; opacity: 0.6; margin-top: 10px; text-align: center; }
+    /* Login / account screen (shown before the game starts). */
+    #login { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 28%, #2a2018, #140f0a); }
+    #login[hidden] { display: none; }
+    .login-card { width: 320px; background: rgba(28,20,14,0.92); border: 1px solid rgba(244,228,193,0.3);
+      border-radius: 14px; padding: 26px 24px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+    .login-logo { font-size: 40px; line-height: 1; }
+    .login-title { font-size: 26px; font-weight: 800; letter-spacing: 3px; color: #f4e4c1; }
+    .login-sub { font-size: 13px; opacity: 0.6; margin-bottom: 18px; }
+    #login input { width: 100%; margin: 6px 0; padding: 10px 12px; border-radius: 8px; font-size: 14px;
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; }
+    #login input:focus { outline: none; border-color: #ffd87a; }
+    .login-btns { display: flex; gap: 8px; margin-top: 12px; }
+    .login-btns button { flex: 1; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
+    #login-go { background: #5fa84a; color: #0e1a0a; border: none; }
+    #login-go:hover { background: #6fc257; }
+    #login-reg { background: rgba(244,228,193,0.12); color: #f4e4c1; border: 1px solid rgba(244,228,193,0.3); }
+    #login-reg:hover { background: rgba(244,228,193,0.22); }
+    #login-msg { font-size: 13px; margin-top: 14px; min-height: 18px; color: #f4e4c1; }
+    .login-note { font-size: 11px; opacity: 0.5; margin-top: 14px; line-height: 1.4; }
+    /* Friends tab */
+    .fr-add { display: flex; gap: 5px; margin-bottom: 8px; }
+    #fr-input { flex: 1; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 12px; }
+    #fr-input:focus { outline: none; border-color: #ffd87a; }
+    #fr-addbtn { width: 30px; border-radius: 6px; background: #5fa84a; color: #0e1a0a; border: none; cursor: pointer; font-weight: 800; font-size: 16px; }
+    #fr-list { max-height: 244px; overflow: auto; }
+    .fr-empty { font-size: 12px; opacity: 0.6; text-align: center; padding: 16px 6px; line-height: 1.5; }
+    .fr-row { display: flex; align-items: center; gap: 7px; padding: 5px 4px; border-bottom: 1px solid rgba(244,228,193,0.08); font-size: 13px; }
+    .fr-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .fr-dot.on { background: #5fd35f; box-shadow: 0 0 6px #5fd35f; }
+    .fr-dot.off { background: #777; }
+    .fr-name { flex: 1; }
+    .fr-btn { background: rgba(244,228,193,0.1); border: 1px solid rgba(244,228,193,0.2); color: #f4e4c1; border-radius: 5px; width: 24px; height: 24px; cursor: pointer; font-size: 12px; }
+    .fr-btn:hover { background: rgba(244,228,193,0.22); }
+    /* Private chat window */
+    #chat { position: fixed; bottom: 74px; left: 16px; z-index: 8; width: 300px;
+      background: rgba(20,16,12,0.93); border: 1px solid rgba(244,228,193,0.3); border-radius: 10px; padding: 9px; }
+    #chat[hidden] { display: none; }
+    .chat-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #ffd87a; margin-bottom: 6px; }
+    #chat-close { background: rgba(0,0,0,0.3); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; border-radius: 5px; width: 22px; height: 22px; cursor: pointer; font-size: 11px; }
+    #chat-log { height: 118px; overflow: auto; font-size: 12px; line-height: 1.5; margin-bottom: 6px; }
+    .chat-line { margin: 2px 0; word-wrap: break-word; }
+    #chat-input { width: 100%; padding: 7px 9px; border-radius: 6px; background: rgba(0,0,0,0.35); border: 1px solid rgba(244,228,193,0.25); color: #f4e4c1; font-size: 13px; }
+    #chat-input:focus { outline: none; border-color: #ffd87a; }
+    /* Remote player name labels */
+    .player-label { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%,-50%);
+      font-size: 12px; font-weight: 700; color: #9fe0ff; white-space: nowrap; text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.85); }
+    #msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 9; font-size: 18px; text-align: center; }
+    /* ===================== WoW-Classic theme ===================== */
+    #title, .login-title { font-family: Georgia, 'Times New Roman', serif; color: #ffd100;
+      text-shadow: 0 0 10px rgba(255,209,0,0.35), 0 2px 4px #000; }
+    #title span { color: #c9a25a; }
+
+    /* Ornate gold-framed dark-stone panels */
+    #vitals, #panel, #shop, #worldchat, #ctxmenu, #levelup, #chat, .login-card, #coords {
+      background: linear-gradient(180deg, #2b2218 0%, #16100a 100%) !important;
+      border: 2px solid #b9892f !important;
+      box-shadow: inset 0 0 0 1px #3a2c18, inset 0 0 18px rgba(0,0,0,0.7), 0 0 0 1px #120c06, 0 8px 26px rgba(0,0,0,0.7) !important;
+      border-radius: 7px !important;
+    }
+    #saved { border: 1px solid #b9892f !important; }
+    #logout { border: 1px solid #b9892f !important; background: linear-gradient(180deg, #3c2d1a, #211710) !important; color: #ffe08a !important; }
+    #logout:hover { border-color: #ffd100 !important; }
+
+    /* Gold serif headers + accents */
+    #shop-title, .chat-head, .inv-head { font-family: Georgia, serif; color: #ffd100 !important; }
+    .vlabel b, .skills-foot b, .shop-coins-row b, #shop b { color: #ffd100 !important; }
+
+    /* Tabs: carved gold-rimmed stone */
+    .tab { background: linear-gradient(180deg, #3c2d1a, #211710) !important; border: 1px solid #6e572f !important; }
+    .tab:hover { background: linear-gradient(180deg, #4d3a22, #2c2012) !important; }
+    .tab.active { background: linear-gradient(180deg, #6a4f29, #3a2a16) !important; border-color: #ffd100 !important; box-shadow: 0 0 8px rgba(255,209,0,0.3); }
+
+    /* Item slots: sunken stone squares */
+    .inv-slot, .shop-item { background: #0f0a05 !important; border: 1px solid #4a3a22 !important;
+      box-shadow: inset 0 0 7px rgba(0,0,0,0.85) !important; border-radius: 4px !important; }
+    .inv-slot.filled { border-color: #8a6d3a !important; }
+    .inv-slot.filled:hover, .shop-item:hover { border-color: #ffd100 !important; background: #1a130b !important; }
+    .equip-slot { background: #0f0a05 !important; border: 2px solid #4a3a22 !important;
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.9) !important; border-radius: 4px !important; }
+    .equip-slot.filled { border-color: #b9892f !important; }
+    .equip-slot.filled:hover { border-color: #ffd100 !important; }
+
+    /* Equipment paper-doll: character silhouette behind the slots */
+    #tab-equip { position: relative; }
+    #equip-figure { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%); width: 78px; z-index: 0; pointer-events: none; }
+    #equip-grid { position: relative; z-index: 1; }
+
+    /* Buttons */
+    #login-go { background: linear-gradient(180deg, #4e7a36, #2f5022) !important; border: 1px solid #2a3f18 !important; }
+    #login-reg, #fr-addbtn, #shop-close, #chat-close { border: 1px solid #b9892f !important; }
+    .fr-btn { border: 1px solid #6e572f !important; }
+    /* ===================== Medieval shops ===================== */
+    #shop { width: 440px !important; padding: 0 !important; overflow: hidden; color: #3a2a18;
+      background: linear-gradient(160deg, #eadcb4 0%, #ddc89a 100%) !important;
+      border: 6px solid #5a3d22 !important;
+      box-shadow: 0 0 0 2px #2a1c10, inset 0 0 40px rgba(120,90,50,0.35), 0 14px 44px rgba(0,0,0,0.7) !important;
+      border-radius: 4px !important; }
+    .shop-sign { background: linear-gradient(180deg, #6b4a2a, #432d19); text-align: center; padding: 13px 10px 11px; border-bottom: 3px solid #2a1c10; }
+    #shop-title { font-family: 'Old English Text MT', 'Blackadder ITC', Georgia, serif !important; color: #f0d8a0 !important;
+      font-size: 23px; letter-spacing: 1px; text-shadow: 0 2px 3px #000; }
+    .shop-greet { font-style: italic; text-align: center; color: #6b4a2a; font-size: 13px; padding: 11px 18px 4px; font-family: Georgia, serif; }
+    #shop-grid { display: block !important; padding: 8px 16px 10px; max-height: 340px; overflow-y: auto; }
+    .shop-row { display: flex; align-items: center; gap: 11px; padding: 9px 4px; border-bottom: 1px solid rgba(90,61,34,0.28); }
+    .shop-ic { width: 42px; flex: none; text-align: center; }
+    .shop-ic svg { width: 38px; height: 38px; }
+    .shop-info { flex: 1; }
+    .shop-nm { font-weight: 700; font-size: 14px; color: #3a2818; font-family: Georgia, serif; }
+    .shop-desc { font-size: 11px; color: #6b5535; font-style: italic; margin-top: 1px; }
+    .shop-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .shop-pr { font-size: 13px; font-weight: 700; color: #7a5410; }
+    .shop-buybtn { background: linear-gradient(180deg, #6b4a2a, #4a3018); color: #f0d8a0; border: 1px solid #2a1c10;
+      border-radius: 5px; padding: 5px 16px; cursor: pointer; font-weight: 700; font-size: 12px; font-family: Georgia, serif; }
+    .shop-buybtn:hover { background: linear-gradient(180deg, #8a6030, #5a3d22); }
+    #shop-close { position: absolute !important; top: 9px; right: 11px; background: #4a3018 !important; color: #f0d8a0 !important;
+      border: 1px solid #2a1c10 !important; border-radius: 5px; width: 26px; height: 26px; cursor: pointer; z-index: 2; }
+    .shop-foot { background: rgba(90,61,34,0.16); border-top: 2px solid #5a3d22; padding: 9px 14px; font-size: 12px; color: #5a4326; text-align: center; }
+    .shop-foot b { color: #7a5410 !important; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <div class="login-card">
+      <div class="login-logo">⚔️</div>
+      <div class="login-title">ELDENMOOR</div>
+      <div class="login-sub">Enter the realm</div>
+      <input id="login-user" placeholder="Username" autocomplete="off" maxlength="16" />
+      <input id="login-pass" type="password" placeholder="Password" maxlength="32" />
+      <div class="login-btns">
+        <button id="login-go">Log in</button>
+        <button id="login-reg">Create account</button>
+      </div>
+      <div id="login-msg">Connecting…</div>
+      <div class="login-note">⚠ A local game account — please don't reuse a real password.</div>
+    </div>
+  </div>
+
+  <div id="title">⚔️ ELDENMOOR <span>· prototype v0.1</span></div>
+  <button id="logout">⎋ Log out</button>
+  <div id="coords">x: 0.0&nbsp;&nbsp; z: 0.0</div>
+
+  <div id="vitals">
+    <div class="vrow"><span class="vico">❤️</span><div class="bar"><div id="hp-bar" class="bar-fill hp"></div></div><span id="hp-text" class="vnum">10 / 10</span></div>
+    <div class="vrow vlabel">🪓 <b>Woodcutting</b> · Lv <span id="wc-level">1</span></div>
+    <div class="bar"><div id="wc-bar" class="bar-fill xp"></div></div>
+    <div class="vsub"><span id="wc-xp">0 xp</span> &nbsp;·&nbsp; 🪙 <span id="coin-count">0</span></div>
+  </div>
+
+  <div id="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="inv" title="Inventory (I)">🎒</button>
+      <button class="tab" data-tab="equip" title="Equipment">🛡️</button>
+      <button class="tab" data-tab="skills" title="Skills">📊</button>
+      <button class="tab" data-tab="friends" title="Friends">👥</button>
+    </div>
+    <div id="tab-inv" class="tab-page active"><div id="inv-grid"></div></div>
+    <div id="tab-equip" class="tab-page">
+      <div id="equip-figure"><svg viewBox="0 0 80 170" xmlns="http://www.w3.org/2000/svg"><g fill="#6a5532" opacity="0.5"><circle cx="40" cy="22" r="15"/><rect x="24" y="40" width="32" height="56" rx="9"/><rect x="10" y="44" width="13" height="46" rx="6"/><rect x="57" y="44" width="13" height="46" rx="6"/><rect x="27" y="94" width="12" height="60" rx="6"/><rect x="41" y="94" width="12" height="60" rx="6"/></g></svg></div>
+      <div id="equip-grid"></div>
+    </div>
+    <div id="tab-skills" class="tab-page"><div id="skills-tab"></div></div>
+    <div id="tab-friends" class="tab-page">
+      <div class="fr-add">
+        <input id="fr-input" placeholder="Add a friend…" maxlength="16" autocomplete="off" />
+        <button id="fr-addbtn" title="Add friend">＋</button>
+      </div>
+      <div id="fr-list"></div>
+    </div>
+  </div>
+
+  <div id="shop" hidden>
+    <button id="shop-close">✕</button>
+    <div class="shop-sign"><span id="shop-title">Shop</span></div>
+    <div class="shop-greet" id="shop-greet"></div>
+    <div id="shop-grid"></div>
+    <div class="shop-foot">Your purse: <b id="shop-coins">0</b> 🪙 &nbsp;·&nbsp; click an item in your bag to sell it</div>
+  </div>
+
+  <div id="hint"><b>Left-click</b> chop / walk &nbsp;·&nbsp; <b>Right-click</b> for options &nbsp;·&nbsp; <b>Drag</b> look &nbsp;·&nbsp; <b>I</b> bag</div>
+  <div id="levelup" hidden></div>
+  <div id="chat" hidden>
+    <div class="chat-head">💬 <span id="chat-to">Private chat</span> <button id="chat-close">✕</button></div>
+    <div id="chat-log"></div>
+    <input id="chat-input" placeholder="Type a message + Enter…" maxlength="200" />
+  </div>
+  <div id="worldchat">
+    <div id="wc-log"></div>
+    <input id="wc-input" placeholder="Press Enter to chat with everyone…" maxlength="200" />
+  </div>
+  <div id="gamemsg"></div>
+  <div id="saved">✓ Saved</div>
+  <div id="msg">⚔️ Loading Eldenmoor…</div>
+
+  <!-- Character-panel UI: switch tabs, and show/hide the panel with "I". -->
+  <script>
+    document.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      const which = tab.dataset.tab;
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.tab-page').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + which));
+    });
+    window.addEventListener('keydown', (e) => {
+      const a = document.activeElement;
+      if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return; // don't toggle while typing
+      if (e.code === 'KeyI') { const p = document.getElementById('panel'); if (p) p.classList.toggle('hidden'); }
+    });
+  </script>
+
+  <!-- Load the game as an INLINE module (this exact pattern renders correctly on this machine). -->
+  <script type="module">
+    import('./src/main.js')
+      .then(() => { const m = document.getElementById('msg'); if (m) m.remove(); })
+      .catch((e) => { document.getElementById('msg').innerHTML = '⚠️ Could not start: ' + (e && e.message ? e.message : e); });
+  </script>
+</body>
+</html>

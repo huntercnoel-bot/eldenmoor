@@ -1,0 +1,10 @@
+# Local server data (contains hashed account passwords — keep out of the repo)
+accounts.json
+
+# Python / OS junk
+__pycache__/
+*.pyc
+.DS_Store
+
+# Archives
+*.zip
