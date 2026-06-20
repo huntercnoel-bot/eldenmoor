@@ -8,3 +8,7 @@ __pycache__/
 
 # Archives
 *.zip
+
+# Agent / Playwright verification scratch (drive scripts + screenshots)
+*.mjs
+/*.png
