@@ -12,3 +12,6 @@ __pycache__/
 # Agent / Playwright verification scratch (drive scripts + screenshots)
 *.mjs
 /*.png
+
+# Subagent git worktrees
+.claude/worktrees/
