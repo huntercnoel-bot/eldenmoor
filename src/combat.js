@@ -56,23 +56,14 @@ function startCombat(em) {
   layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden;font-family:Georgia,serif;';
   document.body.appendChild(layer);
 
-  // player vitals bar (top-left, under any existing HUD it sits high enough)
-  const hpWrap = document.createElement('div');
-  hpWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:42;width:190px;font:600 13px Georgia,serif;color:#f3ead2;pointer-events:none;';
-  hpWrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;text-shadow:0 1px 2px #000;">
-      <span>❤ Hitpoints</span><span id="cmb-hp-txt">${PLAYER_MAX_HP} / ${PLAYER_MAX_HP}</span>
-    </div>
-    <div style="height:14px;border:1px solid #2a1d10;border-radius:7px;background:#3a1414;box-shadow:inset 0 1px 3px #000;overflow:hidden;">
-      <div id="cmb-hp-fill" style="height:100%;width:100%;background:linear-gradient(#e24b4b,#a01e1e);transition:width .15s;"></div>
-    </div>`;
-  document.body.appendChild(hpWrap);
-  const hpFill = hpWrap.querySelector('#cmb-hp-fill');
-  const hpTxt = hpWrap.querySelector('#cmb-hp-txt');
+  // Player HP lives in the existing top-left vitals bar (#hp-bar / #hp-text) —
+  // no separate floating overlay (it used to collide with the chat box).
+  const hpFill = document.getElementById('hp-bar');
+  const hpTxt = document.getElementById('hp-text');
   function refreshPlayerHp() {
     const f = Math.max(0, pstate.hp) / pstate.maxHp;
-    hpFill.style.width = (f * 100) + '%';
-    hpTxt.textContent = Math.max(0, Math.round(pstate.hp)) + ' / ' + pstate.maxHp;
+    if (hpFill) hpFill.style.width = (f * 100) + '%';
+    if (hpTxt) hpTxt.textContent = Math.max(0, Math.round(pstate.hp)) + ' / ' + pstate.maxHp;
   }
   refreshPlayerHp();
 

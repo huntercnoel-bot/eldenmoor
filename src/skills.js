@@ -76,9 +76,13 @@ export function createSkills() {
     if (elWcLevel) elWcLevel.textContent = wc.level;
     if (elWcBar) elWcBar.style.width = (wc.level >= 99 ? 100 : Math.min(100, (into / span) * 100)) + '%';
     if (elWcXp) elWcXp.textContent = Math.floor(wc.xp).toLocaleString() + ' xp';
+    // HP text/bar is driven live by combat.js (current / max). Only seed it
+    // here as a fallback if combat hasn't taken over yet (text still default).
     const hp = maxHp();
-    if (elHpText) elHpText.textContent = hp + ' / ' + hp;
-    if (elHpBar) elHpBar.style.width = '100%';
+    if (elHpText && /^\s*10 \/ 10\s*$/.test(elHpText.textContent)) {
+      elHpText.textContent = hp + ' / ' + hp;
+      if (elHpBar) elHpBar.style.width = '100%';
+    }
   }
 
   // The Skills tab: a grid of every skill with its level, plus totals.
