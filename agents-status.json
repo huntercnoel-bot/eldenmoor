@@ -7,14 +7,14 @@
       "name": "Art Director",
       "emoji": "🎨",
       "focus": "NPCs & the player character",
-      "scope": ["src/player.js", "src/npc.js", "item icons"],
-      "status": "working",
-      "task": "Polishing the rebuilt NPCs and the hero model — Old School RuneScape × WoW Classic.",
-      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "wearable", "face", "beard"],
+      "scope": ["src/player.js", "src/npc.js"],
+      "status": "idle",
+      "task": "Re-briefed for a SMOOTH (non-blocky) RS/WoW style — smooth character & NPC overhaul queued next.",
+      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "smooth", "face", "beard"],
       "recent": [
-        "Rebuilt the NPCs as jointed humanoids — legs, arms, faces, per-role outfits",
-        "Heroic hero model + OSRS×WoW wearable gear (pauldrons, gold trim, gems)",
-        "Built the wearable-armour system (equip pieces onto the 3D hero)"
+        "Rebuilt the NPCs as jointed humanoids — helms, robes, beards, hats",
+        "Heroic hero model + wearable gear system",
+        "Re-briefed to ditch the blocky cubes for smooth, rounded forms"
       ]
     },
     {
@@ -24,12 +24,38 @@
       "focus": "Buildings & environment",
       "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
       "status": "working",
-      "task": "Expanding and upgrading the MAIN castle — grand gatehouse, more towers, throne room and courtyard detail (OSRS × WoW).",
-      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "varrock", "falador", "gatehouse", "throne", "tower", "courtyard"],
+      "task": "Expanding the MAIN castle (then a smooth, sculpted re-style — round towers, arched gates).",
+      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "gatehouse", "throne", "tower", "courtyard"],
       "recent": [
         "RuneScape castle textures + blue-grey slate tower roofs",
-        "World texture pass — RuneScape turf, tree bark, dirt paths, plaster",
+        "World texture pass — turf, bark, dirt paths, plaster",
         "Expanding the main castle: gatehouse, towers, throne room (in progress)"
+      ]
+    },
+    {
+      "id": "ui-builder",
+      "name": "UI Builder",
+      "emoji": "🖥️",
+      "focus": "In-game interface (HUD, panels)",
+      "scope": ["index.html", "src/ui.js"],
+      "status": "working",
+      "task": "Crafting an Old School RuneScape × WoW interface — carved bronze panels, inventory grid, chat box, vitals orbs.",
+      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button"],
+      "recent": [
+        "Spinning up — styling the HUD, inventory, equipment, shop and chat (in progress)"
+      ]
+    },
+    {
+      "id": "quest-weaver",
+      "name": "Quest Weaver",
+      "emoji": "📜",
+      "focus": "NPC dialogue & quests",
+      "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
+      "status": "working",
+      "task": "Writing dialogue for every NPC and building King Aldric's first quest (start → objective → reward).",
+      "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk"],
+      "recent": [
+        "Spinning up — giving every NPC real dialogue + the King's first quest (in progress)"
       ]
     }
   ]
