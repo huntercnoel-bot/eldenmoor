@@ -24,12 +24,12 @@
       "focus": "Buildings & environment",
       "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
       "status": "working",
-      "task": "Expanding the MAIN castle (then a smooth, sculpted re-style — round towers, arched gates).",
+      "task": "Smooth, sculpted re-style of the castle (arched gates, smoothed roofs/edges) + smooth town & cottages.",
       "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "gatehouse", "throne", "tower", "courtyard"],
       "recent": [
         "RuneScape castle textures + blue-grey slate tower roofs",
         "World texture pass — turf, bark, dirt paths, plaster",
-        "Expanding the main castle: gatehouse, towers, throne room (in progress)"
+        "Expanded the main castle — gatehouse, barbican bridge, grand throne room (LIVE)"
       ]
     },
     {
