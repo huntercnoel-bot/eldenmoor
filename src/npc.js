@@ -3,14 +3,37 @@
 
 import * as THREE from '../vendor/three.module.js';
 
-// Each NPC carries a `dialogue` array of in-character lines that the dialogue
-// box (see src/dialogue.js, wired in main.js) pages through. `flavor` is kept as
-// the one-line fallback used by the old game-message path. King Aldric carries a
-// `quest: 'king'` marker so the talk handler routes him to the quest system.
+// Each NPC carries dialogue for the dialogue box (see src/dialogue.js, wired in
+// main.js). Most NPCs now use a branching chat:
+//   `greeting` — a line (or array of lines) shown first.
+//   `topics`   — a small "ask about..." menu; each { q, a } is a question label
+//                and its answer (a line or array of lines). The talk flow returns
+//                to the menu after each topic, with a "(Goodbye.)" option to leave.
+//   `prompt`   — optional override for the menu header line.
+// `dialogue` (the older flat list) and `flavor` (one-liner) are kept as fallbacks
+// for any code/path that still reads them. King Aldric carries a `quest: 'king'`
+// marker so the talk handler routes him to the quest system instead.
 const NPC_DEFS = [
   // --- shopkeepers (now standing behind the counter INSIDE each shop) ---
   { id: 'bramble', name: 'Bramble', role: 'General Store', x: -15, z: 16, robe: 0x3f6e44,
     type: 'shop', shop: 'general', examine: 'A cheerful general-store keeper.', flavor: 'Finest oddments in all Eldenmoor! Come in, come in.',
+    greeting: 'Welcome, welcome! Finest oddments in all Eldenmoor — buckets, rope, tinderboxes, the lot. What can I do you for?',
+    prompt: 'What can I help you with, friend?',
+    topics: [
+      { q: 'What do you sell?', a: [
+        'A bit of everything, and a lot of nothing in particular! Tinderboxes, rope, buckets, empty sacks, oddments by the crate.',
+        'If it isn\'t nailed down, I\'ll sell it to you. If it IS nailed down — well, I\'ll sell you the nails.',
+        'Right-click me when you\'re ready to trade. Browsing\'s free; touching is fifty percent.',
+      ] },
+      { q: 'How\'s business?', a: [
+        'Booming, booming! Or it would be, if folk bought things instead of just "having a look".',
+        'Don\'t get me wrong — I love a good look. I just love a good coin a bit more.',
+      ] },
+      { q: 'Any local gossip?', a: [
+        'Word is the King\'s after able hands. And the tavern\'s after a new cellar — Saul reckons it\'s haunted.',
+        'Between you and me, half of what Saul says is ale talking. The other half is the OTHER ale.',
+      ] },
+    ],
     dialogue: [
       'Welcome, welcome! Finest oddments in all Eldenmoor — buckets, rope, tinderboxes, the lot.',
       'If it isn\'t nailed down, I\'ll sell it to you. If it IS nailed down, I\'ll sell you the nails.',
@@ -18,6 +41,22 @@ const NPC_DEFS = [
     ] },
   { id: 'hilda', name: 'Hilda', role: "Hilda's Axes", x: 15, z: 16, robe: 0x6e3a3a,
     type: 'shop', shop: 'axes', examine: 'A burly axe merchant.', flavor: 'A sharp axe makes light work, love. Step inside.',
+    greeting: 'A sharp axe makes light work, love. Dull ones make for sore arms and bad language. What\'ll it be?',
+    prompt: 'Looking for an axe, are we?',
+    topics: [
+      { q: 'What axes have you got?', a: [
+        'Bronze for the young\'uns, steel when you\'ve grown into it. I\'ll not sell you above your station.',
+        'Get your Woodcutting up and I\'ll trust you with the good stuff. Right-click me to trade, love.',
+      ] },
+      { q: 'Did you forge these yourself?', a: [
+        'Most of \'em, aye. These arms didn\'t get this way knitting.',
+        'Don\'t ask about the bronze ones, though. Long story. Bad apprentice. We don\'t speak of it.',
+      ] },
+      { q: 'Any tips for a woodcutter?', a: [
+        'Equip the best axe you can swing — a sharper edge means logs come faster.',
+        'And keep an eye out for bird\'s nests up in the boughs. Tidy little bonus, those.',
+      ] },
+    ],
     dialogue: [
       'A sharp axe makes light work, love. Dull ones make for sore arms and bad language.',
       'Bronze for the young\'uns, steel when you\'ve grown into it. I\'ll not sell you above your station.',
@@ -31,6 +70,21 @@ const NPC_DEFS = [
   { id: 'duke', name: 'Duke Veylin', role: 'Royal Steward', x: 4, z: 61, robe: 0x274a7a,
     type: 'plain', examine: "The king's steward, keeper of the realm's affairs.",
     flavor: 'Seek the King if you crave purpose — and mind your manners in his hall.',
+    greeting: 'You stand in the great hall of His Majesty King Aldric. Comport yourself accordingly.',
+    prompt: 'Yes? Be brief — the realm does not run itself.',
+    topics: [
+      { q: 'Who are you?', a: [
+        'Duke Veylin, Royal Steward of Eldenmoor. I keep the ledgers, the grain stores, the taxes — the unglamorous spine of a kingdom.',
+        'Someone must mind the numbers while heroes go gallivanting after glory and bird\'s nests.',
+      ] },
+      { q: 'Is there work for me?', a: [
+        'If it is purpose you seek, the King has tasks aplenty. Speak with His Majesty directly — he is seated upon the throne, where one tends to find kings.',
+      ] },
+      { q: 'How fares the realm?', a: [
+        'Solvent, secure, and mercifully dull — precisely as a well-run realm should be.',
+        'Winter presses early this year, mind. Stores are tight. Do nothing to make my ledgers worse, hm?',
+      ] },
+    ],
     dialogue: [
       'You stand in the great hall of His Majesty King Aldric. Comport yourself accordingly.',
       'If it is purpose you seek, the King has tasks aplenty. Speak with him directly.',
@@ -38,19 +92,57 @@ const NPC_DEFS = [
     ] },
   { id: 'guard_l', name: 'Royal Guard', role: 'Gatehouse Watch', x: -3.5, z: 26, robe: 0x565b62, guard: true,
     type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'The gate stands open to honest folk.',
+    greeting: 'The gate stands open to honest folk. You look honest enough.',
+    prompt: 'State your business.',
+    topics: [
+      { q: 'What lies beyond the gate?', a: ['The town square, the shops, the woods past that. Honest folk and the odd pickpocket. Keep your purse close.'] },
+      { q: 'Anything to report?', a: ['Nothing to see but me, standing here. All day. Every day. Riveting work, the watch.'] },
+      { q: 'Can I try on your helmet?', a: ['No.', '...No.', 'Everyone asks. The answer remains no. Move along.'] },
+    ],
     dialogue: ['The gate stands open to honest folk. You look honest enough.', 'Move along. Nothing to see but me, standing here. All day.'] },
   { id: 'guard_r', name: 'Royal Guard', role: 'Gatehouse Watch', x: 3.5, z: 26, robe: 0x565b62, guard: true,
     type: 'plain', examine: 'A steadfast guard in plate, watching the gate.', flavor: 'Keep the peace within these walls, friend.',
+    greeting: 'Keep the peace within these walls, friend.',
+    prompt: 'Well? I\'m on duty.',
+    topics: [
+      { q: 'Quiet shift?', a: ['Quiet as the grave, which is how a guard likes it. Excitement means someone\'s on fire, usually.'] },
+      { q: 'Where can I find the King?', a: ['Straight through the keep, up past the inner watch. He\'s the one in purple with the big chair. Can\'t miss him.'] },
+      { q: 'Nice armour.', a: ['Standard issue. And before you ask — no, you cannot try on the helmet. My colleague warned me you\'d ask.'] },
+    ],
     dialogue: ['Keep the peace within these walls, friend.', 'No, I will not let you try on the helmet. Everyone asks.'] },
   { id: 'guard_il', name: 'Royal Guard', role: 'Keep Watch', x: -4, z: 44, robe: 0x565b62, guard: true,
     type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'None pass to the King unannounced — but you seem alright.',
+    greeting: 'None pass to the King unannounced — but you seem alright. Go on.',
+    prompt: 'Mind yourself in there.',
+    topics: [
+      { q: 'What\'s through here?', a: ['The great hall, and His Majesty\'s throne. Tread proudly. And don\'t touch anything shiny — there\'s a lot of shiny.'] },
+      { q: 'Is the King in?', a: ['Always. The man does not leave that throne. I\'ve seen statues move about more.'] },
+      { q: 'Any advice?', a: ['Bow, don\'t gawp, and if he sets you a task — do it. He remembers the names of those who do. And those who don\'t.'] },
+    ],
     dialogue: ['None pass to the King unannounced — but you seem alright. Go on.', 'The great hall\'s just ahead. Don\'t touch anything shiny.'] },
   { id: 'guard_ir', name: 'Royal Guard', role: 'Keep Watch', x: 4, z: 44, robe: 0x565b62, guard: true,
     type: 'plain', examine: 'A guard posted at the keep’s inner gate.', flavor: 'The great hall lies ahead. Tread proudly.',
+    greeting: 'The great hall lies ahead. Tread proudly — and quietly.',
+    prompt: 'Need something?',
+    topics: [
+      { q: 'How long have you stood here?', a: ['Eleven years. ELEVEN. Ask me anything about this wall — I know every crack, every cobweb, every loose stone.'] },
+      { q: 'Tell me about this wall, then.', a: ['Granite, three feet thick, that crack by your boot\'s from the frost of \'29. ...You actually asked. No one ever asks. This is the best day of my career.'] },
+      { q: 'Seen anything strange lately?', a: ['Strange? Down in the cellar, maybe. The jailer mutters. The prisoner wails. Up here? Just me and the wall, faithful as ever.'] },
+    ],
     dialogue: ['The great hall lies ahead. Tread proudly — and quietly.', 'I\'ve stood this post eleven years. Eleven! Ask me anything about this wall.'] },
   { id: 'banker', name: 'Edra', role: 'Bank of Eldenmoor', x: 17, z: 38, robe: 0x3a5f3a,
     type: 'plain', examine: 'A sharp-eyed banker. (A proper bank is coming soon!)',
     flavor: 'Your coin is safe with the Bank of Eldenmoor. The vaults open shortly!',
+    greeting: 'Welcome to the Bank of Eldenmoor! Your coin is safe with us. Safe as houses — safer, honestly. Houses burn down.',
+    prompt: 'How may the Bank serve you?',
+    topics: [
+      { q: 'Can I store my things?', a: [
+        'Ah. Not... quite yet. The vaults open shortly! We\'re just waiting on the locks.',
+        'And the vault. And the gold. And, if I\'m honest, the building. But the SIGN is lovely, isn\'t it?',
+      ] },
+      { q: 'Can you hold my logs?', a: ['No, dear. I can\'t hold your logs. Or your axe. Or your hopes and dreams. Soon, as the scribes say. They always say soon.'] },
+      { q: 'Is my money really safe?', a: ['Absolutely. Ironclad. Unbreakable. ...In a theoretical sense. Once we have the iron. And the clad. Trust the Bank!'] },
+    ],
     dialogue: [
       'Your coin is safe with the Bank of Eldenmoor. Safe as houses. Safer, honestly — houses burn down.',
       'The vaults open shortly! We\'re just... waiting on the locks. And the vault. And the gold.',
@@ -58,6 +150,13 @@ const NPC_DEFS = [
     ] },
   { id: 'cook', name: 'Bessa', role: 'Castle Cook', x: -18, z: 37, robe: 0xb08a5a, apron: true,
     type: 'plain', examine: 'The castle cook, flour to her elbows.', flavor: 'Mind the oven, dear — hot bread for the King’s table!',
+    greeting: 'Mind the oven, dear — that\'s hot bread for the King\'s own table, fresh as the dawn.',
+    prompt: 'What is it, love? Mind the flour.',
+    topics: [
+      { q: 'What are you baking?', a: ['Bread, pies, and a great pot of something brown for the court. His Majesty does love a fresh loaf — keeps the whole hall sweet-smelling.'] },
+      { q: 'Do you tend the hearth?', a: ['That I do — the great hall\'s hearth is mine to keep lit. When there\'s wood for it, mind. Cold wood warms no one, as I\'m forever telling His Majesty.'] },
+      { q: 'How\'s the cooking going?', a: ['Flour to my elbows from dawn to dusk! Burnt one batch last week, I\'ll confess. Told the King it was "rustic". He believed me, bless his crowned little head.'] },
+    ],
     dialogue: [
       'Mind the oven, dear — that\'s hot bread for the King\'s own table.',
       'Flour to my elbows from dawn to dusk. His Majesty does love a fresh loaf.',
@@ -68,6 +167,13 @@ const NPC_DEFS = [
   { id: 'tomas', name: 'Old Tomas', role: 'Townsfolk', x: 4, z: 11, robe: 0x6a5a3a, hair: 0xb9b2a4,
     type: 'plain', examine: 'A weathered old townsman, watching the square.',
     flavor: 'Grand town, this. The King keeps us safe behind those walls.',
+    greeting: 'Grand town, this. The King keeps us safe behind those walls, and we\'re grateful for it.',
+    prompt: 'What is it, young\'un?',
+    topics: [
+      { q: 'You\'ve lived here long?', a: ['Sixty year I\'ve watched this square. Seen it all, I have. Wars, weddings, three fires and a flood. Mostly pigeons, though.'] },
+      { q: 'Things were better in your day?', a: ['In my day, adventurers said please and thank you, and walked at a sensible pace. You young\'uns just RUN everywhere. Where\'s the fire?'] },
+      { q: 'Any wisdom for me?', a: ['Keep your axe sharp, your purse shut, and your ear to the tavern. That\'s where the real news is. That and the pigeons.'] },
+    ],
     dialogue: [
       'Grand town, this. The King keeps us safe behind those walls, and we\'re grateful for it.',
       'Been watching this square sixty year. Seen it all, I have. Mostly pigeons.',
@@ -75,6 +181,13 @@ const NPC_DEFS = [
     ] },
   { id: 'mara', name: 'Mara', role: 'Market Trader', x: 4, z: 19, robe: 0x8a3a5a,
     type: 'plain', examine: 'A bright-eyed market trader.', flavor: 'Fresh wares at the stalls! Mind the fountain, love.',
+    greeting: 'Fresh wares at the stalls! Mind you don\'t fall in the fountain, love — last fellow did, soaked head to boot.',
+    prompt: 'See anything you fancy?',
+    topics: [
+      { q: 'What\'s for sale around here?', a: ['Whatever you need, someone in this square sells it. Or knows someone who does. Or will, once they\'ve "borrowed" it back off Saul.'] },
+      { q: 'How\'s trade?', a: ['Good, when the roads are safe — and they are, thank the King and his guards. A safe road is a trader\'s best friend, love.'] },
+      { q: 'Who\'s that child running about?', a: ['That\'s little Wren. Faster than a startled hare and twice as much trouble. Don\'t race her — you\'ll lose, and she\'ll never let it go.'] },
+    ],
     dialogue: [
       'Fresh wares at the stalls! Mind you don\'t fall in the fountain, love — last fellow did.',
       'Whatever you need, someone in this square sells it. Or knows someone who does.',
@@ -82,6 +195,13 @@ const NPC_DEFS = [
     ] },
   { id: 'smith', name: 'Garrett', role: 'Blacksmith', x: 10, z: 6, robe: 0x4a4640, hair: 0x2a2018, apron: true,
     type: 'shop', shop: 'armoury', examine: 'A soot-streaked blacksmith with brawny arms.', flavor: 'Armour for the road? Step up to the anvil, friend.',
+    greeting: 'Armour for the road? Step up to the anvil, friend. I\'ll see you kitted out.',
+    prompt: 'What can the forge do for you?',
+    topics: [
+      { q: 'Show me your wares.', a: ['Good steel between you and a goblin\'s blade — best coin you\'ll ever spend. Right-click me to trade and we\'ll talk plate.'] },
+      { q: 'Can you make me a weapon?', a: ['Armour\'s my trade — for axes, see Hilda across the way. She\'s prouder of her edges than I am of my dents.'] },
+      { q: 'It\'s hot in here.', a: ['Mind the sparks. And the heat. And the hammer. Honestly, friend — just stand back a bit. I\'ve singed better-dressed folk than you.'] },
+    ],
     dialogue: [
       'Armour for the road? Step up to the anvil, friend. I\'ll see you kitted out.',
       'Good steel between you and a goblin\'s blade — best coin you\'ll ever spend.',
@@ -89,6 +209,13 @@ const NPC_DEFS = [
     ] },
   { id: 'farmer', name: 'Pell', role: 'Farmer', x: 8, z: -9, robe: 0x6a7a3a, hair: 0xb9a06a,
     type: 'plain', examine: 'A cheerful farmer with hay on his boots.', flavor: 'Good harvest this year, thank the King. Mind the windmill yonder.',
+    greeting: 'Good harvest this year, thank the King! Wheat\'s up to my chest out yonder.',
+    prompt: 'What brings you to my field?',
+    topics: [
+      { q: 'What\'s that windmill for?', a: ['See it turning? Grinds our grain to flour for the castle ovens. Round and round it goes, day and night. Hypnotic, ain\'t it.'] },
+      { q: 'Need a hand with the harvest?', a: ['Kind of you! But a hero with an axe is wasted on wheat. Save your back for the woods — leave the sickle work to old Pell.'] },
+      { q: 'Why\'s there a scarecrow?', a: ['A scarecrow scares crows. A Pell scares everything ELSE off my field — foxes, rabbits, nosy adventurers. Off you pop now!'] },
+    ],
     dialogue: [
       'Good harvest this year, thank the King! Wheat\'s up to my chest out yonder.',
       'See the windmill? Grinds our grain to flour for the castle ovens. Round and round it goes.',
@@ -96,6 +223,13 @@ const NPC_DEFS = [
     ] },
   { id: 'nun', name: 'Sister Adela', role: 'Chapel', x: -25, z: 13, robe: 0x4a4a5a, hair: 0xcccccc,
     type: 'plain', examine: 'A gentle sister tending the chapel grounds.', flavor: 'Light a candle within, traveller. The Light watches over Eldenmoor.',
+    greeting: 'Peace be with you, traveller. The Light watches over all of Eldenmoor — even the muddy-booted.',
+    prompt: 'What troubles your heart, child?',
+    topics: [
+      { q: 'Tell me of the Light.', a: ['The Light is the warmth that endures the longest winter. We keep a candle for every soul in Eldenmoor — yours is lit too, now you\'ve come.'] },
+      { q: 'May I rest here?', a: ['Of course. The chapel doors are always open to you. Even adventurers need rest for the soul — especially adventurers, I find.'] },
+      { q: 'Any blessing for the road?', a: ['Go gently, return safely, and be kinder than you must. The Light asks little else. ...And do wipe your boots.'] },
+    ],
     dialogue: [
       'Peace be with you, traveller. The Light watches over all of Eldenmoor.',
       'Light a candle within, if you\'ve a moment. A little warmth goes a long way.',
@@ -103,6 +237,13 @@ const NPC_DEFS = [
     ] },
   { id: 'child', name: 'Wren', role: 'Townsfolk', x: -3, z: 14, scale: 0.68, robe: 0x8a5a8a, hair: 0x6a4a2a,
     type: 'plain', examine: 'A small child darting about the square.', flavor: 'Wanna race to the fountain? Betcha can’t catch me!',
+    greeting: 'Wanna race to the fountain? Betcha can\'t catch me!',
+    prompt: 'Ooh ooh, ask me somethin\'!',
+    topics: [
+      { q: 'What do you want to be when you grow up?', a: ['An ADVENTURER! Like you! With a BIG axe and a SHINY sword and a hat with a feather! ...Mam says I have to learn letters first. Boring.'] },
+      { q: 'Is there really a ghost in the cellar?', a: ['Old Saul at the tavern says there\'s GHOSTS down there. Pale and moanin\'. I\'m not scared. ...Are YOU scared? \'Cause I\'m not. Mostly.'] },
+      { q: 'Want to race?', a: ['YES! Ready — set — HA, too slow! Betcha can\'t catch me to the fountain! ...You\'re not even running. Grown-ups are no fun.'] },
+    ],
     dialogue: [
       'Wanna race to the fountain? Betcha can\'t catch me!',
       'When I grow up I\'m gonna be an adventurer like you! With a BIG axe!',
@@ -110,6 +251,13 @@ const NPC_DEFS = [
     ] },
   { id: 'innkeep', name: 'Bram', role: 'The Prancing Stag', x: -16, z: -18.6, robe: 0x6a4a2a, hair: 0x3a2a1a, apron: true,
     type: 'plain', examine: 'The barrel-chested innkeeper, polishing a tankard.', flavor: 'Pull up a stool! Best ale this side of the moat.',
+    greeting: 'Pull up a stool! Best ale this side of the moat — and, if I\'m honest, the only ale this side of the moat.',
+    prompt: 'What\'ll you have?',
+    topics: [
+      { q: 'Tell me about the Prancing Stag.', a: ['Three generations my family\'s kept it. Same hearth, same songs, same stew recipe — more\'s the pity. Folk keep ordering it anyway.'] },
+      { q: 'What\'s the gossip?', a: ['Travellers pass through, tongues loosen with the ale. Word is the King\'s after able hands. And Saul\'s after another free drink — don\'t fall for it.'] },
+      { q: 'What\'s with Old Saul?', a: ['Saul? He\'s been "about to leave" since noon. Pay his ghost stories no mind — the only spirits in my cellar come in barrels.'] },
+    ],
     dialogue: [
       'Pull up a stool! Best ale this side of the moat — and the only ale this side of the moat.',
       'The Prancing Stag\'s been in my family three generations. Stew\'s the same recipe, more\'s the pity.',
@@ -117,6 +265,13 @@ const NPC_DEFS = [
     ] },
   { id: 'patron1', name: 'Old Saul', role: 'Tavern Regular', x: -13, z: -11, robe: 0x4a5a6a, hair: 0xb9b2a4,
     type: 'plain', examine: 'A grizzled regular nursing a drink.', flavor: 'Gold in that cellar, they say… or maybe ghosts. Hic!',
+    greeting: 'Gold in that cellar, they say… or maybe ghosts. Hic! Pull up a chair, friend.',
+    prompt: 'What\'re ye after, eh?',
+    topics: [
+      { q: 'Ghosts? What ghosts?', a: ['I SEEN \'em. Down in the dungeon. Pale things, moanin\' in the dark. ...Or that was the ale. One o\' the two. Maybe both. Hic.'] },
+      { q: 'Where\'s the treasure buried?', a: ['Buy old Saul a drink and I\'ll tell ye where it\'s buried! ...I forget exactly where. But I\'ll TELL ye, with great confidence, and that\'s nearly the same.'] },
+      { q: 'Maybe you\'ve had enough?', a: ['Enough?! There\'s no such thing, young\'un. There\'s only "not yet" and "Bram\'s cut me off again". HIC.'] },
+    ],
     dialogue: [
       'Gold in that cellar, they say… or maybe ghosts. Hic!',
       'I seen \'em. Down in the dungeon. Pale things, moanin\'. Or that was the ale. One o\' the two.',
@@ -124,6 +279,13 @@ const NPC_DEFS = [
     ] },
   { id: 'patron2', name: 'Edda', role: 'Tavern Regular', x: -19, z: -11, robe: 0x7a3a5a, hair: 0x6a4a2a,
     type: 'plain', examine: 'A traveller resting her feet by the fire.', flavor: 'Long road to Eldenmoor. The stew here makes it worth it.',
+    greeting: 'Long road to Eldenmoor. The stew here makes it worth it — barely. Park yourself, you look footsore.',
+    prompt: 'Care to swap a word?',
+    topics: [
+      { q: 'Where have you travelled from?', a: ['The eastern shires, all on foot. Blisters on my blisters, I tell you. Whatever they say about the open road — it\'s further than that.'] },
+      { q: 'Heard any news?', a: ['Word is the King\'s looking for able hands. You\'ve the look of someone who could use the coin — no offence, those boots have seen things.'] },
+      { q: 'Is the stew really that bad?', a: ['It\'s... characterful. Stick to the ale and the bread, and you\'ll do fine. The stew is for the brave or the very, very tired.'] },
+    ],
     dialogue: [
       'Long road to Eldenmoor. The stew here makes it worth it — barely.',
       'I\'ve walked from the eastern shires. Blisters on my blisters, I tell you.',
@@ -133,6 +295,13 @@ const NPC_DEFS = [
   // --- upper floor (the royal apartments) ---
   { id: 'advisor', name: 'Lady Maelis', role: 'Royal Advisor', x: 2, z: 60, floor: 1, robe: 0x6e3a8a, hair: 0xb08a5a,
     type: 'plain', examine: 'The King’s trusted advisor, poring over the maps.', flavor: 'Up here we plan the realm’s future. Welcome to the royal floor.',
+    greeting: 'Welcome to the royal floor. Up here we plan the realm\'s future — over a great many maps, and rather too little sleep.',
+    prompt: 'You have the ear of the King\'s advisor. Use it wisely.',
+    topics: [
+      { q: 'What do you do up here?', a: ['I read the maps, the letters, the omens, and tell the King what he ought to think — then let him believe he thought it. That is the whole of statecraft, really.'] },
+      { q: 'What\'s King Aldric like?', a: ['Kind-hearted to a fault. He\'d send a hero to fetch his slippers if I let him. I do not let him. ...Often. The hearth, I\'ll allow — a cold court is a grumbling court.'] },
+      { q: 'Any counsel for me?', a: ['If His Majesty has set you a task, see it through to the end. He remembers those who do — and so, more usefully, do I.'] },
+    ],
     dialogue: [
       'Welcome to the royal floor. Up here we plan the realm\'s future — over a great many maps.',
       'The King means well, but he\'d send a hero to fetch his slippers if I let him. I do not let him. ...Often.',
@@ -142,6 +311,13 @@ const NPC_DEFS = [
   // --- basement (the cellar & dungeon) ---
   { id: 'jailer', name: 'Grix', role: 'Dungeon Keeper', x: -10, z: 52, floor: -1, robe: 0x3a3a30, hair: 0x2a2a22,
     type: 'plain', examine: 'A grim jailer with a heavy ring of keys.', flavor: 'Mind the cells. Some things down here are best left locked away.',
+    greeting: 'Mind the cells. Some things down here are best left locked away — and I aim to keep \'em that way.',
+    prompt: 'What d\'you want, then? Be quick.',
+    topics: [
+      { q: 'What\'s with all the keys?', a: ['Twenty-three keys on this ring. Don\'t ask me what twenty-two of \'em open. I forgot. Years ago. The last one\'s for the privy, and even THAT\'S a maybe.'] },
+      { q: 'Is the prisoner innocent?', a: ['Innocent? Ha. No. They\'re ALL innocent, to hear \'em tell it. That one\'d swear blind the goat started it.'] },
+      { q: 'It\'s grim down here.', a: ['Grim\'s the job. Quiet, dark, and cold — suits me. Up top there\'s sunshine and small talk. No thank you. Down here, only the prisoner talks, and I can lock his door.'] },
+    ],
     dialogue: [
       'Mind the cells. Some things down here are best left locked away.',
       'Twenty-three keys on this ring. Don\'t ask me what twenty-two of \'em open. I forgot. Years ago.',
@@ -149,6 +325,13 @@ const NPC_DEFS = [
     ] },
   { id: 'prisoner', name: 'Old Hagen', role: 'Captive', x: -16, z: 55, floor: -1, robe: 0x7a6a5a, hair: 0xcfc8b6,
     type: 'plain', examine: 'A ragged prisoner behind the bars.', flavor: 'Psst… get me out of here, friend? No? …worth a try.',
+    greeting: 'Psst… get me out of here, friend? No? …worth a try. A fellow\'s got to ask.',
+    prompt: 'C\'mere, c\'mere — what\'ll it be?',
+    topics: [
+      { q: 'What are you in for?', a: ['I\'m innocent, I am! Mostly. Partly. ...Look, the goat had it coming, and that\'s ALL I\'ll say in present company.'] },
+      { q: 'Can I help you escape?', a: ['Slip me Grix\'s keys and I\'ll make it worth your while, friend. ...I won\'t. I\'ve nothing to my name but this straw. But I\'ll SAY I will, with great sincerity!'] },
+      { q: 'Any secrets to share?', a: ['There\'s gold in the cellar, so they whisper. Or ghosts. Same fellow tells both stories, mind — and he drinks at the Stag.'] },
+    ],
     dialogue: [
       'Psst… get me out of here, friend? No? …worth a try.',
       'I\'m innocent, I am! Mostly. Partly. Look, the goat had it coming.',

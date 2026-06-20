@@ -53,7 +53,8 @@ export const QUEST_DEFS = {
           check: (ctx) => !!ctx.flags.toldCook,
         },
         nudge: [
-          { speaker: 'King Aldric', text: 'The logs are gathered, but cold wood warms no one. Take word to Bessa in the kitchen — she keeps the hearth.' },
+          { speaker: 'King Aldric', text: 'Splendid, the logs are gathered! But cold wood warms no one, brave soul.' },
+          { speaker: 'King Aldric', text: 'Take word to Bessa down in the kitchen — she keeps the hearth, and she\'ll know just what to do with your firewood.' },
         ],
       },
       {
