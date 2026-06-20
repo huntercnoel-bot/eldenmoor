@@ -18,6 +18,10 @@ play**, and **close it to stop**.
 > First time it may flash an error — just wait a second and refresh. The server
 > needed a moment to wake up.
 
+> **Pulled this from GitHub?** Double-click **`update-and-play.bat`** instead — it
+> grabs the latest version (`git pull`) *and* launches the game in one click. If
+> Git isn't installed or this isn't a clone, it just launches what you have.
+
 ### Or run it yourself from a terminal
 1. Open a terminal in this folder (Shift + Right-click → *Open in Terminal*).
 2. Run: `py -m http.server 8000`
