@@ -173,6 +173,9 @@ export function spawnMonster(typeId, x, z) {
   };
   // tag every child so a raycast hit can walk up to the root group
   g.traverse((o) => { o.userData.monsterRoot = g; });
+  // cel-shade this fresh monster (flat toon bands + outline) to match the scene
+  const em = window.eldenmoor;
+  if (em && em.applyToonTo) em.applyToonTo(g);
   return g;
 }
 
