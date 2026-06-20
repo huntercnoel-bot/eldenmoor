@@ -39,10 +39,11 @@
       "focus": "In-game interface (HUD, panels)",
       "scope": ["index.html", "src/ui.js"],
       "status": "working",
-      "task": "Crafting an Old School RuneScape × WoW interface — carved bronze panels, inventory grid, chat box, vitals orbs.",
-      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button"],
+      "task": "Polishing the UI — a minimap, richer tooltips, hover states and subtle panel animations.",
+      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation"],
       "recent": [
-        "Spinning up — styling the HUD, inventory, equipment, shop and chat (in progress)"
+        "Restyled the whole HUD — login card, vitals, inventory, equipment, shop & chat (LIVE)",
+        "Polishing next — minimap, tooltips, animations (in progress)"
       ]
     },
     {
