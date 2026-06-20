@@ -24,10 +24,10 @@
       "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
       "focus": "In-game interface (HUD, panels)",
       "scope": ["index.html", "src/ui.js"],
-      "status": "working",
-      "task": "Theming the dialogue box + the ! / ? quest markers, plus final HUD polish.",
+      "status": "idle",
+      "task": "Dependency-gated: theme the combat HP bars, XP-drop popups, audio mute button & new skill UI the moment Combat/Skills/Audio land.",
       "match": ["ui", "hud", "panel", "chat", "tooltip", "minimap", "tab", "dialogue box", "marker"],
-      "recent": ["HUD + minimap + tooltips (LIVE)", "Quests tab + scroll icon (LIVE)", "Now: theme dialogue box + markers"]
+      "recent": ["HUD + minimap + tooltips (LIVE)", "Quests tab + scroll icon (LIVE)", "Themed dialogue box + ! / ? markers (LIVE)"]
     },
     {
       "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
