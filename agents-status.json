@@ -10,7 +10,12 @@
       "scope": ["src/player.js", "src/npc.js", "item icons"],
       "status": "working",
       "task": "Polishing the rebuilt NPCs and the hero model — Old School RuneScape × WoW Classic.",
-      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "wearable", "face", "beard"]
+      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "wearable", "face", "beard"],
+      "recent": [
+        "Rebuilt the NPCs as jointed humanoids — legs, arms, faces, per-role outfits",
+        "Heroic hero model + OSRS×WoW wearable gear (pauldrons, gold trim, gems)",
+        "Built the wearable-armour system (equip pieces onto the 3D hero)"
+      ]
     },
     {
       "id": "world-builder",
@@ -18,9 +23,14 @@
       "emoji": "🏰",
       "focus": "Buildings & environment",
       "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
-      "status": "idle",
-      "task": "Standing by for the next environment pass.",
-      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "varrock", "falador", "dirt", "plaster"]
+      "status": "working",
+      "task": "Expanding and upgrading the MAIN castle — grand gatehouse, more towers, throne room and courtyard detail (OSRS × WoW).",
+      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "varrock", "falador", "gatehouse", "throne", "tower", "courtyard"],
+      "recent": [
+        "RuneScape castle textures + blue-grey slate tower roofs",
+        "World texture pass — RuneScape turf, tree bark, dirt paths, plaster",
+        "Expanding the main castle: gatehouse, towers, throne room (in progress)"
+      ]
     }
   ]
 }

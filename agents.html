@@ -70,7 +70,7 @@
 
   <div class="grid" id="grid"></div>
 
-  <footer>Live commit activity is pulled from GitHub · the pulse means an agent is on the job.</footer>
+  <footer>Live commits are pulled from GitHub when reachable, with a committed activity log as backup · the pulse means an agent is on the job.</footer>
 
 <script>
 const REPO = 'huntercnoel-bot/eldenmoor';
@@ -109,9 +109,15 @@ async function render() {
   for (const a of status.agents) {
     const list = commitsFor(a);
     let feed;
-    if (list === null) feed = '<div class="empty">Live activity unavailable (repo private or GitHub rate limit).</div>';
-    else if (list.length === 0) feed = '<div class="empty">No recent commits yet.</div>';
-    else feed = list.map(c => `<div class="commit"><span class="sha">${c.sha}</span><div><div class="msg">${esc(c.msg)}</div><div class="when">${ago(c.when)}</div></div></div>`).join('');
+    if (list && list.length) {
+      // live commits from GitHub
+      feed = list.map(c => `<div class="commit"><span class="sha">${c.sha}</span><div><div class="msg">${esc(c.msg)}</div><div class="when">${ago(c.when)}</div></div></div>`).join('');
+    } else if (a.recent && a.recent.length) {
+      // committed activity log (always available, no API needed)
+      feed = a.recent.map(r => `<div class="commit"><span class="sha">✦</span><div><div class="msg">${esc(r)}</div></div></div>`).join('');
+    } else {
+      feed = '<div class="empty">No recent work yet.</div>';
+    }
 
     grid.insertAdjacentHTML('beforeend', `
       <div class="card">
