@@ -22,6 +22,7 @@ import { showDialogue } from './dialogue.js';
 import { createQuests, QUEST_DEFS } from './quests.js';
 import { createQuestMarkers } from './questmarkers.js';
 import './vfx.js';
+import './combat.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
