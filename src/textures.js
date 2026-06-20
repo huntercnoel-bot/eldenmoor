@@ -16,53 +16,81 @@ function finish(canvas, rep) {
 
 export function grassTexture(rep = 55) {
   const c = cv(128), g = c.getContext('2d');
-  g.fillStyle = '#6e7c3a'; g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 3200; i++) {
+  g.fillStyle = '#5f7a33'; g.fillRect(0, 0, 128, 128);                 // RuneScape-green turf
+  for (let i = 0; i < 90; i++) {                                       // soft mottling for gentle variation
     const v = Math.random();
-    g.fillStyle = `rgba(${(70 + v * 55) | 0},${(95 + v * 60) | 0},${(45 + v * 38) | 0},0.45)`;
-    g.fillRect(Math.random() * 128, Math.random() * 128, 1, 2 + Math.random() * 2);
+    g.fillStyle = `rgba(${(74 + v * 38) | 0},${(104 + v * 44) | 0},${(48 + v * 30) | 0},0.14)`;
+    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 9, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 1700; i++) {                                     // fine upright grass blades
+    const v = Math.random(), x = Math.random() * 128, y = Math.random() * 128;
+    g.strokeStyle = `rgba(${(66 + v * 58) | 0},${(98 + v * 62) | 0},${(44 + v * 36) | 0},0.5)`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2, y - (2 + Math.random() * 3)); g.stroke();
   }
   return finish(c, rep);
 }
 
 export function dirtTexture(rep = 6) {
   const c = cv(128), g = c.getContext('2d');
-  g.fillStyle = '#8a774e'; g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 2400; i++) {
+  g.fillStyle = '#7c6336'; g.fillRect(0, 0, 128, 128);                 // packed earth
+  for (let i = 0; i < 40; i++) {                                       // worn, trodden patches
+    g.fillStyle = `rgba(70,55,30,${(0.06 + Math.random() * 0.08).toFixed(2)})`;
+    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 6 + Math.random() * 16, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 1800; i++) {                                     // earthy grain
     const v = Math.random();
-    g.fillStyle = `rgba(${(110 + v * 45) | 0},${(90 + v * 35) | 0},${(58 + v * 30) | 0},0.5)`;
-    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, Math.random() * 2.2, 0, 7); g.fill();
+    g.fillStyle = `rgba(${(108 + v * 46) | 0},${(86 + v * 36) | 0},${(52 + v * 28) | 0},0.45)`;
+    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, Math.random() * 2, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 60; i++) {                                       // scattered pebbles
+    const s = 1.4 + Math.random() * 2.2, gy = 120 + Math.random() * 40;
+    g.fillStyle = `rgb(${gy | 0},${(gy - 6) | 0},${(gy - 16) | 0})`;
+    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, s, 0, 7); g.fill();
   }
   return finish(c, rep);
 }
 
 export function barkTexture() {
   const c = cv(64), g = c.getContext('2d');
-  g.fillStyle = '#6b4a2f'; g.fillRect(0, 0, 64, 64);
-  for (let i = 0; i < 70; i++) {
-    g.strokeStyle = `rgba(${(40 + Math.random() * 40) | 0},${(28 + Math.random() * 30) | 0},${(16 + Math.random() * 22) | 0},0.6)`;
-    g.lineWidth = 1 + Math.random() * 2;
-    const x = Math.random() * 64; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 8, 64); g.stroke();
+  g.fillStyle = '#5e3f27'; g.fillRect(0, 0, 64, 64);
+  for (let x = 0; x < 64; x += 4) {                                    // vertical bark staves
+    const v = 58 + Math.random() * 40;
+    g.fillStyle = `rgb(${v | 0},${(v * 0.66) | 0},${(v * 0.4) | 0})`;
+    g.fillRect(x, 0, 3, 64);
+  }
+  for (let i = 0; i < 24; i++) {                                       // deep grooves between the staves
+    const x = Math.random() * 64;
+    g.strokeStyle = 'rgba(28,16,8,0.5)'; g.lineWidth = 1 + Math.random() * 1.5;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 5, 64); g.stroke();
+  }
+  for (let i = 0; i < 12; i++) {                                       // catch-light ridges
+    const x = Math.random() * 64;
+    g.strokeStyle = 'rgba(150,112,72,0.22)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (Math.random() - 0.5) * 4, 64); g.stroke();
   }
   const t = finish(c); t.repeat.set(2, 2); return t;
 }
 
 // RuneScape-style ashlar masonry: chunky running-bond blocks, each a slightly
-// different sandstone-grey, with carved bevels (light top/left, dark
-// bottom/right) and dark recessed mortar. Block tones come from a wrapped
-// lattice hash so the pattern tiles seamlessly even on the half-offset courses.
-export function stoneTexture(rep = 2) {
+// different shade, with carved bevels (light top/left, dark bottom/right) and
+// dark recessed mortar. Block tones come from a wrapped lattice hash so the
+// pattern tiles seamlessly even on the half-offset courses. `opts` swaps the
+// palette: warm Lumbridge sandstone vs. cool Varrock/Falador grey.
+function ashlarTexture(rep, opts = {}) {
+  const mortar = opts.mortar || '#544f47';
+  const base = opts.base ?? 138, span = opts.span ?? 44;
+  const tint = opts.tint || ((v) => [v + 13, v + 4, v - 11]);      // warm sandstone
   const S = 256, c = cv(S), g = c.getContext('2d');
-  g.fillStyle = '#544f47'; g.fillRect(0, 0, S, S);                  // dark mortar shows in the gaps
-  const bw = 64, bh = 32, gap = 3, COLS = S / bw, ROWS = S / bh;   // tiles cleanly (4 x 8 blocks)
+  g.fillStyle = mortar; g.fillRect(0, 0, S, S);                    // dark mortar shows in the gaps
+  const bw = 64, bh = 32, gap = 3, COLS = S / bw, ROWS = S / bh;  // tiles cleanly (4 x 8 blocks)
   const hash = (a, b) => { let h = ((a * 73856093) ^ (b * 19349663)) >>> 0; h = ((h ^ (h >>> 13)) * 1274126177) >>> 0; return (h % 1000) / 1000; };
   for (let row = 0; row < ROWS; row++) {
     const y = row * bh, off = (row % 2) ? -bw / 2 : 0;
     for (let x = off - bw; x < S; x += bw) {
       const col = ((Math.round((x - off) / bw) % COLS) + COLS) % COLS;  // wrapped so seam blocks match
-      const v = 138 + hash(col, row) * 44;                              // per-block lightness
+      const [r, gg, b] = tint(base + hash(col, row) * span);           // per-block tone
       const bx = x + gap, by = y + gap, w = bw - gap * 2, h = bh - gap * 2;
-      g.fillStyle = `rgb(${(v + 13) | 0},${(v + 4) | 0},${(v - 11) | 0})`;  // warm sandstone grey
+      g.fillStyle = `rgb(${r | 0},${gg | 0},${b | 0})`;
       g.fillRect(bx, by, w, h);
       g.fillStyle = 'rgba(255,248,232,0.22)'; g.fillRect(bx, by, w, 2); g.fillRect(bx, by, 2, h);                  // carved highlight
       g.fillStyle = 'rgba(26,22,17,0.34)';    g.fillRect(bx, by + h - 2, w, 2); g.fillRect(bx + w - 2, by, 2, h);  // carved shadow
@@ -75,10 +103,23 @@ export function stoneTexture(rep = 2) {
   return finish(c, rep);
 }
 
+export function stoneTexture(rep = 2) { return ashlarTexture(rep); }   // warm Lumbridge sandstone
+
+// Cool grey ashlar for the Varrock / Falador keep — bluish-grey blocks, cold mortar.
+export function greyStoneTexture(rep = 2) {
+  return ashlarTexture(rep, { mortar: '#41444a', base: 150, span: 40, tint: (v) => [v - 4, v - 1, v + 7] });
+}
+
 export function plasterTexture() {
   const c = cv(64), g = c.getContext('2d');
   g.fillStyle = '#e3d4ae'; g.fillRect(0, 0, 64, 64);
-  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${(205 + Math.random() * 30) | 0},${(188 + Math.random() * 25) | 0},${(152 + Math.random() * 25) | 0},0.4)`; g.fillRect(Math.random() * 64, Math.random() * 64, 2, 2); }
+  for (let i = 0; i < 30; i++) {                                       // soft daub mottling
+    g.fillStyle = `rgba(${(190 + Math.random() * 30) | 0},${(172 + Math.random() * 26) | 0},${(138 + Math.random() * 26) | 0},0.25)`;
+    g.beginPath(); g.arc(Math.random() * 64, Math.random() * 64, 3 + Math.random() * 7, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 600; i++) { g.fillStyle = `rgba(${(205 + Math.random() * 30) | 0},${(188 + Math.random() * 25) | 0},${(152 + Math.random() * 25) | 0},0.4)`; g.fillRect(Math.random() * 64, Math.random() * 64, 2, 2); }
+  g.strokeStyle = 'rgba(120,100,70,0.18)'; g.lineWidth = 1;            // hairline cracks
+  for (let i = 0; i < 4; i++) { let x = Math.random() * 64, y = Math.random() * 64; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 3; k++) { x += (Math.random() - 0.5) * 14; y += (Math.random() - 0.5) * 14; g.lineTo(x, y); } g.stroke(); }
   return finish(c, 1);
 }
 
