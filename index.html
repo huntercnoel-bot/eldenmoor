@@ -91,17 +91,22 @@
     .bar-fill.hp { background: linear-gradient(90deg,var(--hp-2),var(--hp-1)); box-shadow: 0 0 8px rgba(232,90,58,0.55); }
     .bar-fill.xp { background: linear-gradient(90deg,var(--xp-2),var(--xp-1)); box-shadow: 0 0 8px rgba(150,224,99,0.45); }
 
-    /* Top-right logout button — carved bronze pill. */
-    #logout { position: fixed; top: 14px; right: 20px; z-index: 5;
+    /* Logout button — carved bronze pill, anchored in the top-right column
+       directly UNDER the minimap + coords pill so it never sits behind the dial.
+       Width matches the minimap (132px) for a tidy stacked column. */
+    #logout { position: fixed; top: 180px; right: 18px; z-index: 5; width: 132px; text-align: center;
       background: linear-gradient(180deg,#4a3620,#241708); color: var(--gold-bright);
       border: 1px solid var(--bronze); font-family: Georgia, serif; font-size: 12px; font-weight: 700;
       padding: 7px 14px; border-radius: 7px; cursor: pointer; letter-spacing: 0.4px;
       box-shadow: inset 0 1px 0 rgba(255,214,119,0.18), 0 3px 8px rgba(0,0,0,0.55); }
     #logout:hover { border-color: var(--gold); color: #fff3d6; box-shadow: inset 0 1px 0 rgba(255,214,119,0.3), 0 0 10px rgba(255,210,119,0.35); }
 
-    /* Bottom hint — slim banner with engraved keys. */
-    #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none;
-      font-size: 12.5px; white-space: nowrap; color: #e6dcc4;
+    /* Bottom-center hint — slim banner with engraved keys. Confined to the free
+       gap BETWEEN the bottom-left chat box and the bottom-right panel (insets
+       clear both columns), and centred within that band so it holds at any width. */
+    #hint { position: fixed; bottom: 16px; left: 384px; right: 246px; z-index: 5; pointer-events: none;
+      margin: 0 auto; width: max-content; max-width: calc(100vw - 630px);
+      font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; color: #e6dcc4;
       background: linear-gradient(180deg,rgba(46,34,20,0.92),rgba(16,11,6,0.92));
       border: 1px solid var(--bronze); padding: 8px 20px; border-radius: 999px;
       box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 4px 14px rgba(0,0,0,0.55); }
@@ -192,8 +197,10 @@
       text-shadow: 0 0 12px rgba(255,210,119,0.5), 0 2px 6px rgba(0,0,0,0.95);
       box-shadow: inset 0 1px 0 rgba(255,230,168,0.3), 0 0 22px rgba(255,210,119,0.35), 0 8px 26px rgba(0,0,0,0.65); }
 
-    #saved { position: fixed; top: 178px; right: 18px; z-index: 7; pointer-events: none; font-size: 13px; font-weight: 700;
-      color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
+    /* "Saved" toast — sits in the top-right column under the logout pill so it
+       clears the minimap dial and the logout button. */
+    #saved { position: fixed; top: 236px; right: 18px; z-index: 7; pointer-events: none; font-size: 13px; font-weight: 700;
+      width: 132px; text-align: center; color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
       padding: 5px 14px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease;
       box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 3px 10px rgba(0,0,0,0.5); }
 
@@ -222,7 +229,9 @@
     #wc-input::placeholder, #chat-input::placeholder, #login input::placeholder, #fr-input::placeholder { color: rgba(244,228,193,0.4); }
     #wc-input:focus, #chat-input:focus, #login input:focus, #fr-input:focus { outline: none; border-color: var(--gold); box-shadow: inset 0 0 6px rgba(0,0,0,0.8), 0 0 8px rgba(255,210,119,0.35); }
 
-    #gamemsg { position: fixed; bottom: 196px; left: 16px; z-index: 6; pointer-events: none; max-width: 52%;
+    /* Brief OSRS-style game notice — floats above the bottom-left chat stack
+       (world chat + private chat) so it never lands on top of either box. */
+    #gamemsg { position: fixed; bottom: 430px; left: 16px; z-index: 6; pointer-events: none; max-width: 46%;
       font-size: 14px; color: #f3e7c4; text-shadow: 0 0 8px rgba(255,210,119,0.35), 0 2px 4px rgba(0,0,0,0.95);
       font-family: Georgia, serif; opacity: 0; transition: opacity 0.4s ease; }
 
@@ -329,8 +338,10 @@
       width: 25px; height: 25px; cursor: pointer; font-size: 12px; box-shadow: inset 0 1px 0 rgba(255,214,119,0.1); }
     .fr-btn:hover { border-color: var(--gold); color: #fff3d6; }
 
-    /* ===================== Private chat window ===================== */
-    #chat { position: fixed; bottom: 80px; left: 16px; z-index: 8; width: 312px; padding: 10px; }
+    /* ===================== Private chat window =====================
+       Stacks directly ABOVE the world-chat box in the bottom-left column (the
+       world chat is ~175px tall + 12px gap) so the two never overlap. */
+    #chat { position: fixed; bottom: 203px; left: 16px; z-index: 8; width: 312px; padding: 10px; }
     #chat[hidden] { display: none; }
     .chat-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;
       color: var(--gold); font-family: Georgia, serif; margin-bottom: 7px; }
@@ -410,10 +421,14 @@
        Built in JS (src/dialogue.js) with minimal inline styles; we override them
        with a carved-bronze parchment frame matching the HUD. !important is used
        because dialogue.js sets inline styles (incl. per-render option styling). */
+    /* NPC dialogue — confined to the free band BETWEEN the bottom-left chat box
+       and the bottom-right panel (left/right insets clear both columns) and
+       centred within it via margin:auto, so it never overlaps either even at
+       1024px. Width caps to whatever the central gap allows. */
     #dialogue-box {
-      position: fixed !important; left: 50% !important; bottom: 22px !important;
-      transform: translateX(-50%) !important; z-index: 120 !important;
-      width: min(660px, 94vw) !important; box-sizing: border-box !important;
+      position: fixed !important; left: 384px !important; right: 246px !important; bottom: 60px !important;
+      margin: 0 auto !important; transform: none !important; z-index: 120 !important;
+      width: min(660px, calc(100vw - 646px)) !important; box-sizing: border-box !important;
       padding: 16px 22px 14px !important; color: var(--ink) !important;
       font: 16px/1.55 Georgia, 'Times New Roman', serif !important;
       border: 2px solid var(--bronze) !important; border-radius: 10px !important;
@@ -428,8 +443,8 @@
       pointer-events: auto; cursor: pointer; }
     #dialogue-box[hidden] { display: none !important; }
     #dialogue-box:not([hidden]) { animation: em-dlg-in 0.18s ease both; }
-    @keyframes em-dlg-in { from { opacity: 0; transform: translate(-50%, 8px); }
-      to { opacity: 1; transform: translate(-50%, 0); } }
+    @keyframes em-dlg-in { from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); } }
     /* gold gem rivets on the top corners (matches #panel) */
     #dialogue-box::before, #dialogue-box::after {
       content: ''; position: absolute; top: 6px; width: 7px; height: 7px; border-radius: 50%;
