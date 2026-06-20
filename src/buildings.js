@@ -4,7 +4,7 @@
 // shop roofs are hidden while you're inside (see main.js).
 
 import * as THREE from '../vendor/three.module.js';
-import { stoneTexture, plasterTexture, dirtTexture, shingleTexture, woodFloorTexture, marbleTexture, tapestryTexture, carpetTexture, stainedGlassTexture, bookshelfTexture, heraldryBannerTexture, woodPanelTexture, tiledFloorTexture, rugTexture, signTexture, portraitTexture } from './textures.js';
+import { stoneTexture, greyStoneTexture, plasterTexture, dirtTexture, shingleTexture, woodFloorTexture, marbleTexture, tapestryTexture, carpetTexture, stainedGlassTexture, bookshelfTexture, heraldryBannerTexture, woodPanelTexture, tiledFloorTexture, rugTexture, signTexture, portraitTexture } from './textures.js';
 
 // Footprints world.js uses to keep trees from growing inside things.
 export const STRUCTURES = [
@@ -22,6 +22,7 @@ function tex() {
     carpet: carpetTexture(6), tapestry: tapestryTexture('#6e1f2f', '#c9a24a'), tapestryB: tapestryTexture('#27406e', '#c9a24a'),
     stainedGlass: stainedGlassTexture(), bookshelf: bookshelfTexture(), heraldry: heraldryBannerTexture('#27406e'),
     woodPanel: woodPanelTexture(2), tiled: tiledFloorTexture(4), rug: rugTexture(), portrait: portraitTexture(),
+    grey: greyStoneTexture(2), greyBig: greyStoneTexture(4),
   };
   return TX;
 }
@@ -109,8 +110,10 @@ function makeCastle() {
   const T = tex();
   const g = new THREE.Group();
   const HW = 23, HD = 22, WH = 6, TH = 0.9;
-  const stone = mapped(T.wall), floorMat = mapped(T.floor, 0xb6b1a6), marble = mapped(T.marble),
-        roofMat = mapped(T.shingle, 0x5d6e82), wood = flat(0x4a3320), gold = flat(0xd8b24a, 0.4),
+  const stone = mapped(T.wall), grey = mapped(T.grey), greyBig = mapped(T.greyBig),
+        floorMat = mapped(T.floor, 0xb6b1a6), marble = mapped(T.marble),
+        roofMat = mapped(T.shingle, 0x5d6e82), roofMatDk = mapped(T.shingle, 0x46566a),
+        wood = flat(0x4a3320), gold = flat(0xd8b24a, 0.4),
         red = flat(0x8a1f1f), purple = flat(0x4a2c6e);
   const ember = new THREE.MeshStandardMaterial({ color: 0xff7a1e, emissive: 0xff5500, emissiveIntensity: 1.1, roughness: 0.7 });
   const flameMat = new THREE.MeshStandardMaterial({ color: 0xffb33a, emissive: 0xff7b00, emissiveIntensity: 1.7, roughness: 0.5 });
@@ -125,22 +128,32 @@ function makeCastle() {
     g.add(box(w, h, d, stone, (x0 + x1) / 2, h / 2, (z0 + z1) / 2));
     if (cren) merlons(x0, z0, x1, z1, h + 0.4);
   };
-  const tower = (tx, tz, r = 2.4, h = 14) => {
-    g.add(cyl(r, r + 0.3, h, 14, stone, tx, h / 2, tz));
-    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; g.add(deco(box(0.6, 0.8, 0.6, stone, tx + Math.cos(a) * (r - 0.1), h + 0.4, tz + Math.sin(a) * (r - 0.1)))); }
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(r + 0.9, 4.4, 14), roofMat); cone.position.set(tx, h + 2.6, tz); cone.castShadow = true; deco(cone); g.add(cone);
-    g.add(deco(box(0.12, 2.2, 0.12, wood, tx, h + 5.4, tz)));
-    g.add(deco(box(1.2, 0.7, 0.05, red, tx + 0.66, h + 5.6, tz)));
+  const tower = (tx, tz, r = 2.8, h = 18, mat = grey, roof = roofMat) => {
+    g.add(cyl(r, r + 0.4, h, 16, mat, tx, h / 2, tz));
+    g.add(deco(cyl(r + 0.55, r + 0.55, 0.7, 16, mat, tx, h + 0.05, tz)));            // machicolation corbel ring
+    g.add(deco(cyl(r + 0.35, r + 0.55, 0.9, 16, mat, tx, h - 0.65, tz)));            // corbel underside
+    const mr = r + 0.55, mn = Math.max(12, Math.round(mr * 3.4));                    // battlement merlons
+    for (let k = 0; k < mn; k++) { const a = k / mn * Math.PI * 2; g.add(deco(box(0.62, 0.95, 0.62, mat, tx + Math.cos(a) * (mr - 0.2), h + 0.85, tz + Math.sin(a) * (mr - 0.2)))); }
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(mr + 0.6, r * 2.0 + 1.4, 16), roof); cone.position.set(tx, h + 1.4 + (r + 0.7), tz); cone.castShadow = true; deco(cone); g.add(cone);
+    const ringY = h + 1.4;
+    g.add(deco(cyl(mr + 0.65, mr + 0.65, 0.35, 16, gold, tx, ringY, tz)));           // gilt eave ring
+    g.add(deco(box(0.14, 2.8, 0.14, wood, tx, h + (r * 2.0 + 1.4) + 2.7, tz)));      // flag pole
+    g.add(deco(cyl(0.16, 0, 0.4, 8, gold, tx, h + (r * 2.0 + 1.4) + 4.2, tz)));      // pole finial
+    g.add(deco(box(1.5, 0.85, 0.05, red, tx + 0.82, h + (r * 2.0 + 1.4) + 2.9, tz)));// pennant
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; g.add(deco(box(0.25, 1.3, 0.6, mat, tx + Math.cos(a) * (r + 0.05), h * 0.55, tz + Math.sin(a) * (r + 0.05)))); } // arrow-slit reveals
   };
   const brazier = (x, z, light = false) => {
     g.add(cyl(0.35, 0.22, 0.8, 8, stone, x, 0.4, z));
     g.add(deco(box(0.5, 0.3, 0.5, flameMat, x, 1.0, z)));
     if (light) { const pl = new THREE.PointLight(0xffa53a, 7, 16, 2); pl.position.set(x, 1.4, z); g.add(pl); }
   };
-  const column = (x, z) => {
-    g.add(cyl(0.55, 0.6, WH + 1.5, 12, stone, x, (WH + 1.5) / 2, z));
-    g.add(deco(box(1.4, 0.4, 1.4, stone, x, 0.2, z)));
-    g.add(deco(box(1.4, 0.5, 1.4, stone, x, WH + 1.5, z)));
+  const column = (x, z, h = WH + 3.2) => {
+    g.add(cyl(0.6, 0.72, h, 14, stone, x, h / 2, z));               // soaring shaft
+    g.add(deco(box(1.7, 0.5, 1.7, stone, x, 0.25, z)));             // stepped base
+    g.add(deco(box(1.4, 0.4, 1.4, stone, x, 0.65, z)));
+    g.add(deco(cyl(0.95, 0.65, 0.7, 14, stone, x, h - 0.3, z)));    // flared capital
+    g.add(deco(box(1.7, 0.55, 1.7, stone, x, h + 0.1, z)));         // abacus
+    g.add(deco(box(1.4, 0.35, 1.4, gold, x, h + 0.45, z)));         // gilt band
   };
   const statue = (x, z) => {
     g.add(box(1.4, 1.0, 1.4, stone, x, 0.5, z));                 // pedestal (solid)
@@ -159,19 +172,68 @@ function makeCastle() {
   wallSeg(-HW, HD, HW, HD);
   wallSeg(-HW, -HD, -HW, HD); wallSeg(HW, -HD, HW, HD);
 
-  // towers: 4 corners + 2 side-mids + 2 gatehouse
-  tower(-HW, -HD); tower(HW, -HD); tower(-HW, HD); tower(HW, HD);
-  tower(-HW, 0); tower(HW, 0);
-  tower(-4, -HD, 1.8, 11); tower(4, -HD, 1.8, 11);
-  g.add(deco(box(9, 1.6, 1.4, stone, 0, WH + 0.8, -HD)));        // gate lintel
-  g.add(deco(box(5.2, 0.4, 0.5, wood, 0, WH - 0.4, -HD)));       // portcullis
+  // towers: 4 grand corner drum-towers (front pair tallest), 2 side-mids,
+  // and 2 grey gatehouse drums flanking the gate
+  tower(-HW, -HD, 3.2, 22); tower(HW, -HD, 3.2, 22);                       // front corners (tallest)
+  tower(-HW, HD, 3.0, 20); tower(HW, HD, 3.0, 20);                         // back corners
+  tower(-HW, 0, 2.6, 17); tower(HW, 0, 2.6, 17);                           // side-mids
+  tower(-7, -HD, 2.4, 21, greyBig, roofMatDk); tower(7, -HD, 2.4, 21, greyBig, roofMatDk);  // gatehouse drums (grey)
+
+  // ---- grand gatehouse: arch, raised portcullis, machicolated parapet ----
+  g.add(deco(box(14, 2.0, 2.2, greyBig, 0, WH + 1.0, -HD)));               // gatehouse block over the arch
+  g.add(deco(box(15.4, 0.7, 2.6, greyBig, 0, WH + 2.1, -HD)));             // corbelled machicolation
+  for (let k = -3; k <= 3; k++) g.add(deco(box(0.7, 0.95, 0.7, greyBig, k * 2.0, WH + 2.7, -HD)));   // parapet merlons
+  for (const sx of [-1, 1]) g.add(deco(box(0.9, 4.6, 1.0, greyBig, sx * 3.0, WH - 0.7, -HD - 0.2))); // arch jambs
+  { const arch = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.55, 8, 10, Math.PI), greyBig); arch.position.set(0, WH - 0.9, -HD - 0.25); deco(arch); g.add(arch); } // round arch voussoir
+  for (let i = -2; i <= 2; i++) g.add(deco(box(0.22, 2.0, 0.22, flat(0x2a2c30), i * 0.9, WH - 1.6, -HD - 0.1)));  // raised portcullis teeth
+  for (let i = 0; i < 5; i++) g.add(deco(box(4.5, 0.2, 0.2, flat(0x2a2c30), 0, WH - 0.7 + i * 0.0, -HD - 0.1)));  // portcullis rail
+  g.add(deco(box(5.0, 0.25, 0.3, flat(0x2a2c30), 0, WH - 0.5, -HD - 0.1)));
+  for (const sx of [-1, 1]) g.add(deco(box(2.6, 4.4, 0.18, mapped(T.heraldry), sx * 5.0, WH - 0.4, -HD - 0.45)));  // banners on the gatehouse face
+
+  // ===================== raised causeway + barbican over the front moat =====================
+  // The moat's front gap is local x[-10..10], z[-27..-23]; this bridge is decorative
+  // (the player walks on terrain) and keeps the gate (local x±2.5) clear.
+  const bridgeMat = greyBig, bridgeY = 0.02;
+  g.add(deco(box(8.0, 0.5, 6.2, bridgeMat, 0, bridgeY, -25.6, false)));            // causeway deck
+  g.add(deco(box(8.6, 0.35, 1.2, bridgeMat, 0, 0.45, -22.9, false)));              // threshold lip at the gate
+  for (const sx of [-1, 1]) {                                                       // parapet rails + posts down the bridge
+    g.add(deco(box(0.5, 1.5, 6.4, bridgeMat, sx * 3.7, 0.75, -25.6)));
+    for (const pz of [-23.1, -25.6, -28.1]) g.add(deco(box(0.85, 1.95, 0.85, bridgeMat, sx * 3.7, 0.9, pz)));  // newel posts
+  }
+  // barbican: a forward stone arch at the outer (moat) edge, flanked by twin turrets
+  for (const sx of [-1, 1]) {
+    g.add(deco(cyl(1.5, 1.7, 9.0, 12, bridgeMat, sx * 4.4, 4.5, -28.5)));           // turret
+    for (let k = 0; k < 9; k++) { const a = k / 9 * Math.PI * 2; g.add(deco(box(0.4, 0.6, 0.4, bridgeMat, sx * 4.4 + Math.cos(a) * 1.7, 9.2, -28.5 + Math.sin(a) * 1.7))); }
+    const tc = new THREE.Mesh(new THREE.ConeGeometry(2.1, 3.4, 12), roofMatDk); tc.position.set(sx * 4.4, 11.0, -28.5); deco(tc); g.add(tc);
+    g.add(deco(box(0.1, 1.7, 0.1, wood, sx * 4.4, 13.4, -28.5))); g.add(deco(box(1.0, 0.6, 0.05, red, sx * 4.4 + 0.55, 13.6, -28.5)));
+  }
+  g.add(deco(box(11.0, 2.2, 1.6, bridgeMat, 0, 8.0, -28.5)));                       // barbican arch span
+  g.add(deco(box(12.0, 0.7, 1.9, bridgeMat, 0, 9.2, -28.5)));                       // machicolation
+  for (let k = -2; k <= 2; k++) g.add(deco(box(0.7, 0.9, 0.7, bridgeMat, k * 2.2, 9.85, -28.5)));   // merlons
+  { const arch = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.5, 8, 10, Math.PI), bridgeMat); arch.position.set(0, 4.6, -28.4); deco(arch); g.add(arch); }
+  g.add(deco(box(11.6, 4.2, 0.2, mapped(T.heraldry, 0x27406e), 0, 5.2, -29.0)));    // big banner over the outer arch (smaller-tiled look)
+  // approach statues + braziers guarding the causeway mouth
+  statue(-6.5, -26.0); statue(6.5, -26.0);
+  brazier(-4.2, -23.6, true); brazier(4.2, -23.6, true);
+  brazier(-4.2, -28.0, true); brazier(4.2, -28.0, true);
 
   // inner dividing wall (courtyard | keep) with a grand arch
   wallSeg(-HW, 0, -3, 0, 5, 0.7); wallSeg(3, 0, HW, 0, 5, 0.7);
   g.add(deco(box(7.5, 1.6, 1.2, stone, 0, 5.3, 0)));
 
-  // great-hall columns (central aisle stays clear)
+  // great-hall columns (central aisle stays clear) — a soaring four-column colonnade
+  const HALLH = WH + 3.2;
   for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) column(sx * 9, z);   // hall colonnade (clear of doorways)
+  // semicircular ribbed arches link the columns along each side (cathedral feel)
+  const sideArch = (sx) => {
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(5.5, 0.4, 8, 14, Math.PI), stone);
+    arch.position.set(sx * 9, HALLH + 0.3, 11); arch.rotation.y = Math.PI / 2; deco(arch); g.add(arch);
+    g.add(deco(box(1.0, 0.7, 12.5, stone, sx * 9, HALLH + 0.9, 11)));         // entablature beam over the colonnade
+    g.add(deco(box(1.2, 0.4, 12.7, gold, sx * 9, HALLH + 1.35, 11)));         // gilt cornice band
+  };
+  sideArch(-1); sideArch(1);
+  // tall clerestory beam spanning the nave + hanging banners between the columns
+  for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) g.add(deco(box(0.12, 3.6, 1.6, mapped(T.heraldry), sx * 8.3, HALLH - 2.0, z)));
 
   // throne room (back)
   g.add(deco(box(12, 0.4, 5, marble, 0, 0.32, HD - 3, false)));   // dais step 1
@@ -347,13 +409,11 @@ function makeCastle() {
   roomSign(g, 'BEDCHAMBER', 9.7, 3.3, -16.5, -Math.PI / 2);
   roomSign(g, 'TREASURY', 9.7, 3.3, -5.5, -Math.PI / 2);
 
-  // --- castle exterior: giant banners, torch-lit causeway, raised portcullis ---
+  // --- castle exterior dressing: hanging banners along the front curtain wall ---
   const heraldryX = mapped(T.heraldry);
-  for (const sx of [-1, 1]) g.add(deco(box(3, 6, 0.2, heraldryX, sx * 7, 3.3, -22.2)));   // banners flanking the gate
-  const extBraz = (x, z) => { g.add(cyl(0.35, 0.22, 0.9, 8, stone, x, 0.45, z)); g.add(deco(box(0.5, 0.35, 0.5, flameMat, x, 1.1, z))); };
-  extBraz(-7, -23.5); extBraz(7, -23.5); extBraz(-7, -26.5); extBraz(7, -26.5);          // braziers down the causeway
-  for (let i = -2; i <= 2; i++) g.add(deco(box(0.16, 1.0, 0.16, flat(0x3a3a3e), i * 0.9, 5.2, -22)));   // raised portcullis teeth
-  g.add(deco(box(5, 0.2, 0.3, flat(0x3a3a3e), 0, 5.7, -22)));
+  for (const sx of [-1, 1]) for (const bx of [12, 17.5]) g.add(deco(box(2.0, 4.4, 0.18, heraldryX, sx * bx, 3.2, -HD - 0.5)));  // banners on the front wall
+  // little gilt point-lights to warm the gate at night
+  { const gl1 = new THREE.PointLight(0xffb04a, 6, 22, 2); gl1.position.set(0, 5, -24); g.add(gl1); }
 
   // --- staircases (right = up to the solar; left = down to the cellar) ---
   const upS = makeStairs('up', 'UPPER FLOOR'); upS.position.set(8, 0, 3); g.add(upS);
