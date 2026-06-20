@@ -3,7 +3,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { buildWorld } from './world.js';
-import { createPlayer, updatePlayerAnimation, setHeldWeapon } from './player.js';
+import { createPlayer, updatePlayerAnimation, setHeldWeapon, setWornGear } from './player.js';
 import { setupControls } from './controls.js';
 import { createSkills } from './skills.js';
 import { createInventory } from './inventory.js';
@@ -100,14 +100,19 @@ function startGame(username) {
     inventory.add('bronze_axe', 1);
     inventory.add('wooden_shield', 1);
     inventory.add('coins', 25);
+    // a starter set of wearable steel armour — equip from the bag to put it on
+    for (const g of ['steel_helm', 'steel_platebody', 'steel_platelegs', 'steel_gauntlets', 'steel_boots', 'steel_kiteshield', 'adventurer_cape']) inventory.add(g, 1);
   }
   if (!equipment.getWeapon()) {
     if (inventory.count('bronze_axe') > 0) equipment.equip('bronze_axe');
     else if (inventory.count('steel_axe') > 0) equipment.equip('steel_axe');
   }
 
-  // Show the equipped axe in the hero's hand (and swap it when you change weapons).
-  equipment.setWeaponChangeHandler((def) => setHeldWeapon(player, def));
+  // Update the 3D hero whenever any slot changes: weapon → in-hand axe, the rest → worn armour.
+  equipment.setEquipChangeHandler((slot, def) => {
+    if (slot === 'weapon') setHeldWeapon(player, def);
+    else setWornGear(player, slot, def);
+  });
 
   // 6) INTERACTIONS + right-click menus.
   const interactions = setupInteractions(scene, camera, player, renderer.domElement, skills, inventory, equipment, showLevelUp);

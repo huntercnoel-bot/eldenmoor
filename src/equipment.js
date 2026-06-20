@@ -31,19 +31,14 @@ export function createEquipment(inventory) {
   const slots = {};
   for (const d of SLOT_DEFS) slots[d.id] = null;
   const gridEl = document.getElementById('equip-grid');
-  let onWeaponChange = null;
-  let lastWeapon = undefined;
+  let onEquipChange = null;
 
   function getWeapon() { return slots.weapon ? ITEMS[slots.weapon] : null; }
 
-  // Tell the listener when the equipped weapon actually changes.
-  function notifyWeapon() {
-    if (slots.weapon !== lastWeapon) {
-      lastWeapon = slots.weapon;
-      if (onWeaponChange) onWeaponChange(getWeapon());
-    }
-  }
-  function setWeaponChangeHandler(fn) { onWeaponChange = fn; if (fn) fn(getWeapon()); }
+  // Tell the listener a slot's worn item changed, so the 3D hero can update.
+  function emit(slotId) { if (onEquipChange) onEquipChange(slotId, slots[slotId] ? ITEMS[slots[slotId]] : null); }
+  function emitAll() { if (onEquipChange) for (const d of SLOT_DEFS) emit(d.id); }
+  function setEquipChangeHandler(fn) { onEquipChange = fn; emitAll(); }
 
   function equip(itemId) {
     const def = ITEMS[itemId];
@@ -52,7 +47,7 @@ export function createEquipment(inventory) {
     const previous = slots[def.slot];
     slots[def.slot] = itemId;
     if (previous) inventory.add(previous, 1);
-    render(); notifyWeapon();
+    render(); emit(def.slot);
     return true;
   }
 
@@ -61,7 +56,7 @@ export function createEquipment(inventory) {
     if (!itemId) return false;
     if (!inventory.add(itemId, 1)) return false;
     slots[slotId] = null;
-    render(); notifyWeapon();
+    render(); emit(slotId);
     return true;
   }
 
@@ -94,9 +89,9 @@ export function createEquipment(inventory) {
       const v = saved && saved[d.id];
       slots[d.id] = (v && ITEMS[v] && ITEMS[v].equipable) ? v : null;
     }
-    render(); notifyWeapon();
+    render(); emitAll();
   }
 
   render();
-  return { slots, equip, unequip, getWeapon, render, serialize, load, setWeaponChangeHandler };
+  return { slots, equip, unequip, getWeapon, render, serialize, load, setEquipChangeHandler };
 }

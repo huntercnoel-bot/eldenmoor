@@ -95,6 +95,61 @@ export const ITEMS = {
       <path d="M8 24 Q20 30 32 24 M9 21 Q20 26 31 21" stroke="#5a3c20" stroke-width="0.8" fill="none" opacity="0.7"/>
       <ellipse cx="17" cy="23" rx="3" ry="2.6" fill="#ece3d1"/><ellipse cx="22.5" cy="24" rx="3" ry="2.6" fill="#dccfb8"/></svg>`,
   },
+
+  // ---- Wearable steel armour (worn on the 3D hero, see player.js setWornGear) ----
+  steel_helm: {
+    id: 'steel_helm', name: 'Steel helm', stackable: false, value: 140,
+    equipable: true, slot: 'head', examine: 'A sturdy open-faced steel helm.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 22 Q9 9 20 9 Q31 9 31 22 L31 26 Q26 24 20 24 Q14 24 9 26 Z" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <rect x="18.6" y="13" width="2.8" height="12" fill="#9aa0a8"/><path d="M9.5 22 H30.5" stroke="#d8b24a" stroke-width="2"/></svg>`,
+  },
+  steel_platebody: {
+    id: 'steel_platebody', name: 'Steel platebody', stackable: false, value: 320,
+    equipable: true, slot: 'body', tabard: 0x6e1f2f, examine: 'A heavy steel breastplate with a tabard.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 11 L20 14 L30 11 L31 30 Q20 35 9 30 Z" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <path d="M16 14 H24 V31 H16 Z" fill="#6e1f2f"/><path d="M10 11 L7 16 M30 11 L33 16" stroke="#6f747e" stroke-width="2.4" fill="none"/></svg>`,
+  },
+  steel_platelegs: {
+    id: 'steel_platelegs', name: 'Steel platelegs', stackable: false, value: 240,
+    equipable: true, slot: 'legs', examine: 'Steel plates for the legs.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11 8 H29 L27 33 H22 L20 18 L18 33 H13 Z" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <path d="M11 12 H29" stroke="#d8b24a" stroke-width="2"/></svg>`,
+  },
+  steel_gauntlets: {
+    id: 'steel_gauntlets', name: 'Steel gauntlets', stackable: false, value: 90,
+    equipable: true, slot: 'hands', examine: 'Articulated steel gauntlets.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <rect x="12" y="16" width="16" height="16" rx="3" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <rect x="13.2" y="10" width="3.2" height="8" rx="1.5" fill="#c2c7ce" stroke="#6f747e" stroke-width="1"/>
+      <rect x="17" y="8" width="3.2" height="10" rx="1.5" fill="#c2c7ce" stroke="#6f747e" stroke-width="1"/>
+      <rect x="20.8" y="9" width="3.2" height="9" rx="1.5" fill="#c2c7ce" stroke="#6f747e" stroke-width="1"/>
+      <rect x="24.6" y="11" width="3" height="7" rx="1.5" fill="#c2c7ce" stroke="#6f747e" stroke-width="1"/>
+      <path d="M12 28 H28" stroke="#d8b24a" stroke-width="2"/></svg>`,
+  },
+  steel_boots: {
+    id: 'steel_boots', name: 'Steel boots', stackable: false, value: 90,
+    equipable: true, slot: 'feet', examine: 'Plated steel boots.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15 8 H22 V24 L30 27 V31 H12 V12 Q12 8 15 8 Z" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <path d="M12 27 H30" stroke="#d8b24a" stroke-width="2"/></svg>`,
+  },
+  steel_kiteshield: {
+    id: 'steel_kiteshield', name: 'Steel kiteshield', stackable: false, value: 180,
+    equipable: true, slot: 'shield', face: 0x2f5aa0, examine: 'A tall steel kiteshield.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 5 C27 8 33 8 33 8 C33 22 28 32 20 36 C12 32 7 22 7 8 C7 8 13 8 20 5 Z" fill="#c2c7ce" stroke="#6f747e" stroke-width="1.5"/>
+      <path d="M20 6 V35 M8 13 H32" stroke="#9aa0a8" stroke-width="1"/><circle cx="20" cy="19" r="3.6" fill="#d8b24a" stroke="#6f747e" stroke-width="1"/></svg>`,
+  },
+  adventurer_cape: {
+    id: 'adventurer_cape', name: "Adventurer's cape", stackable: false, value: 60,
+    equipable: true, slot: 'cape', cape: 0xa83232, examine: 'A fine red travelling cape.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 8 Q20 6 28 8 L33 33 Q20 30 7 33 Z" fill="#a83232" stroke="#6e1f2f" stroke-width="1.5"/>
+      <path d="M12 8 Q20 12 28 8" fill="none" stroke="#d8b24a" stroke-width="2"/></svg>`,
+  },
 };
 
 // Helper: a stylized axe icon in the given blade colours.

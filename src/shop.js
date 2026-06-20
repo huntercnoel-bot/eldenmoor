@@ -16,6 +16,11 @@ const SHOPS = {
     greet: '"A sharp axe makes light work, love. Finest blades in all Eldenmoor."',
     stock: ['bronze_axe', 'steel_axe', 'stormforged_axe', 'voidcleaver'],
   },
+  armoury: {
+    name: "Garrett's Armoury",
+    greet: '"Fresh off the anvil — wear it well, and mind the dents."',
+    stock: ['steel_helm', 'steel_platebody', 'steel_platelegs', 'steel_gauntlets', 'steel_boots', 'steel_kiteshield', 'adventurer_cape'],
+  },
 };
 
 export function createShop(inventory) {
