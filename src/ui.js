@@ -214,8 +214,58 @@ export function initMinimap() {
   requestAnimationFrame(frame);
 }
 
+/* ===================== Quest journal → panel tab =====================
+   The quest system (quests.js) builds a floating #quest-log box plus an
+   awkward floating #quest-log-toggle button. We don't own that file, so here
+   we RELOCATE its live body element into the #tab-quests page and retire the
+   floating chrome. Because quests.js keeps a reference to #quest-log-body and
+   re-renders into it, moving the node keeps the journal fully live. We also
+   surface a soft gold glow on the Quests tab whenever a quest is available. */
+export function initQuestTab() {
+  const slot = document.getElementById('quest-tab-body');
+  const tab = document.querySelector('.tab[data-tab="quests"]');
+  if (!slot || !tab) return;
+
+  // Drive the "quest available" glow from window.eldenmoor.quests.
+  function refreshAlert() {
+    const q = window.eldenmoor && window.eldenmoor.quests;
+    if (!q || !q.QUEST_DEFS || !q.progress) return;
+    let active = false;
+    for (const id of Object.keys(q.QUEST_DEFS)) {
+      if (q.isActive && q.isActive(id)) { active = true; break; }
+    }
+    // Don't nag while the player is already looking at the tab.
+    if (active && !tab.classList.contains('active')) tab.classList.add('quest-alert');
+    else if (!active) tab.classList.remove('quest-alert');
+  }
+
+  // Wait for quests.js to have built its journal, then move it in.
+  let tries = 0;
+  function adopt() {
+    const log = document.getElementById('quest-log');
+    const body = document.getElementById('quest-log-body');
+    const toggle = document.getElementById('quest-log-toggle');
+    if (body) {
+      // Relocate the live journal body into the tab and clear our placeholder.
+      slot.innerHTML = '';
+      body.removeAttribute('style');      // drop the floating-box inline styles
+      slot.appendChild(body);
+    }
+    if (log) { log.hidden = true; log.style.display = 'none'; }       // retire floating box
+    if (toggle) toggle.remove();                                     // remove bad floating button
+    refreshAlert();
+    if (body) return;                     // done once the body has been adopted
+    if (++tries < 60) setTimeout(adopt, 150);
+  }
+  adopt();
+
+  // Keep the glow honest as quests change (cheap poll; cosmetic only).
+  setInterval(refreshAlert, 1500);
+}
+
 // Convenience: start the cosmetic HUD systems.
 export function initHudExtras() {
   initTooltips();
   initMinimap();
+  initQuestTab();
 }
