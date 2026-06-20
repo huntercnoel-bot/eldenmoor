@@ -3,77 +3,85 @@
   "repo": "huntercnoel-bot/eldenmoor",
   "agents": [
     {
-      "id": "art-director",
-      "name": "Art Director",
-      "emoji": "🎨",
+      "id": "art-director", "name": "Art Director", "emoji": "🎨",
       "focus": "NPCs & the player character",
       "scope": ["src/player.js", "src/npc.js"],
       "status": "working",
-      "task": "Smooth NPC geometry — rebuilding the townsfolk & court rounded and organic (no cubes), to match the smooth hero.",
-      "match": ["npc", "character", "hero", "player", "gear", "armour", "armor", "helm", "pauldron", "smooth", "face", "beard"],
-      "recent": [
-        "Smooth, organic hero + gear rebuilt — no more cubes (LIVE)",
-        "Heroic hero model + wearable gear system",
-        "Now: smoothing every NPC to match (in progress)"
-      ]
+      "task": "Smoothing every NPC's geometry to match the smooth hero (rounded, organic, no cubes).",
+      "match": ["npc", "character", "hero", "player", "gear", "smooth", "face", "beard", "pauldron"],
+      "recent": ["Smooth, organic hero + gear (LIVE)", "Now: smoothing every NPC to match"]
     },
     {
-      "id": "world-builder",
-      "name": "World Builder",
-      "emoji": "🏰",
+      "id": "world-builder", "name": "World Builder", "emoji": "🏰",
       "focus": "Buildings & environment",
-      "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
+      "scope": ["src/world.js", "sky/fog/lighting"],
       "status": "working",
-      "task": "Smoothing the wilderness — rounded organic trees, rocks, water and terrain to match the smooth town.",
-      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "water", "rock", "nature"],
-      "recent": [
-        "Expanded the main castle — gatehouse, barbican, throne room (LIVE)",
-        "Smoothed castle + town — sculpted merlons, arched doors, swept roofs (LIVE)",
-        "Now: smooth trees, rocks, water & terrain"
-      ]
+      "task": "Atmosphere pass — richer sky, fog, sunlight/shadows and time-of-day mood to make the world feel alive.",
+      "match": ["castle", "build", "texture", "tree", "terrain", "town", "world", "water", "sky", "fog", "light", "atmosphere"],
+      "recent": ["Expanded castle + smoothed castle/town (LIVE)", "Smooth lush trees, rocks & water (LIVE)", "Now: sky / fog / lighting atmosphere"]
     },
     {
-      "id": "ui-builder",
-      "name": "UI Builder",
-      "emoji": "🖥️",
+      "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
       "focus": "In-game interface (HUD, panels)",
       "scope": ["index.html", "src/ui.js"],
       "status": "working",
-      "task": "Theming the OSRS dialogue box + the ! / ? quest markers to match the HUD, plus final polish.",
-      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation", "tab", "dialogue box", "marker"],
-      "recent": [
-        "Restyled the HUD + live minimap + parchment tooltips (LIVE)",
-        "Quests tab + scroll icon in the stats panel (LIVE)",
-        "Now: theme the dialogue box + quest markers"
-      ]
+      "task": "Theming the dialogue box + the ! / ? quest markers, plus final HUD polish.",
+      "match": ["ui", "hud", "panel", "chat", "tooltip", "minimap", "tab", "dialogue box", "marker"],
+      "recent": ["HUD + minimap + tooltips (LIVE)", "Quests tab + scroll icon (LIVE)", "Now: theme dialogue box + markers"]
     },
     {
-      "id": "quest-weaver",
-      "name": "Quest Weaver",
-      "emoji": "📜",
-      "focus": "NPC dialogue & quests",
-      "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
-      "status": "idle",
-      "task": "All assigned work done — dialogue, the King's quest, ! / ? markers, city journal. Standing by for your go on a 2nd quest / next city.",
-      "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk", "marker"],
-      "recent": [
-        "Deep branching topic-menu dialogue on every NPC (LIVE)",
-        "King's first quest + OSRS dialogue box + quest log (LIVE)",
-        "WoW ! / ? quest markers above NPCs + city-grouped quest journal (LIVE)"
-      ]
+      "id": "quest-weaver", "name": "Quest Weaver", "emoji": "📜",
+      "focus": "Dialogue & quests",
+      "scope": ["src/ambient.js", "dialogue depth"],
+      "status": "working",
+      "task": "Ambient life — NPCs murmur idle 'overheard' lines as you pass (no new quests, per orders).",
+      "match": ["dialogue", "quest", "king", "talk", "ambient", "marker", "chatter"],
+      "recent": ["Deep dialogue on every NPC (LIVE)", "King's quest + ! / ? markers + city journal (LIVE)", "Now: ambient overheard NPC chatter"]
     },
     {
-      "id": "render-stylist",
-      "name": "Render Stylist",
-      "emoji": "🖌️",
+      "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
       "focus": "Cel-shaded toon look (global)",
-      "scope": ["src/toon.js", "src/main.js", "render layer"],
+      "scope": ["src/toon.js", "render layer"],
       "status": "idle",
-      "task": "Queued: global cel-shaded toon shading + crisp outlines + rim light — fires once the smooth-model passes land so it re-skins the finished geometry.",
-      "match": ["toon", "cel", "shader", "outline", "render", "rim light", "style", "material"],
-      "recent": [
-        "Standing by for the smooth-model passes, then a whole-game cel-shade + outline pass"
-      ]
+      "task": "Queued by dependency: the global cel-shade + outline pass fires the moment the smooth-NPC pass lands (can't re-skin geometry while it's being rewritten).",
+      "match": ["toon", "cel", "shader", "outline", "render", "style"],
+      "recent": ["Waiting on the smooth-NPC pass, then a whole-game cel-shade + outline pass"]
+    },
+    {
+      "id": "combat", "name": "Combat Smith", "emoji": "🗡️",
+      "focus": "Combat & monsters",
+      "scope": ["src/combat.js", "src/monsters.js"],
+      "status": "working",
+      "task": "Wandering/aggro monsters, melee combat, HP & damage, death + respawn, and loot drops.",
+      "match": ["combat", "monster", "mob", "fight", "attack", "damage", "loot", "hp", "death", "respawn", "goblin", "rat"],
+      "recent": ["Spinning up — mobs, melee combat, HP/damage, loot (in progress)"]
+    },
+    {
+      "id": "skills", "name": "Skill Master", "emoji": "📈",
+      "focus": "Skills & progression",
+      "scope": ["src/skills.js", "src/resources.js"],
+      "status": "working",
+      "task": "New OSRS-style skills — mining, fishing, cooking, firemaking, smithing — with resource nodes, XP and levels.",
+      "match": ["skill", "mining", "fishing", "cooking", "smithing", "firemaking", "xp", "level", "ore", "fish", "progression"],
+      "recent": ["Spinning up — mining/fishing/cooking + resource nodes, XP & levels (in progress)"]
+    },
+    {
+      "id": "audio", "name": "Audio Director", "emoji": "🔊",
+      "focus": "Music & sound",
+      "scope": ["src/audio.js"],
+      "status": "working",
+      "task": "Procedural Web-Audio music, ambient beds and SFX (chop, hit, UI) — no downloads, with a mute toggle.",
+      "match": ["audio", "music", "sound", "sfx", "ambient", "mute"],
+      "recent": ["Spinning up — synth music + ambient + SFX via Web Audio (in progress)"]
+    },
+    {
+      "id": "vfx", "name": "VFX Artist", "emoji": "✨",
+      "focus": "Particles & effects",
+      "scope": ["src/vfx.js"],
+      "status": "working",
+      "task": "Particle effects — hit sparks, gathering puffs, spell glows, fire/water/dust — for game-wide juice.",
+      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "smoke", "juice"],
+      "recent": ["Spinning up — a particle system + hit/gather/fire effects (in progress)"]
     }
   ]
 }
