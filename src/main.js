@@ -14,7 +14,7 @@ import { setupContextMenu } from './contextmenu.js';
 import { buildNpcs, updateNpcLabels, setNpcsFloor, updateNpcs } from './npc.js';
 import { createCollision } from './collision.js';
 import { createShop } from './shop.js';
-import { gameMessage } from './ui.js';
+import { gameMessage, initHudExtras } from './ui.js';
 import { createNet } from './net.js';
 import { createRemotePlayers } from './players.js';
 import { setupSocial } from './social.js';
@@ -296,4 +296,8 @@ function startGame(username) {
   window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
     // talk(npcId) — runs the same talk flow a click would (handy for testing/wiring).
     talk: (npcId) => { const n = npcs.find((x) => x.def.id === npcId); if (n) talkTo(n.def); } };
+
+  // Cosmetic HUD extras (minimap dial + framed parchment tooltips). Reads
+  // window.eldenmoor; safe no-ops if its DOM hooks are missing.
+  initHudExtras();
 }
