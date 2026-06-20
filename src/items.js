@@ -152,6 +152,24 @@ export const ITEMS = {
   },
 };
 
+// ---- Combat loot (appended by the Combat Smith; additive only) -------------
+ITEMS.rat_tail = {
+  id: 'rat_tail', name: 'Rat tail', stackable: true, value: 3, examine: 'The scaly tail of a giant rat. Some folk pay for these.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 30 Q14 12 24 14 Q32 15 31 8" fill="none" stroke="#c99a8c" stroke-width="4" stroke-linecap="round"/><circle cx="31" cy="8" r="2.4" fill="#b07868"/></svg>`,
+};
+ITEMS.raw_rat_meat = {
+  id: 'raw_rat_meat', name: 'Raw rat meat', stackable: true, value: 2, examine: 'A scrawny cut of rat. Best cooked. Probably.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><ellipse cx="20" cy="22" rx="13" ry="9" fill="#c0635f" stroke="#7a3530" stroke-width="1.5"/><ellipse cx="17" cy="20" rx="4" ry="3" fill="#d98a86"/><path d="M30 14 l5 -4" stroke="#e6e0d2" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+};
+ITEMS.goblin_ear = {
+  id: 'goblin_ear', name: 'Goblin ear', stackable: true, value: 6, examine: 'A pointed green ear. Trophy of a felled goblin.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 33 Q9 14 28 8 Q22 20 23 33 Z" fill="#6f8f43" stroke="#3f5524" stroke-width="1.6"/><path d="M16 30 Q15 18 25 12" stroke="#52702f" stroke-width="1.2" fill="none"/></svg>`,
+};
+ITEMS.goblin_charm = {
+  id: 'goblin_charm', name: 'Goblin charm', stackable: true, value: 35, examine: 'A crude bone fetish. It hums faintly with goblin magic.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 V14" stroke="#9c8a6a" stroke-width="2"/><circle cx="20" cy="22" r="9" fill="#cdbf95" stroke="#7a6a44" stroke-width="1.6"/><circle cx="20" cy="22" r="3.4" fill="#6f8f43"/><path d="M20 13 l2 4 -4 0 z" fill="#e7dcb8"/></svg>`,
+};
+
 // Helper: a stylized axe icon in the given blade colours.
 function axeIcon(fill, stroke, shine, glow) {
   const g = glow ? `<circle cx="25" cy="13" r="11" fill="${fill}" opacity="0.22"/>` : '';
