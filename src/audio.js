@@ -412,7 +412,7 @@ function makeAudioControls() {
   audioPanel = document.createElement('div');
   audioPanel.id = 'audio-controls';
   audioPanel.style.cssText = [
-    'position:fixed', 'top:166px', 'right:12px', 'z-index:60',  // sits under the minimap, clear of logout/coords
+    'position:fixed', 'top:276px', 'right:14px', 'z-index:60',  // bottom of the top-right stack (under minimap/logout/saved)
     'display:flex', 'align-items:center', 'gap:6px',
     'background:rgba(20,16,10,0.82)', 'border:1px solid #b9892f', 'border-radius:8px',
     'padding:3px 9px 3px 3px', 'user-select:none',
