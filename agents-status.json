@@ -24,12 +24,12 @@
       "focus": "Buildings & environment",
       "scope": ["src/buildings.js", "src/town.js", "src/world.js", "src/water.js", "src/textures.js"],
       "status": "working",
-      "task": "Smooth, sculpted re-style of the castle (arched gates, smoothed roofs/edges) + smooth town & cottages.",
-      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "gatehouse", "throne", "tower", "courtyard"],
+      "task": "Smoothing the wilderness — rounded organic trees, rocks, water and terrain to match the smooth town.",
+      "match": ["castle", "keep", "build", "texture", "environment", "tree", "terrain", "town", "grass", "stone", "asset", "roof", "world", "water", "rock", "nature"],
       "recent": [
-        "RuneScape castle textures + blue-grey slate tower roofs",
-        "World texture pass — turf, bark, dirt paths, plaster",
-        "Expanded the main castle — gatehouse, barbican bridge, grand throne room (LIVE)"
+        "Expanded the main castle — gatehouse, barbican, throne room (LIVE)",
+        "Smoothed castle + town — sculpted merlons, arched doors, swept roofs (LIVE)",
+        "Now: smooth trees, rocks, water & terrain"
       ]
     },
     {
@@ -39,11 +39,12 @@
       "focus": "In-game interface (HUD, panels)",
       "scope": ["index.html", "src/ui.js"],
       "status": "working",
-      "task": "Polishing the UI — a minimap, richer tooltips, hover states and subtle panel animations.",
-      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation"],
+      "task": "Adding Quests as a clickable tab + icon in the stats panel (housing the quest journal) — no more awkward toggle.",
+      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation", "tab", "quest tab"],
       "recent": [
-        "Restyled the whole HUD — login card, vitals, inventory, equipment, shop & chat (LIVE)",
-        "Polishing next — minimap, tooltips, animations (in progress)"
+        "Restyled the whole HUD — login, vitals, inventory, shop & chat (LIVE)",
+        "Added a live minimap + parchment tooltips + animations (LIVE)",
+        "Now: a Quests tab + icon in the stats panel"
       ]
     },
     {
@@ -53,13 +54,12 @@
       "focus": "NPC dialogue & quests",
       "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
       "status": "working",
-      "task": "Fleshing out rich, branching dialogue on EVERY NPC — no new quests until the boss says so.",
-      "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk"],
+      "task": "WoW ! / ? quest markers floating above quest-giver NPCs + a city-grouped quest journal (no new quests).",
+      "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk", "marker"],
       "recent": [
-        "Gave every NPC dialogue + an OSRS-style dialogue box (LIVE)",
-        "King Aldric's first quest: chop logs → tell the cook → reward (LIVE)",
-        "Now: deepening dialogue on every NPC (no new quests)",
-        "Queued next (UI only, no new quests): HUD quest button + WoW ! / ? markers above NPCs + a quest log grouped by city showing each city's quests & completion"
+        "Deep branching topic-menu dialogue on every NPC (LIVE)",
+        "King's first quest + OSRS dialogue box + quest log (LIVE)",
+        "Now: ! / ? quest markers above NPCs + city-grouped journal (no new quests)"
       ]
     }
   ]
