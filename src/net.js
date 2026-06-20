@@ -14,8 +14,11 @@ export function createNet() {
         const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
         ws = new WebSocket(proto + location.host);
       } catch (e) { reject(e); return; }
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('Could not reach the server.'));
+      let settled = false;
+      const done = (fn, arg) => { if (settled) return; settled = true; clearTimeout(to); fn(arg); };
+      const to = setTimeout(() => done(reject, new Error('timeout')), 5000);   // don't hang forever (e.g. no server)
+      ws.onopen = () => done(resolve);
+      ws.onerror = () => done(reject, new Error('Could not reach the server.'));
       ws.onclose = () => emit('close');
       ws.onmessage = (ev) => {
         let d; try { d = JSON.parse(ev.data); } catch (e) { return; }

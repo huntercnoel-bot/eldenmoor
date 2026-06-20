@@ -53,9 +53,18 @@ document.getElementById('login-go').onclick = doLogin;
 document.getElementById('login-reg').onclick = doRegister;
 passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
 
+// Solo / offline play — needs no server, so the hosted (GitHub Pages) build is playable.
+function playSolo() { if (loginEl) loginEl.remove(); startGame(((userEl && userEl.value) || 'Adventurer').trim() || 'Adventurer'); }
+const soloBtn = document.createElement('button');
+soloBtn.id = 'login-solo'; soloBtn.textContent = '⚔  Play Solo';
+soloBtn.style.cssText = 'margin-top:10px;width:100%;padding:9px;cursor:pointer;background:#2f6e3a;color:#fff;border:1px solid #b9892f;border-radius:6px;font:600 15px Georgia,serif;';
+soloBtn.onclick = playSolo;
+const goBtn = document.getElementById('login-go');
+if (goBtn) goBtn.insertAdjacentElement('afterend', soloBtn);
+
 net.connect()
-  .then(() => setMsg('Connected. Create an account, or log in.', true))
-  .catch(() => setMsg('Cannot reach the server. Launch the game with play.bat.', false));
+  .then(() => setMsg('Connected. Log in for multiplayer, or just Play Solo.', true))
+  .catch(() => setMsg('No multiplayer server found — click “Play Solo” to play offline.', false));
 
 // ============================ GAME ============================
 function startGame(username) {
