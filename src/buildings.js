@@ -63,7 +63,14 @@ function makeShop(opts) {
   g.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, -HD));
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD)); // corner posts
   for (const sz of [-1, 1]) g.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));                 // timber band
-  for (const sz of [-2.2, 2.2]) for (const sx of [-1, 1]) g.add(deco(box(0.18, 1.3, 1.5, glass, sx * (HW - 0.02), 1.9, sz))); // windows
+  for (const sz of [-2.2, 2.2]) for (const sx of [-1, 1]) {
+    const wx = sx * (HW - 0.02);
+    g.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));                                                 // glass
+    g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));   // lintel + sill
+    for (const ss of [-1, 1]) { g.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); g.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }  // jambs + open shutters
+    g.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));                          // flower box
+    for (let i = 0; i < 4; i++) g.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));  // blooms
+  }
 
   // hideable roof
   const roof = new THREE.Group();
@@ -71,6 +78,8 @@ function makeShop(opts) {
   cone.scale.set(HW + 1.3, 3.4, HD + 1.3); cone.position.y = H + 1.6; cone.rotation.y = Math.PI / 4; cone.castShadow = true; deco(cone); roof.add(cone);
   roof.add(deco(box(HW * 2 + 1.6, 0.35, HD * 2 + 1.6, beam, 0, H + 0.05, 0)));   // eaves
   roof.add(deco(box(0.8, 2.4, 0.8, stoneMat, HW - 1.4, H + 1.7, HD - 1.4)));      // chimney
+  roof.add(deco(cyl(0.05, 0.05, 0.6, 8, flat(0x3a2418), 0, H + 3.5, 0)));         // finial post
+  { const finial = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); finial.position.set(0, H + 3.9, 0); deco(finial); roof.add(finial); }  // gold finial
   g.add(roof);
 
   // interior
@@ -566,12 +575,21 @@ function makeTavern() {
   g.add(box(DOOR * 2 + 0.6, 0.4, 0.5, beam, 0, 2.6, HD));
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(box(0.3, H, 0.3, beam, sx * HW, H / 2, sz * HD));
   for (const sz of [-1, 1]) g.add(deco(box(HW * 2, 0.25, 0.32, beam, 0, H - 0.5, sz * HD)));
-  for (const sz of [-2.5, 2.5]) for (const sx of [-1, 1]) g.add(deco(box(0.18, 1.3, 1.5, glass, sx * (HW - 0.02), 1.9, sz)));
+  for (const sz of [-2.5, 2.5]) for (const sx of [-1, 1]) {
+    const wx = sx * (HW - 0.02);
+    g.add(deco(box(0.18, 1.3, 1.5, glass, wx, 1.9, sz)));
+    g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 2.6, sz))); g.add(deco(box(0.16, 0.14, 1.9, beam, wx, 1.2, sz)));
+    for (const ss of [-1, 1]) { g.add(deco(box(0.16, 1.5, 0.14, beam, wx, 1.9, sz + ss * 0.85))); g.add(deco(box(0.1, 1.3, 0.42, flat(0x5a3a22), wx + sx * 0.1, 1.9, sz + ss * 0.6))); }
+    g.add(deco(box(0.22, 0.16, 1.0, flat(0x4a3018), wx + sx * 0.12, 1.18, sz)));
+    for (let i = 0; i < 4; i++) g.add(deco(box(0.1, 0.18, 0.1, flat([0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6][i]), wx + sx * 0.18, 1.34, sz - 0.36 + i * 0.24)));
+  }
   // hideable roof + chimney + signpost
   const roof = new THREE.Group();
   const cone = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 4), mapped(T.shingle, 0x5a3a2a)); cone.scale.set(HW + 1.4, 3.6, HD + 1.4); cone.position.y = H + 1.7; cone.rotation.y = Math.PI / 4; cone.castShadow = true; deco(cone); roof.add(cone);
   roof.add(deco(box(HW * 2 + 1.6, 0.35, HD * 2 + 1.6, beam, 0, H + 0.05, 0)));
   roof.add(deco(box(0.8, 2.4, 0.8, stoneMat, HW - 1.4, H + 1.7, -HD + 1.4)));
+  roof.add(deco(cyl(0.05, 0.05, 0.6, 8, flat(0x3a2418), 0, H + 3.5, 0)));
+  { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); fin.position.set(0, H + 3.9, 0); deco(fin); roof.add(fin); }
   g.add(roof);
   // bar + back shelf with bottles + stools
   g.add(box(6, 1.1, 0.9, woodMat, 0, 0.55, -HD + 1.4));

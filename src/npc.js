@@ -125,6 +125,10 @@ export function updateNpcs(npcs, dt, clock) {
   }
 }
 
+const BEARDED = new Set(['king', 'duke', 'guard_l', 'guard_r', 'guard_il', 'guard_ir', 'smith', 'farmer', 'jailer', 'patron1', 'tomas']);
+const SKINS = [0xf0c8a0, 0xe7b08a, 0xd9a06e, 0xc68a5a, 0xa9744a];
+const HAIRS = [0x2a2018, 0x3a2a1a, 0x5b3f29, 0x8a6a3a, 0x9a9a9a, 0xb9b2a4, 0x6a4a2a];
+
 function makeNpc(def) {
   const g = new THREE.Group();
   const sm = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0 });   // smooth-shaded
@@ -132,18 +136,30 @@ function makeNpc(def) {
   const ball = (r, c, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   const cyl = (rt, rb, h, c, x, y, z) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 14), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
   const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), sm(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
-  const skinC = 0xe7b08a;
 
-  cyl(0.26, 0.46, 1.2, def.robe, 0, 0.6, 0);                  // robe (flares at the hem)
-  ball(0.19, def.robe, 0, 1.22, 0);                          // chest / shoulders
-  cap(0.085, 0.42, def.robe, 0.32, 0.96, 0); cap(0.085, 0.42, def.robe, -0.32, 0.96, 0);   // arms
-  ball(0.1, skinC, 0.32, 0.68, 0); ball(0.1, skinC, -0.32, 0.68, 0);                        // hands
-  cyl(0.09, 0.1, 0.14, skinC, 0, 1.46, 0);                   // neck
+  // deterministic per-NPC variety (seeded by id, so it's stable across reloads)
+  let s = 2166136261; for (let i = 0; i < (def.id || '').length; i++) s = (Math.imul(s ^ def.id.charCodeAt(i), 16777619)) >>> 0;
+  const rnd = () => { s = (Math.imul(s, 1103515245) + 12345) >>> 0; return s / 4294967296; };
+  const skinC = def.skin || SKINS[(rnd() * SKINS.length) | 0];
+  const hairC = def.hair || HAIRS[(rnd() * HAIRS.length) | 0];
+  const hairStyle = (rnd() * 3) | 0;          // 0 short · 1 long · 2 balding
+  const build = 0.9 + rnd() * 0.2;            // body width
+  const bald = hairStyle === 2 && !def.crown;
+
+  cyl(0.26 * build, 0.46 * build, 1.2, def.robe, 0, 0.6, 0);          // robe (flares at the hem)
+  ball(0.2 * build, def.robe, 0, 1.22, 0);                            // chest / shoulders
+  for (const sx of [-1, 1]) { cap(0.085, 0.42, def.robe, sx * 0.32 * build, 0.96, 0); ball(0.1, skinC, sx * 0.32 * build, 0.68, 0); }  // arms + hands
+  cyl(0.09, 0.1, 0.14, skinC, 0, 1.46, 0);                           // neck
   const head = ball(0.25, skinC, 0, 1.67, 0); head.scale.set(0.95, 1.05, 0.96);
-  ball(0.045, 0x141414, 0.1, 1.7, 0.2); ball(0.045, 0x141414, -0.1, 1.7, 0.2);             // eyes
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 8), sm(skinC)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.64, 0.23); g.add(nose);
-  const hcap = ball(0.27, def.hair || 0x3a2a1a, 0, 1.75, -0.03); hcap.scale.set(1.02, 0.82, 1.04);
-  for (const sx of [-1, 1]) ball(0.055, skinC, sx * 0.24, 1.67, 0.02);                      // ears
+  for (const sx of [-1, 1]) { ball(0.045, 0x141414, sx * 0.1, 1.7, 0.2); const eb = box(0.1, 0.025, 0.04, hairC, sx * 0.1, 1.77, 0.21); ball(0.055, skinC, sx * 0.24, 1.67, 0.02); }  // eyes, brows, ears
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 8), sm(skinC)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.63, 0.23); g.add(nose);
+  const mouth = ball(0.05, 0x8a4a44, 0, 1.55, 0.21); mouth.scale.set(1.5, 0.4, 0.5);     // mouth
+
+  // hair styles
+  if (!bald) { const hc = ball(0.27, hairC, 0, 1.76, -0.03); hc.scale.set(1.03, 0.82, 1.05); }
+  else { const ring = ball(0.27, hairC, 0, 1.6, -0.04); ring.scale.set(1.04, 0.45, 1.06); }   // balding: side/back ring
+  if (hairStyle === 1) { const bk = box(0.42, 0.5, 0.18, hairC, 0, 1.48, -0.2); }              // long hair down the back
+  if (BEARDED.has(def.id)) { const b = ball(0.18, hairC, 0, 1.52, 0.13); b.scale.set(1.05, 1.0, 0.8); g.add(box(0.16, 0.06, 0.06, hairC, 0, 1.62, 0.22)); }  // beard + moustache
 
   if (def.crown) { cyl(0.27, 0.27, 0.14, 0xe9c33a, 0, 1.88, 0); for (const dx of [-0.16, 0, 0.16]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 6), sm(0xf2d24a)); t.position.set(dx, 2.02, 0); g.add(t); } }
   if (def.guard) { const h = ball(0.27, 0x9aa0a8, 0, 1.73, 0); h.scale.set(1.05, 1.0, 1.05); box(0.12, 0.24, 0.05, 0x6d737b, 0, 1.63, 0.24); cyl(0.04, 0.04, 2.4, 0x6b4a2f, 0.46, 1.2, 0.05); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 8), sm(0xc8ccd2)); tip.position.set(0.46, 2.5, 0.05); g.add(tip); }

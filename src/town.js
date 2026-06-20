@@ -89,9 +89,16 @@ export function buildTown(scene) {
     c.add(box(6, 3, 5, mapped(T.plaster, wallc), 0, 1.5, 0));
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) c.add(deco(box(0.3, 3, 0.3, flat(0x4a3220), sx * 3, 1.5, sz * 2.5)));
     const roof = new THREE.Mesh(new THREE.ConeGeometry(4.6, 2.6, 4), mapped(T.shingle, roofc)); roof.position.y = 4.3; roof.rotation.y = Math.PI / 4; roof.castShadow = true; deco(roof); c.add(roof);
-    c.add(deco(box(1.2, 2.0, 0.2, flat(0x4a3220), 0, 1.0, -2.55))); // door
-    c.add(deco(box(1.0, 1.0, 0.16, flat(0x86bcd6), 1.8, 1.7, -2.55))); // window
-    c.add(deco(box(0.7, 1.8, 0.7, stone, 2.0, 2.6, 1.8)));          // chimney
+    { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.4, 6), flat(0x6e3a2a)); fin.position.set(0, 5.7, 0); deco(fin); c.add(fin); }   // roof finial
+    c.add(deco(box(1.2, 2.0, 0.2, flat(0x4a3220), 0, 1.0, -2.55)));                          // door
+    c.add(deco(box(1.4, 0.18, 0.16, flat(0x6b4a2c), 0, 2.1, -2.58)));                        // door lintel
+    c.add(deco(box(1.0, 1.0, 0.16, flat(0x86bcd6), 1.8, 1.7, -2.55)));                       // window glass
+    for (const ss of [-1, 1]) c.add(deco(box(0.42, 1.1, 0.1, flat(0x6e3a2a), 1.8 + ss * 0.66, 1.7, -2.57)));   // shutters
+    c.add(deco(box(1.32, 0.16, 0.12, flat(0x4a3220), 1.8, 2.28, -2.57)));                    // window lintel
+    c.add(deco(box(1.3, 0.14, 0.2, flat(0x4a3018), 1.8, 1.12, -2.6)));                       // flower box
+    for (let i = 0; i < 3; i++) c.add(deco(box(0.1, 0.16, 0.1, flat([0xc0392b, 0xd4ac0d, 0xe6e6e6][i]), 1.4 + i * 0.4, 1.26, -2.62)));   // blooms
+    c.add(deco(box(0.7, 1.8, 0.7, stone, 2.0, 2.6, 1.8)));                                   // chimney
+    for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.SphereGeometry(0.2 + i * 0.08, 8, 6), new THREE.MeshStandardMaterial({ color: 0xbfc0c2, transparent: true, opacity: 0.42 - i * 0.1 })); sm.position.set(2.0 + i * 0.12, 3.7 + i * 0.55, 1.8); deco(sm); c.add(sm); }   // chimney smoke
     c.position.set(x, 0, z); c.rotation.y = rot; g.add(c);
   };
   COTTAGES.forEach(([x, z, rot], i) => cottage(x, z, rot, cwalls[i % 3], croofs[i % 3]));
