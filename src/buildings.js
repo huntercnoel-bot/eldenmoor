@@ -451,7 +451,7 @@ function makeUpper() {
   chandelier(0, -8, false);
 
   // --- richly furnish the royal floor (rugs, council hall, library wall, hearth) ---
-  const tapU = mapped(T.tapestry), tapB2 = mapped(T.tapestryB), portraitU = mapped(T.portrait);
+  const tapU = mapped(T.tapestry), tapB2 = mapped(T.tapestryB);
   g.add(deco(box(12, 0.05, 8, rugMat, 0, 0.1, HD - 6, false)));                              // solar rug
   g.add(deco(box(9, 0.05, 9, mapped(T.carpet), -13, 0.1, -7, false)));                       // war-room runner
   g.add(deco(box(8, 0.05, 8, rugMat, 13, 0.1, -10, false)));                                 // bedchamber rug
