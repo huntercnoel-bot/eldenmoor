@@ -53,10 +53,12 @@
       "focus": "NPC dialogue & quests",
       "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
       "status": "working",
-      "task": "Writing dialogue for every NPC and building King Aldric's first quest (start → objective → reward).",
+      "task": "Designing a second quest + adding deeper, branching NPC dialogue.",
       "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk"],
       "recent": [
-        "Spinning up — giving every NPC real dialogue + the King's first quest (in progress)"
+        "Gave every NPC dialogue + an OSRS-style dialogue box (LIVE)",
+        "King Aldric's first quest: chop logs → tell the cook → reward (LIVE)",
+        "Next: a second quest (in progress)"
       ]
     }
   ]
