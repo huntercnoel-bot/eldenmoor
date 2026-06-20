@@ -65,11 +65,9 @@
     }
     #title span { font-size: 11px; font-weight: 400; letter-spacing: 1px; color: #c9a25a; text-shadow: 0 1px 3px #000; }
 
-    #coords {
-      position: fixed; top: 54px; right: 20px; z-index: 5; pointer-events: none; font-size: 13px;
-      padding: 6px 13px; font-variant-numeric: tabular-nums; color: var(--gold-bright);
-      font-weight: 700; letter-spacing: 0.4px;
-    }
+    /* #coords kept for its JS hook (main.js writes here) but hidden — the minimap
+       coords pill is now the on-screen position readout. */
+    #coords { position: fixed; left: -9999px; top: -9999px; }
 
     /* Vitals (top-left): WoW-style HP orb + RS-style carved bronze XP bar. */
     #vitals { position: fixed; top: 54px; left: 20px; z-index: 5; pointer-events: none; width: 244px;
@@ -174,7 +172,7 @@
       text-shadow: 0 0 12px rgba(255,210,119,0.5), 0 2px 6px rgba(0,0,0,0.95);
       box-shadow: inset 0 1px 0 rgba(255,230,168,0.3), 0 0 22px rgba(255,210,119,0.35), 0 8px 26px rgba(0,0,0,0.65); }
 
-    #saved { position: fixed; top: 92px; right: 20px; z-index: 6; pointer-events: none; font-size: 13px; font-weight: 700;
+    #saved { position: fixed; top: 178px; right: 18px; z-index: 7; pointer-events: none; font-size: 13px; font-weight: 700;
       color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
       padding: 5px 14px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease;
       box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 3px 10px rgba(0,0,0,0.5); }
@@ -334,6 +332,100 @@
     #tab-equip { position: relative; }
     #equip-figure { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%); width: 80px; z-index: 0; pointer-events: none; }
     #equip-grid { position: relative; z-index: 1; }
+
+    /* ===================== Minimap (top-right, OSRS round dial) =====================
+       Carved-bronze ring around a sunken parchment-dark dial. A live dot-map is drawn
+       by src/ui.js from window.eldenmoor (player heading + NPC positions); if state is
+       unavailable it still reads as a handsome compass with coords. */
+    #minimap { position: fixed; top: 14px; right: 18px; z-index: 6; width: 132px; height: 132px;
+      border-radius: 50%; pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 50%, #14100a 0%, #0c0905 70%, #080502 100%);
+      border: 3px solid var(--bronze);
+      box-shadow:
+        inset 0 0 0 2px var(--bronze-dark),
+        inset 0 0 24px rgba(0,0,0,0.9),
+        inset 0 2px 2px rgba(255,214,119,0.10),
+        0 0 0 1px var(--bronze-dark),
+        0 8px 22px rgba(0,0,0,0.6); }
+    /* gilded inner ring */
+    #minimap::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; pointer-events: none;
+      box-shadow: inset 0 0 0 1px rgba(255,214,119,0.22); }
+    #minimap-canvas { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px);
+      border-radius: 50%; display: block; }
+    /* cardinal letters engraved on the rim */
+    .mm-card { position: absolute; font: 800 11px Georgia, serif; color: var(--gold);
+      text-shadow: 0 1px 2px #000, 0 0 4px rgba(0,0,0,0.9); pointer-events: none; }
+    .mm-n { top: 1px;  left: 50%; transform: translateX(-50%); }
+    .mm-s { bottom: 1px; left: 50%; transform: translateX(-50%); color: #c9a25a; }
+    .mm-e { right: 4px; top: 50%; transform: translateY(-50%); color: #c9a25a; }
+    .mm-w { left: 4px;  top: 50%; transform: translateY(-50%); color: #c9a25a; }
+    /* coords pill tucked under the dial */
+    #minimap-coords { position: fixed; top: 150px; right: 18px; z-index: 6; width: 132px; text-align: center;
+      pointer-events: none; font-size: 11.5px; font-variant-numeric: tabular-nums; font-weight: 700;
+      letter-spacing: 0.4px; color: var(--gold-bright); padding: 4px 0; border-radius: 999px;
+      background: linear-gradient(180deg,rgba(46,34,20,0.92),rgba(16,11,6,0.92));
+      border: 1px solid var(--bronze);
+      box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 3px 10px rgba(0,0,0,0.5); }
+    #minimap-floor { color: #c9a25a; font-weight: 400; font-size: 10.5px; }
+
+    /* ===================== Framed parchment tooltip =====================
+       Custom tooltip surface used for item/slot/NPC hovers (replaces native title=).
+       Generic .em-tooltip hooks so a later quest/dialogue agent can reuse it. */
+    #em-tooltip, .em-tooltip { position: fixed; z-index: 60; pointer-events: none; max-width: 240px;
+      padding: 8px 12px; border-radius: 7px; font-size: 12.5px; line-height: 1.45; color: #f2e4c0;
+      background: linear-gradient(180deg, #2e2114 0%, #1a1107 60%, #120c06 100%);
+      border: 2px solid var(--bronze);
+      box-shadow: inset 0 0 0 1px rgba(255,214,119,0.10), inset 0 1px 0 rgba(255,214,119,0.16),
+        inset 0 0 16px rgba(0,0,0,0.7), 0 0 0 1px var(--bronze-dark), 0 8px 22px rgba(0,0,0,0.6);
+      opacity: 0; transform: translateY(3px); transition: opacity 0.12s ease, transform 0.12s ease; }
+    #em-tooltip.show, .em-tooltip.show { opacity: 1; transform: translateY(0); }
+    .em-tt-title { font-family: Georgia, serif; font-weight: 800; font-size: 13.5px; color: var(--gold);
+      letter-spacing: 0.3px; text-shadow: 0 1px 2px #000; margin-bottom: 3px; }
+    .em-tt-sub { color: #c9a25a; font-style: italic; font-size: 11.5px; margin-bottom: 4px; }
+    .em-tt-body { color: #e6dcc4; }
+    .em-tt-hint { margin-top: 5px; font-size: 11px; color: var(--gold-bright); opacity: 0.9; }
+
+    /* ===================== Hover/active polish + gentle animations ===================== */
+    /* keep the 3D view draggable: interactive HUD bits opt back into pointer events */
+    #panel, #logout, #worldchat, #chat, #shop, #login, #ctxmenu { pointer-events: auto; }
+
+    /* unified button feel */
+    #logout, .tab, .shop-buybtn, .fr-btn, #fr-addbtn, #chat-close, #shop-close,
+    .login-btns button, #login-solo { transition: background 0.14s ease, border-color 0.14s ease,
+      box-shadow 0.16s ease, color 0.14s ease, transform 0.09s ease; }
+    #logout:active, .shop-buybtn:active, .fr-btn:active, #fr-addbtn:active,
+    .login-btns button:active, #login-solo:active { transform: translateY(1px); }
+    .tab:active { transform: translateY(1px); }
+
+    /* slots: lift + glow on hover, settle on press */
+    .inv-slot.filled, .equip-slot.filled { transition: border-color 0.14s ease, box-shadow 0.16s ease, transform 0.09s ease; }
+    .inv-slot.filled:hover, .equip-slot.filled:hover { transform: translateY(-1px); }
+    .inv-slot.filled:active, .equip-slot.filled:active { transform: translateY(0); }
+    .shop-row { transition: background 0.14s ease; }
+
+    /* panel / tab-page open fade */
+    @keyframes em-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes em-pop-in  { from { opacity: 0; transform: translate(-50%,-50%) scale(0.96); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+    #panel:not(.hidden) { animation: em-fade-in 0.18s ease both; }
+    .tab-page.active { animation: em-fade-in 0.16s ease both; }
+    #shop:not([hidden]) { animation: em-pop-in 0.18s ease both; }
+    #chat:not([hidden]) { animation: em-fade-in 0.16s ease both; }
+    #levelup { animation: em-pop-in 0.3s ease both; }
+
+    /* a soft moving sheen across active vital bars */
+    @keyframes em-bar-sheen { 0% { background-position: -120px 0; } 100% { background-position: 220px 0; } }
+    .bar-fill::before { content: ''; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
+      background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.16) 50%, transparent 100%);
+      background-size: 120px 100%; background-repeat: no-repeat; animation: em-bar-sheen 3.4s linear infinite; }
+
+    /* respect users who prefer reduced motion — keep states, drop the movement */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+      .inv-slot.filled:hover, .equip-slot.filled:hover,
+      #logout:active, .tab:active, .shop-buybtn:active { transform: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -356,6 +448,16 @@
   <div id="title">⚔️ ELDENMOOR <span>· prototype v0.1</span></div>
   <button id="logout">⎋ Log out</button>
   <div id="coords">x: 0.0&nbsp;&nbsp; z: 0.0</div>
+
+  <!-- Minimap: carved-bronze round dial; live dot-map drawn by src/ui.js. -->
+  <div id="minimap" aria-hidden="true">
+    <canvas id="minimap-canvas" width="248" height="248"></canvas>
+    <span class="mm-card mm-n">N</span>
+    <span class="mm-card mm-s">S</span>
+    <span class="mm-card mm-e">E</span>
+    <span class="mm-card mm-w">W</span>
+  </div>
+  <div id="minimap-coords">x 0.0 · z 0.0 <span id="minimap-floor"></span></div>
 
   <div id="vitals">
     <div class="vrow"><span class="vico">❤️</span><div class="bar"><div id="hp-bar" class="bar-fill hp"></div></div><span id="hp-text" class="vnum">10 / 10</span></div>
