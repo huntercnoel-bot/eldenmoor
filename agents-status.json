@@ -13,10 +13,10 @@
     {
       "id": "audio", "name": "Audio Director", "emoji": "🔊",
       "focus": "Music & sound", "scope": ["src/audio.js"],
-      "status": "working",
-      "task": "Procedural Web-Audio music, ambient beds and SFX (chop, hit, UI), with a mute toggle.",
+      "status": "idle",
+      "task": "Synth music + ambient (wind/birds) + SFX (chop/hit/pickup/level-up) + mute button (M) — LIVE.",
       "match": ["audio", "music", "sound", "sfx", "ambient", "mute"],
-      "recent": ["Batch 1 — synth music + ambient + SFX (in progress)"]
+      "recent": ["Procedural Web-Audio music + ambient + SFX + mute (LIVE)"]
     },
     {
       "id": "world-builder", "name": "World Builder", "emoji": "🏰",
@@ -53,10 +53,10 @@
     {
       "id": "vfx", "name": "VFX Artist", "emoji": "✨",
       "focus": "Particles & effects", "scope": ["src/vfx.js"],
-      "status": "idle",
-      "task": "Particle system — hit sparks, gather dust, coin sparkle, level-up, brazier embers, pond shimmer (LIVE).",
-      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "ember"],
-      "recent": ["Particle effects system + ambient embers/shimmer (LIVE)"]
+      "status": "working",
+      "task": "Reworking fire — anchoring flames to the real torches & braziers (flickering, rising, purposeful), researching how games render torch fire. No more random embers.",
+      "match": ["vfx", "particle", "effect", "spark", "glow", "fire", "ember", "torch", "flame"],
+      "recent": ["Particle system (hits/gather/coin/level-up) LIVE", "Now: rework fire to anchor on real torches"]
     },
     {
       "id": "render-stylist", "name": "Render Stylist", "emoji": "🖌️",
@@ -69,8 +69,8 @@
     {
       "id": "ui-builder", "name": "UI Builder", "emoji": "🖥️",
       "focus": "In-game interface", "scope": ["index.html", "src/ui.js"],
-      "status": "idle",
-      "task": "Dependency-gated: theme the combat HP bars, XP-drop popups, audio mute button & skill UI the moment Combat/Skills/Audio land.",
+      "status": "working",
+      "task": "Fixing overlapping HUD elements — a deliberate layout pass, researching how OSRS/WoW anchor their HUDs (checked at 3 window sizes).",
       "match": ["ui", "hud", "panel", "tooltip", "minimap", "tab", "dialogue box", "marker"],
       "recent": ["HUD + minimap + tooltips + Quests tab + themed dialogue/markers (LIVE)"]
     }
