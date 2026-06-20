@@ -39,12 +39,12 @@
       "focus": "In-game interface (HUD, panels)",
       "scope": ["index.html", "src/ui.js"],
       "status": "working",
-      "task": "Adding Quests as a clickable tab + icon in the stats panel (housing the quest journal) — no more awkward toggle.",
-      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation", "tab", "quest tab"],
+      "task": "Theming the OSRS dialogue box + the ! / ? quest markers to match the HUD, plus final polish.",
+      "match": ["ui", "hud", "interface", "panel", "inventory ui", "chat", "tooltip", "orb", "login screen", "button", "minimap", "animation", "tab", "dialogue box", "marker"],
       "recent": [
-        "Restyled the whole HUD — login, vitals, inventory, shop & chat (LIVE)",
-        "Added a live minimap + parchment tooltips + animations (LIVE)",
-        "Now: a Quests tab + icon in the stats panel"
+        "Restyled the HUD + live minimap + parchment tooltips (LIVE)",
+        "Quests tab + scroll icon in the stats panel (LIVE)",
+        "Now: theme the dialogue box + quest markers"
       ]
     },
     {
@@ -53,13 +53,13 @@
       "emoji": "📜",
       "focus": "NPC dialogue & quests",
       "scope": ["src/npc.js (dialogue)", "src/quests.js", "src/main.js"],
-      "status": "working",
-      "task": "WoW ! / ? quest markers floating above quest-giver NPCs + a city-grouped quest journal (no new quests).",
+      "status": "idle",
+      "task": "All assigned work done — dialogue, the King's quest, ! / ? markers, city journal. Standing by for your go on a 2nd quest / next city.",
       "match": ["dialogue", "quest", "king", "npc dialog", "conversation", "objective", "reward", "quest log", "talk", "marker"],
       "recent": [
         "Deep branching topic-menu dialogue on every NPC (LIVE)",
         "King's first quest + OSRS dialogue box + quest log (LIVE)",
-        "Now: ! / ? quest markers above NPCs + city-grouped journal (no new quests)"
+        "WoW ! / ? quest markers above NPCs + city-grouped quest journal (LIVE)"
       ]
     },
     {
