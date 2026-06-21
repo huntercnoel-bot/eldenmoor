@@ -64,6 +64,23 @@ function instanced(proto, matrices) {
   return im;
 }
 
+// Place ONE GLB furniture clone, auto-scaled to `targetH` world height, centred
+// on XZ with its base at y, then positioned + yawed. Visual only (noCollide).
+function placeFurn(group, name, x, z, ry, targetH, y = 0) {
+  loadProto(name).then((proto) => {
+    proto.geometry.computeBoundingBox();
+    const bb = proto.geometry.boundingBox, size = new THREE.Vector3(); bb.getSize(size);
+    const s = targetH / (size.y || 1);
+    const inner = new THREE.Mesh(proto.geometry, proto.materials);
+    inner.scale.setScalar(s);
+    inner.position.set(-((bb.min.x + bb.max.x) / 2) * s, -bb.min.y * s, -((bb.min.z + bb.max.z) / 2) * s);
+    inner.castShadow = true; inner.receiveShadow = true; inner.userData.__toonDone = true;
+    const wrap = new THREE.Group(); wrap.add(inner);
+    wrap.position.set(x, y, z); wrap.rotation.y = ry; wrap.userData.noCollide = true;
+    group.add(wrap);
+  }).catch((e) => console.error('[buildings] furn ' + name, e));
+}
+
 // Measured native footprints (node-scale 100 baked in).
 const FLOOR_TILE = 2.0;     // dpack_ModularFloor span in X and Y
 const FLOOR_THICK = 0.337;  // native +Z extent = floor's top after rotateX(-90)
@@ -274,21 +291,15 @@ function makeShop(opts) {
   { const finial = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); finial.position.set(0, H + 3.9, 0); deco(finial); roof.add(finial); }  // gold finial
   g.add(roof);
 
-  // interior
-  g.add(box(HW * 1.5, 1.1, 0.7, woodMat, 0, 0.55, HD - 1.6));                     // counter
-  g.add(deco(box(HW * 1.5 + 0.2, 0.14, 0.95, flat(0x5a3a22), 0, 1.18, HD - 1.6)));
-  for (const sx of [-1, 1]) {
-    g.add(box(0.5, H - 0.7, HD * 1.5, woodMat, sx * (HW - 0.5), (H - 0.7) / 2, 0.3)); // shelf unit
-    for (let r = 0; r < 3; r++) g.add(deco(box(0.46, 0.06, HD * 1.5, flat(0x4a3018), sx * (HW - 0.5), 0.7 + r * 0.8, 0.3)));
-  }
-  const wc = opts.wares || [0x8a1f1f, 0x2f6ea5, 0xc9a24a, 0x3f6e44, 0x7a3a2a];
-  for (let i = 0; i < 12; i++) {
-    const sx = i < 6 ? -1 : 1, yy = 0.85 + (i % 3) * 0.8, zz = -2.6 + ((i % 6) / 6) * HD * 1.3;
-    g.add(deco(box(0.4, 0.45, 0.4, flat(wc[i % wc.length]), sx * (HW - 0.8), yy, zz)));
-  }
-  for (const p of [[-HW + 1.6, -HD + 1.6], [HW - 1.6, -HD + 1.7]]) g.add(cyl(0.4, 0.46, 0.95, 10, woodMat, p[0], 0.47, p[1])); // barrels
-  g.add(box(0.9, 0.9, 0.9, woodMat, 1.7, 0.45, -HD + 1.7));                       // crate
-  g.add(deco(box(0.34, 0.42, 0.34, new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.3, roughness: 0.5 }), 0, 2.6, -HD + 1.4))); // lantern
+  // interior — real GLB furniture in place of the procedural boxes
+  placeFurn(g, 'house_Shelf_1', 0, HD - 1.5, 0, 1.05);                            // shop counter at the back
+  for (const sx of [-1, 1]) placeFurn(g, 'house_Bookshelf', sx * (HW - 0.6), -0.5, sx < 0 ? Math.PI / 2 : -Math.PI / 2, 2.4); // wall shelving
+  placeFurn(g, 'med_Crate', -HW + 1.5, -HD + 1.6, 0.3, 1.0);
+  placeFurn(g, 'med_Crate', -HW + 1.5, -HD + 2.8, 0.0, 0.85);
+  placeFurn(g, 'med_Crate', 1.7, -HD + 1.7, 0.5, 0.95);
+  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 1.7, 0, 1.1);
+  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 3.0, 0, 1.1);
+  g.add(deco(box(0.34, 0.42, 0.34, new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.3, roughness: 0.5 }), 0, 2.6, -HD + 1.4))); // lantern glow
 
   g.userData.roof = roof; g.userData.hw = HW + 0.8; g.userData.hd = HD + 0.8;
   return g;

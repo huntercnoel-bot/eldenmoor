@@ -8,14 +8,32 @@ import * as THREE from '../vendor/three.module.js';
 
 const deco = (m) => { m.userData.noCollide = true; return m; };
 
-// Shared water material: deep RuneScape blue, low roughness for a soft sheen,
-// slight metalness so the sun glints gently across the surface.
+// Shared water material: deep RuneScape blue with a real tiling water normal map
+// (the canonical three.js waternormals) for moving ripples. One shared material +
+// texture; per-slab UVs are scaled in waterSlab so the ripple size stays even
+// across differently sized bands, and the offset is scrolled each frame below.
+let _waterMat = null;
 function waterMat() {
-  return new THREE.MeshStandardMaterial({
-    color: 0x2f6ea5, roughness: 0.1, metalness: 0.3,
-    transparent: true, opacity: 0.85,
+  if (_waterMat) return _waterMat;
+  const nm = new THREE.TextureLoader().load('./assets/textures/water/waternormals.jpg');
+  nm.wrapS = nm.wrapT = THREE.RepeatWrapping;
+  _waterMat = new THREE.MeshStandardMaterial({
+    color: 0x2f6ea5, roughness: 0.18, metalness: 0.35,
+    transparent: true, opacity: 0.86,
+    normalMap: nm, normalScale: new THREE.Vector2(0.45, 0.45),
   });
+  // scroll the ripples
+  (function ripple() {
+    const tick = (now) => {
+      requestAnimationFrame(tick);
+      const t = (now || 0) * 0.00008;
+      nm.offset.set(t % 1, (t * 0.7) % 1);
+    };
+    requestAnimationFrame(tick);
+  })();
+  return _waterMat;
 }
+const WATER_TILE = 7;   // world units per normal-map tile
 
 // A water band drawn as a subtly rippled plane with smooth normals, so the
 // surface catches light with a gentle undulation instead of reading as a flat
@@ -29,6 +47,10 @@ function waterSlab(x0, z0, x1, z1) {
     p.setZ(i, (Math.sin(px * 0.7) + Math.cos(py * 0.6)) * 0.04);  // gentle ripple
   }
   p.needsUpdate = true; geo.computeVertexNormals();
+  // scale UVs so the shared normal map tiles at a consistent world size
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (w / WATER_TILE), uv.getY(i) * (d / WATER_TILE));
+  uv.needsUpdate = true;
   const m = new THREE.Mesh(geo, waterMat());
   m.rotation.x = -Math.PI / 2;
   m.position.set((x0 + x1) / 2, 0.16, (z0 + z1) / 2);
