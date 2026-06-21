@@ -71,7 +71,17 @@
 
     /* Vitals (top-left): WoW-style HP orb + RS-style carved bronze XP bar. */
     #vitals { position: fixed; top: 54px; left: 20px; z-index: 5; pointer-events: none; width: 244px;
-      padding: 11px 13px 12px; }
+      padding: 12px 13px 12px; }
+    /* gold gem rivets on the vitals frame corners (WoW filigree cue) */
+    #vitals::before, #vitals::after {
+      content: ''; position: absolute; top: 5px; width: 7px; height: 7px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold-deep) 60%, #6b4a18);
+      box-shadow: 0 0 4px rgba(255,210,119,0.6), inset 0 0 2px rgba(0,0,0,0.5);
+      pointer-events: none; z-index: 2; }
+    #vitals::before { left: 5px; } #vitals::after { right: 5px; }
+    /* engraved divider between the HP row and the skill block */
+    #vitals .vrow:first-child { padding-bottom: 9px; margin-bottom: 2px;
+      border-bottom: 1px solid rgba(255,214,119,0.12); box-shadow: 0 1px 0 rgba(0,0,0,0.5); }
     .vrow { display: flex; align-items: center; gap: 9px; font-size: 13px; }
     .vlabel { margin-top: 11px; font-family: Georgia, serif; letter-spacing: 0.3px; }
     .vlabel b { color: var(--gold); }
@@ -215,6 +225,18 @@
 
     /* OSRS bottom chat box — carved bronze frame, parchment-tinted log, sunken input. */
     #worldchat { position: fixed; bottom: 16px; left: 16px; z-index: 7; width: 352px; padding: 9px 9px 10px; }
+    /* gilded chat header — gold-lettered tab label + hairline rule (OSRS chat tabs cue) */
+    .wc-head { display: flex; align-items: center; gap: 6px; font: 700 12px Georgia, serif; letter-spacing: 0.4px;
+      color: var(--gold); text-shadow: 0 1px 2px #000; padding: 1px 2px 7px; margin-bottom: 7px;
+      border-bottom: 1px solid rgba(255,214,119,0.14); box-shadow: 0 1px 0 rgba(0,0,0,0.45); }
+    .wc-head-ico { font-size: 12px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+    /* gold gem rivets on the chat frame corners, matching #panel / #vitals */
+    #worldchat::before, #worldchat::after {
+      content: ''; position: absolute; top: 5px; width: 7px; height: 7px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold-deep) 60%, #6b4a18);
+      box-shadow: 0 0 4px rgba(255,210,119,0.6), inset 0 0 2px rgba(0,0,0,0.5);
+      pointer-events: none; z-index: 2; }
+    #worldchat::before { left: 5px; } #worldchat::after { right: 5px; }
     #wc-log { height: 112px; overflow-y: auto; font-size: 12.5px; line-height: 1.55; margin-bottom: 7px; color: #e8dcc0;
       padding: 7px 8px; border-radius: 5px;
       background: linear-gradient(180deg, rgba(10,7,3,0.55), rgba(6,4,2,0.7));
@@ -231,7 +253,7 @@
 
     /* Brief OSRS-style game notice — floats above the bottom-left chat stack
        (world chat + private chat) so it never lands on top of either box. */
-    #gamemsg { position: fixed; bottom: 430px; left: 16px; z-index: 6; pointer-events: none; max-width: 46%;
+    #gamemsg { position: fixed; bottom: 460px; left: 16px; z-index: 6; pointer-events: none; max-width: 46%;
       font-size: 14px; color: #f3e7c4; text-shadow: 0 0 8px rgba(255,210,119,0.35), 0 2px 4px rgba(0,0,0,0.95);
       font-family: Georgia, serif; opacity: 0; transition: opacity 0.4s ease; }
 
@@ -340,11 +362,12 @@
 
     /* ===================== Private chat window =====================
        Stacks directly ABOVE the world-chat box in the bottom-left column (the
-       world chat is ~175px tall + 12px gap) so the two never overlap. */
-    #chat { position: fixed; bottom: 203px; left: 16px; z-index: 8; width: 312px; padding: 10px; }
+       world chat is ~206px tall + 12px gap) so the two never overlap. */
+    #chat { position: fixed; bottom: 234px; left: 16px; z-index: 8; width: 312px; padding: 10px; }
     #chat[hidden] { display: none; }
     .chat-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;
-      color: var(--gold); font-family: Georgia, serif; margin-bottom: 7px; }
+      color: var(--gold); font-family: Georgia, serif; margin-bottom: 7px; padding-bottom: 7px;
+      border-bottom: 1px solid rgba(255,214,119,0.14); box-shadow: 0 1px 0 rgba(0,0,0,0.45); }
     #chat-close { background: linear-gradient(180deg,#3a2a17,#1d1207); border: 1px solid var(--bronze); color: var(--gold-bright);
       border-radius: 5px; width: 23px; height: 23px; cursor: pointer; font-size: 11px; }
     #chat-close:hover { border-color: var(--gold); }
@@ -382,6 +405,12 @@
     /* gilded inner ring */
     #minimap::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; pointer-events: none;
       box-shadow: inset 0 0 0 1px rgba(255,214,119,0.22); }
+    /* four gem rivets studded on the bronze ring at the diagonals (WoW filigree) */
+    .mm-rivet { position: absolute; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; z-index: 2;
+      background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold-deep) 60%, #6b4a18);
+      box-shadow: 0 0 4px rgba(255,210,119,0.55), inset 0 0 2px rgba(0,0,0,0.5); }
+    .mm-rivet.ne { top: 18px; right: 18px; } .mm-rivet.nw { top: 18px; left: 18px; }
+    .mm-rivet.se { bottom: 18px; right: 18px; } .mm-rivet.sw { bottom: 18px; left: 18px; }
     #minimap-canvas { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px);
       border-radius: 50%; display: block; }
     /* cardinal letters engraved on the rim */
@@ -587,6 +616,10 @@
     <span class="mm-card mm-s">S</span>
     <span class="mm-card mm-e">E</span>
     <span class="mm-card mm-w">W</span>
+    <span class="mm-rivet ne"></span>
+    <span class="mm-rivet nw"></span>
+    <span class="mm-rivet se"></span>
+    <span class="mm-rivet sw"></span>
   </div>
   <div id="minimap-coords">x 0.0 · z 0.0 <span id="minimap-floor"></span></div>
 
@@ -656,6 +689,7 @@
     <input id="chat-input" placeholder="Type a message + Enter…" maxlength="200" />
   </div>
   <div id="worldchat">
+    <div class="wc-head"><span class="wc-head-ico">💬</span> All chat</div>
     <div id="wc-log"></div>
     <input id="wc-input" placeholder="Press Enter to chat with everyone…" maxlength="200" />
   </div>
