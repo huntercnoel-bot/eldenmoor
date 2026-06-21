@@ -346,15 +346,20 @@ function startCombat(em) {
     gameMessage('You have slain the ' + md.type.name + '.');
     floatNumber(g.position.x, g.position.y + 1.4, g.position.z, '+' + md.type.xp + ' xp', 'loot');
     dropLoot(md.type, g.position.x, g.position.z);
-    // Award combat XP OSRS-style: the monster's xp into Attack, Strength and
-    // Defence, plus a third of it into Hitpoints. Defensive try/catch so a
-    // missing skill id never breaks the kill.
+    // Award combat XP OSRS-style, routed by the chosen ATTACK STYLE (Combat tab):
+    //   accurate -> Attack, aggressive -> Strength, defensive -> Defence,
+    //   controlled -> split evenly across all three. Hitpoints always gets a
+    //   third. Defensive try/catch so a missing skill id never breaks the kill.
     try {
       if (em.skills && em.skills.addXp) {
         const xp = md.type.xp;
+        const style = (em.attackStyle) || (function () { try { return localStorage.getItem('eldenmoor.attackStyle'); } catch (e) { return null; } })() || 'accurate';
+        const routes = { accurate: ['attack'], aggressive: ['strength'], defensive: ['defence'], controlled: ['attack', 'strength', 'defence'] };
+        const ids = routes[style] || routes.accurate;
+        const share = xp / ids.length;
         let leveled = null;
-        for (const id of ['attack', 'strength', 'defence']) {
-          const r = em.skills.addXp(id, xp);
+        for (const id of ids) {
+          const r = em.skills.addXp(id, share);
           if (r && r.leveledUp) leveled = { id, level: r.level };
         }
         const rh = em.skills.addXp('hitpoints', Math.max(1, Math.round(xp / 3)));

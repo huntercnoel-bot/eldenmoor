@@ -735,6 +735,9 @@
         <button class="cstyle" data-style="defensive" role="radio" aria-checked="false">
           <span class="cstyle-ico">🛡️</span><span class="cstyle-nm">Defensive</span><span class="cstyle-xp">Defence</span>
         </button>
+        <button class="cstyle" data-style="controlled" role="radio" aria-checked="false">
+          <span class="cstyle-ico">⚖️</span><span class="cstyle-nm">Controlled</span><span class="cstyle-xp">Shared</span>
+        </button>
       </div>
       <div class="combat-foot">Choose how you fight — your swings train the chosen skill.</div>
     </div>
@@ -806,8 +809,9 @@
       }
     });
 
-    /* Combat tab: OSRS attack-style selector. Purely presentational — it lights up
-       the chosen plaque and remembers the pick; it never touches combat logic. */
+    /* Combat tab: OSRS attack-style selector. Lights up the chosen plaque,
+       remembers the pick, and publishes it to combat.js (window.eldenmoor.attackStyle)
+       so your swings train the chosen skill. */
     (function () {
       const KEY = 'eldenmoor.attackStyle';
       const group = document.getElementById('combat-style');
@@ -818,8 +822,12 @@
           b.classList.toggle('active', on);
           b.setAttribute('aria-checked', on ? 'true' : 'false');
         });
+        try { if (window.eldenmoor) window.eldenmoor.attackStyle = style; } catch (_) {}
       };
       const saved = (() => { try { return localStorage.getItem(KEY); } catch (_) { return null; } })();
+      // seed the global as soon as the game object exists, even before a click
+      const seed = saved || 'accurate';
+      const seedIv = setInterval(() => { if (window.eldenmoor) { window.eldenmoor.attackStyle = seed; clearInterval(seedIv); } }, 150);
       if (saved) apply(saved);
       group.addEventListener('click', (e) => {
         const btn = e.target.closest('.cstyle');
