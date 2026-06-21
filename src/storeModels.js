@@ -31,41 +31,46 @@ async function swapShops(em) {
   const shops = em.scene.userData.shops || [];
   const live = [];   // { footprint, glb, shell, inside }
 
+  // Phase 1 — IMMEDIATELY hide every procedural shop (roof + the whole group:
+  // walls, floor and all interior dressing — counter, shelves, hearth, lanterns).
+  // This kills the old-asset-over-the-storefront overlap right away, regardless
+  // of how long the glTF buildings take to stream in. Collision is baked from
+  // geometry at startup, so hiding the group doesn't open the walls.
   for (const s of shops) {
     const g = s.group; if (!g) continue;
-    const shell = g.userData.shell, roof = g.userData.roof;
-    const hw = g.userData.hw || 6.8, hd = g.userData.hd || 5.8;
-
-    // Hide the procedural roof for good (the glTF building has its own).
+    const roof = g.userData.roof;
     if (roof) roof.visible = false;
-    // Hide the procedural shell to start (we're standing outside).
-    if (shell) shell.visible = false;
-
-    // Load + place the glTF building over the shop, door toward the shop's door.
-    const src = await load(s.glb);
-    const o = src.clone(true);
-    // Orient: the inn's door is on its -z face; the shop door is on `face`.
-    o.rotation.y = (s.face === 1) ? Math.PI : 0;
-    // Scale by WIDTH so the building stays proportional (the inn is wide+shallow;
-    // matching its depth would blow it up). Its shallow back leaves the shop's
-    // rear poking out slightly, but the hidden procedural shell covers that.
-    const sz = new THREE.Vector3(); new THREE.Box3().setFromObject(o).getSize(sz);
-    o.scale.setScalar((hw * 2 + 1) / (sz.x || 1));
-    o.traverse((m) => {
-      if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.__toonDone = true; }
-    });
-    o.position.set(s.x, 0, s.z);
-    const minY = new THREE.Box3().setFromObject(o).min.y;
-    o.position.set(s.x, -minY, s.z);
-    em.scene.add(o);
-    (em.scene.userData.outdoor = em.scene.userData.outdoor || []).push(o);
-
-    // Remove this shop from the roof-toggle list so main.js stops managing it.
+    g.visible = false;
+    // Stop main.js's roof-toggle from also managing this shop.
     const ents = em.scene.userData.enterables;
     if (ents) { const i = ents.findIndex((e) => e.roof === roof); if (i >= 0) ents.splice(i, 1); }
-
-    live.push({ footprint: { minX: s.x - hw, maxX: s.x + hw, minZ: s.z - hd, maxZ: s.z + hd }, glb: o, shell, inside: false });
   }
+
+  // Phase 2 — load + place every glTF storefront IN PARALLEL. On failure, re-show
+  // the procedural shop so a lot is never left empty.
+  await Promise.all(shops.map(async (s) => {
+    const g = s.group; if (!g) return;
+    const roof = g.userData.roof;
+    const hw = g.userData.hw || 6.8, hd = g.userData.hd || 5.8;
+    try {
+      const src = await load(s.glb);
+      const o = src.clone(true);
+      o.rotation.y = (s.face === 1) ? Math.PI : 0;   // inn door is on -z; face the shop door
+      // Scale by WIDTH so the wide+shallow inn stays proportional.
+      const sz = new THREE.Vector3(); new THREE.Box3().setFromObject(o).getSize(sz);
+      o.scale.setScalar((hw * 2 + 1) / (sz.x || 1));
+      o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.__toonDone = true; } });
+      o.position.set(s.x, 0, s.z);
+      const minY = new THREE.Box3().setFromObject(o).min.y;
+      o.position.set(s.x, -minY, s.z);
+      em.scene.add(o);
+      (em.scene.userData.outdoor = em.scene.userData.outdoor || []).push(o);
+      live.push({ footprint: { minX: s.x - hw, maxX: s.x + hw, minZ: s.z - hd, maxZ: s.z + hd }, glb: o, group: g, roof, inside: false });
+    } catch (err) {
+      console.error('[storeModels] glTF load failed, keeping procedural shop', s.glb, err);
+      g.visible = true; if (roof) roof.visible = false;   // fall back to the procedural shop
+    }
+  }));
 
   // Per-frame: toggle building vs. interior as the player crosses the threshold.
   function tick() {
@@ -79,8 +84,9 @@ async function swapShops(em) {
                      p.position.z > f.minZ && p.position.z < f.maxZ;
       if (inside !== s.inside) {
         s.inside = inside;
-        if (s.glb) s.glb.visible = !inside;
-        if (s.shell) s.shell.visible = inside;
+        if (s.glb) s.glb.visible = !inside;          // glTF storefront only when outside
+        if (s.group) s.group.visible = inside;       // whole procedural shop only when inside
+        if (s.roof) s.roof.visible = false;          // ...but never the roof, so you see in
       }
     }
   }
