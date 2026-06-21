@@ -96,17 +96,57 @@ function addPlaceSetting(root, x, z, y = 1.35) {
   root.add(g); return g;
 }
 
+// A grand, gilded, high-backed procedural THRONE — oak frame clad in gold, deep
+// red velvet seat + back cushion, scrolled armrests, and a tall fan-crested back
+// topped with a gilt orb. Built so its SEAT TOP sits at world-local y = THRONE.seatY
+// and its seat centre at z = THRONE.z, which kingModel.js reads to seat the King
+// exactly. Faces -z (down the hall) when ry = Math.PI is applied by the caller.
+const THRONE = { z: 18.7, baseY: 0.9, seatY: 1.55, seatZ: 18.7 };  // castle-local space
+function buildThrone(parent) {
+  const oak = new THREE.MeshStandardMaterial({ color: 0x4a3320, roughness: 0.7 });
+  const gilt = new THREE.MeshStandardMaterial({ color: 0xd8b24a, metalness: 0.45, roughness: 0.4 });
+  const velvet = new THREE.MeshStandardMaterial({ color: 0x7e1322, roughness: 0.85 });
+  const g = new THREE.Group();
+  const SY = THRONE.seatY - THRONE.baseY;   // seat top above the dais (local to the throne group)
+  const seatT = SY;                          // seat surface height
+  // plinth / base box
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(2.5, seatT - 0.25, 1.7), oak).translateY((seatT - 0.25) / 2));
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.12, 1.9), gilt).translateY(seatT - 0.25));   // gilt sill
+  // seat cushion
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.3, 1.5), velvet).translateY(seatT - 0.05).translateZ(0.05));
+  // tall back frame
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.4, 0.28), oak); back.position.set(0, seatT + 1.5, -0.75); g.add(back);
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.6, 0.16), velvet).translateY(seatT + 1.3).translateZ(-0.6));  // back cushion
+  // gilt rails framing the back
+  for (const sx of [-1, 1]) g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.6, 10), gilt).translateX(sx * 1.18).translateY(seatT + 1.6).translateZ(-0.7));
+  // arched gilt crest + radiating finials (a sunburst crown over the back)
+  const crest = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.13, 8, 18, Math.PI), gilt);
+  crest.position.set(0, seatT + 3.3, -0.7); g.add(crest);
+  for (let k = 0; k <= 6; k++) { const a = Math.PI * (k / 6); const sp = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.6, 6), gilt); sp.position.set(Math.cos(a) * 1.1, seatT + 3.3 + Math.sin(a) * 1.1, -0.7); sp.rotation.z = -(a - Math.PI / 2); g.add(sp); }
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), gilt).translateY(seatT + 4.55).translateZ(-0.7));  // crowning orb
+  // scrolled gilt armrests
+  for (const sx of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 1.5), gilt); arm.position.set(sx * 1.05, seatT + 0.6, 0.05); g.add(arm);   // arm top
+    const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.26, 14), gilt); scroll.rotation.z = Math.PI / 2; scroll.position.set(sx * 1.05, seatT + 0.6, 0.78); g.add(scroll);  // front scroll
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.18), oak); post.position.set(sx * 1.05, seatT + 0.32, 0.62); g.add(post);  // arm post
+  }
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.__toonDone = true; o.userData.noCollide = true; } });
+  g.position.set(0, THRONE.baseY, THRONE.z);
+  g.userData.noCollide = true;
+  parent.add(g);
+  return g;
+}
+
 // ---- Ground floor: the grand throne room ------------------------------------
 function furnishGround(floor) {
   const root = new THREE.Group(); root.name = 'castle-furniture'; floor.add(root);
   const put = placer(root); const HD = 22;
-  put('syn_Throne', 0, HD - 3, Math.PI, 1.95, 0.55);
-  put('wj_prop_weapon_rack', -5.5, HD - 3.5, Math.PI, 2.6);
-  put('wj_prop_weapon_rack',  5.5, HD - 3.5, Math.PI, 2.6);
-  put('wj_prop_candelabra', -3.6, HD - 2.0, 0, 2.2, 0.8); warmLight(root, -3.6, 2.4, HD - 2.0);
-  put('wj_prop_candelabra',  3.6, HD - 2.0, 0, 2.2, 0.8); warmLight(root, 3.6, 2.4, HD - 2.0);
+  buildThrone(root);                                  // the grand gilded throne on the dais
+  put('wj_prop_candelabra', -3.8, HD - 4.0, 0, 2.2, 0.9); warmLight(root, -3.8, 2.4, HD - 4.0);
+  put('wj_prop_candelabra',  3.8, HD - 4.0, 0, 2.2, 0.9); warmLight(root, 3.8, 2.4, HD - 4.0);
+  warmLight(root, 0, 3.6, HD - 1.2, 4, 11);           // soft warm wash behind the throne
   // grand red-and-gold runner sweeping up the central aisle to the dais
-  addRunner(root, 0, 0, 36, 3.4);
+  addRunner(root, 0, 0, 34, 3.0);
   // heraldic banners marching down both side walls (clear of doorways)
   for (const sx of [-1, 1]) for (const z of [-15, -5, 5, 15]) addBanner(root, sx * 21.4, z, sx < 0 ? Math.PI / 2 : -Math.PI / 2);
   // pair of tall banners flanking the throne dais
