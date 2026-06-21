@@ -24,7 +24,8 @@ const DWARF_TIMEOUT = 6000;       // ms — past this we commit to the procedura
 const SEAT = {
   z: 64.7,        // world z of the throne seat centre (castle z46 + local 18.7)
   seatY: 1.55,    // world y of the throne seat surface (king's hips rest here)
-  face: Math.PI,  // yaw so the king looks down the hall toward the gate (-z)
+  face: 0,        // yaw so the king looks down the hall toward the gate (-z); the
+                  // toon model is built facing -z, so no extra yaw is needed
 };
 
 function findBone(root, name) {
