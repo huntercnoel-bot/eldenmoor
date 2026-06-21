@@ -129,6 +129,44 @@ function sweptRoof(radius, height, mat, x, y, z, sides = 12) {
   g.position.set(x, y, z); return g;
 }
 
+// A drifting chimney-smoke wisp: a short stack of softening, rising semi-transparent
+// puffs. Cheap (a handful of low-seg spheres) and animated by a shared RAF tick so
+// hearths/chimneys feel lived-in. Returns the group (added by the caller).
+const _smokers = [];
+function chimneySmoke(x, y, z, tint = 0xb9b2a6) {
+  const g = new THREE.Group();
+  const puffs = [];
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.MeshStandardMaterial({ color: tint, transparent: true, opacity: 0.0, roughness: 1, metalness: 0, depthWrite: false });
+    m.userData.__toonDone = true;
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), m);
+    p.userData = { base: y, off: i / 5, seed: Math.random() * 6.28, sway: 0.18 + Math.random() * 0.14 };
+    deco(p); g.add(p); puffs.push(p);
+  }
+  g.position.set(x, 0, z); g.userData.__puffs = puffs;
+  _smokers.push(g);
+  return g;
+}
+let _smokeRAF = false;
+function startSmoke() {
+  if (_smokeRAF) return; _smokeRAF = true;
+  const tick = (now) => {
+    requestAnimationFrame(tick);
+    const t = now / 1000;
+    for (const g of _smokers) for (const p of g.userData.__puffs) {
+      const u = p.userData;
+      const f = ((t * 0.22 + u.off) % 1);          // 0..1 rise cycle
+      p.position.y = u.base + f * 3.2;
+      p.position.x = Math.sin(t * 0.7 + u.seed) * u.sway * (0.4 + f);
+      p.position.z = Math.cos(t * 0.6 + u.seed) * u.sway * (0.4 + f);
+      const s = 0.6 + f * 1.8;
+      p.scale.setScalar(s);
+      p.material.opacity = Math.sin(f * Math.PI) * 0.32;   // fade in then out
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
 // Village house spots [x, z, rotation]. The visible buildings are realistic
 // glTF models placed by villageModels.js; here we keep only invisible colliders.
 export const COTTAGES = [
@@ -179,35 +217,57 @@ export function buildTown(scene) {
   g.add(deco(box(34, 0.16, 16, mapped(T.road, 0xc2b79a), 0, 0.04, 16, false)));
   g.add(deco(box(7, 0.16, 26, mapped(T.road, 0xb8ad90), 0, 0.05, 1, false)));
 
-  // --- lamp posts ---
-  const lampPost = (x, z) => {
-    g.add(cyl(0.12, 0.16, 3.2, 8, dark, x, 1.6, z));
-    g.add(cyl(0.28, 0.28, 0.12, 8, dark, x, 3.25, z));
-    g.add(deco(box(0.34, 0.5, 0.34, lampMat, x, 3.55, z)));
-    g.add(deco(box(0.16, 0.3, 0.16, dark, x, 3.9, z)));
+  // --- wrought-iron lamp posts (sculpted: stepped base, tapered shaft, a glass
+  //     lantern cage with a warm glow + a small point light) ---
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffb142, emissiveIntensity: 1.0, roughness: 0.35, transparent: true, opacity: 0.7 });
+  glassMat.userData.__toonDone = true;
+  let _lampLights = 0;
+  const lampPost = (x, z, light = false) => {
+    g.add(deco(cyl(0.26, 0.32, 0.28, 10, dark, x, 0.14, z)));       // stepped base
+    g.add(cyl(0.1, 0.15, 3.2, 8, dark, x, 1.6, z));                 // tapered shaft (collider)
+    g.add(deco(cyl(0.22, 0.22, 0.14, 10, dark, x, 3.3, z)));        // collar
+    g.add(deco(cyl(0.3, 0.22, 0.16, 10, dark, x, 3.45, z)));        // flared cradle
+    g.add(deco(cyl(0.24, 0.26, 0.5, 8, glassMat, x, 3.78, z)));     // glass lantern body
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2; g.add(deco(box(0.04, 0.5, 0.04, dark, x + Math.cos(a) * 0.24, 3.78, z + Math.sin(a) * 0.24))); }  // cage bars
+    { const cap = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.32, 8), dark); cap.position.set(x, 4.2, z); deco(cap); g.add(cap); }   // lantern cap
+    g.add(deco(cyl(0.05, 0, 0.18, 6, flat(0xd8b24a), x, 4.45, z))); // gold finial
+    if (light && _lampLights < 6) { const pl = new THREE.PointLight(0xffc46a, 3.2, 13, 2); pl.position.set(x, 3.8, z); g.add(pl); _lampLights++; }
   };
-  for (const z of [2, 7, 12]) for (const sx of [-1, 1]) lampPost(sx * 4.5, z);
-  for (const c of [[-8, 23], [8, 23], [-4, 10], [4, 10]]) lampPost(c[0], c[1]);
+  for (const z of [2, 7, 12]) for (const sx of [-1, 1]) lampPost(sx * 4.5, z, z === 7);
+  for (const c of [[-8, 23, true], [8, 23, true], [-4, 10, false], [4, 10, false]]) lampPost(c[0], c[1], c[2]);
 
-  // --- banner poles flanking the gate ---
+  // --- banner poles flanking the gate (sculpted: stone foot, tapered pole, a
+  //     heraldic swallow-tail banner with a gilt boss + ball finial) ---
+  const gold = flat(0xd8b24a);
   const bannerPole = (x, z, col) => {
-    g.add(cyl(0.14, 0.16, 7, 8, dark, x, 3.5, z));
-    g.add(deco(box(1.4, 3.0, 0.1, flat(col), x, 5.0, z + 0.12)));
-    g.add(deco(box(0.6, 0.6, 0.12, flat(0xd8b24a), x, 5.0, z + 0.18)));
-    g.add(deco(cyl(0.22, 0.22, 0.25, 8, flat(0xd8b24a), x, 7.1, z)));
+    g.add(deco(cyl(0.34, 0.42, 0.4, 10, stone, x, 0.2, z)));        // stone foot
+    g.add(cyl(0.12, 0.18, 7, 10, dark, x, 3.5, z));                 // tapered pole (collider)
+    g.add(deco(cyl(0.2, 0.2, 0.16, 10, gold, x, 6.7, z)));          // gilt collar
+    g.add(deco(cyl(0.2, 0, 0.4, 10, gold, x, 7.1, z)));             // pole finial
+    const banner = flat(col);
+    g.add(deco(box(1.4, 3.2, 0.08, banner, x, 5.1, z + 0.12)));     // banner field
+    for (const ss of [-1, 1]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 3), banner); t.rotation.x = Math.PI; t.position.set(x + ss * 0.35, 3.35, z + 0.12); deco(t); g.add(t); }   // swallow-tail
+    g.add(deco(cyl(0.45, 0.45, 0.1, 12, gold, x, 5.4, z + 0.17)));  // gilt boss
+    g.add(deco(cyl(0.26, 0.26, 0.12, 12, flat(col === 0x274a8a ? 0x4a6db0 : 0x9a4a4a), x, 5.4, z + 0.22)));
   };
   bannerPole(-5, 23.5, 0x274a8a); bannerPole(5, 23.5, 0x274a8a);
   bannerPole(-9, 23.5, 0x6e2f2f); bannerPole(9, 23.5, 0x6e2f2f);
 
   // --- grand fountain (centrepiece) ---
   const fx = -6, fz = 16;   // off the central gate approach so click-to-move stays clear
-  const water = new THREE.MeshStandardMaterial({ color: 0x2f6ea5, roughness: 0.2, metalness: 0.2, transparent: true, opacity: 0.85 });
-  g.add(cyl(3.0, 3.3, 0.9, 16, stone, fx, 0.45, fz));            // basin (solid → blocks)
-  g.add(deco(cyl(2.7, 2.7, 0.2, 16, water, fx, 0.85, fz)));
-  g.add(deco(cyl(1.4, 1.6, 0.8, 12, stone, fx, 1.3, fz)));       // upper tier
-  g.add(deco(cyl(1.1, 1.1, 0.15, 12, water, fx, 1.75, fz)));
-  g.add(deco(cyl(0.3, 0.4, 1.6, 8, stone, fx, 2.4, fz)));
-  g.add(deco(cyl(0.6, 0.0, 0.8, 8, flat(0xd8b24a), fx, 3.4, fz)));
+  const water = new THREE.MeshStandardMaterial({ color: 0x3f8fc4, roughness: 0.15, metalness: 0.25, transparent: true, opacity: 0.86 });
+  const waterTop = new THREE.MeshStandardMaterial({ color: 0x6fc0e0, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.7 });
+  waterTop.userData.__toonDone = true;
+  g.add(cyl(3.0, 3.3, 0.9, 20, stone, fx, 0.45, fz));            // basin (solid → blocks)
+  g.add(deco(cyl(3.05, 3.05, 0.22, 20, stone, fx, 0.92, fz)));   // rounded coping rim
+  g.add(deco(cyl(2.7, 2.7, 0.2, 20, water, fx, 0.84, fz)));      // lower pool
+  g.add(deco(cyl(1.45, 1.7, 0.8, 16, stone, fx, 1.3, fz)));      // pedestal of the upper tier
+  g.add(deco(cyl(1.35, 1.35, 0.6, 16, stone, fx, 1.85, fz)));    // upper basin
+  g.add(deco(cyl(1.15, 1.15, 0.16, 16, waterTop, fx, 2.06, fz)));// upper pool
+  g.add(deco(cyl(0.28, 0.4, 1.4, 10, stone, fx, 2.9, fz)));      // central column
+  g.add(deco(cyl(0.65, 0.0, 0.7, 10, flat(0xd8b24a), fx, 3.85, fz)));   // gilt finial
+  // four spouting cascades from the upper basin down to the pool
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; g.add(deco(cyl(0.06, 0.1, 1.15, 6, waterTop, fx + Math.cos(a) * 1.0, 1.45, fz + Math.sin(a) * 1.0))); }
 
   // --- market stalls (low-poly GLB market stands) ---
   // Visible stand is the GLB model; an invisible box keeps the old table footprint
@@ -352,6 +412,14 @@ export function buildTown(scene) {
   // --- causeway railings flanking the gate approach (over the moat) ---
   for (let z = 19; z <= 23.5; z += 1.1) for (const sx of [-1, 1]) g.add(box(0.18, 0.95, 0.18, stone, sx * 9.6, 0.47, z));
   for (const sx of [-1, 1]) g.add(deco(box(0.25, 0.18, 4.8, stone, sx * 9.6, 1.0, 21.2)));
+
+  // --- lived-in chimney smoke drifting up over a few rooftops ---
+  // Placed above cottage roof spots and the windmill cap so the village breathes.
+  g.add(chimneySmoke(-24, 6.2, 4));     // west cottage
+  g.add(chimneySmoke(24, 6.2, 4));      // east cottage
+  g.add(chimneySmoke(-27, 6.4, 13));    // back-corner inn
+  g.add(chimneySmoke(30, 9.6, -6, 0xa9a299));   // windmill cap
+  startSmoke();
 
   scene.add(g);
   (scene.userData.buildings = scene.userData.buildings || []).push(g);
