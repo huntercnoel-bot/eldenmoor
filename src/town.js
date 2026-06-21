@@ -98,6 +98,9 @@ let TX = null;
 function tex() { if (!TX) TX = { road: stoneTexture(10), plaster: plasterTexture(), shingle: shingleTexture(4), wall: stoneTexture(3), path: pathTexture(7) }; return TX; }
 
 const flat = (c, r = 0.95) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0, flatShading: true });
+// Smooth-shaded variant for rounded/organic props (hedges, foliage, horse) so
+// their silhouettes read soft instead of faceted. (toon.js later re-skins these.)
+const smooth = (c, r = 0.9) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0 });
 const mapped = (m, c = 0xffffff, r = 0.92) => new THREE.MeshStandardMaterial({ map: m, color: c, roughness: r, metalness: 0 });
 const deco = (m) => { m.userData.noCollide = true; return m; };
 function box(w, h, d, mat, x, y, z, sh = true) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = sh; m.receiveShadow = true; return m; }
@@ -382,27 +385,92 @@ export function buildTown(scene) {
   propClone(g, 'crypt', -28.5, 6, 0.4, { targetH: 2.6 });
 
   // --- stable + horse ---
+  // A smooth, rounded toon horse: capsule barrel, tapered smooth legs, an arched
+  // neck and a soft muzzle, with a flowing mane + tail. No boxes — reads as a
+  // shapely animal rather than a stack of crates. Faces -x (toward the yard).
   const horse = (x, z) => {
-    const h = flat(0x5a3a26), mane = flat(0x2a1c12);
-    g.add(deco(box(1.7, 0.9, 0.7, h, x, 1.3, z)));
-    for (const p of [[-0.6, -0.25], [0.6, -0.25], [-0.6, 0.25], [0.6, 0.25]]) g.add(deco(box(0.18, 1.0, 0.18, h, x + p[0], 0.5, z + p[1])));
-    g.add(deco(box(0.42, 0.9, 0.5, h, x - 0.95, 1.7, z))); g.add(deco(box(0.5, 0.42, 0.42, h, x - 1.2, 2.05, z)));
-    g.add(deco(box(0.1, 0.8, 0.5, mane, x - 0.8, 1.9, z))); g.add(deco(box(0.1, 0.7, 0.2, mane, x + 0.85, 1.5, z)));
-  };
-  const stable = (cx, cz) => {
-    const barn = flat(0x8a5a32);
-    g.add(box(0.3, 3, 5, barn, cx + 2.8, 1.5, cz)); g.add(box(5.6, 3, 0.3, barn, cx, 1.5, cz - 2.4)); g.add(box(5.6, 3, 0.3, barn, cx, 1.5, cz + 2.4));
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.2, 8), mapped(T.shingle, 0x6e3a2a)); roof.scale.set(1, 1, 1.25); roof.position.set(cx, 4.1, cz); roof.rotation.y = Math.PI / 8; roof.castShadow = true; deco(roof); g.add(roof);
-    g.add(deco(cyl(0.7, 0.7, 1.0, 10, flat(0xc9a24a), cx + 1.5, 0.5, cz + 1.6)));
-    g.add(box(1.6, 0.5, 0.6, wood, cx - 1, 0.25, cz - 1.7));
-    horse(cx, cz);
+    const h = smooth(0x6b4326), hd = smooth(0x593521), mane = smooth(0x2a1c12);
+    const grp = new THREE.Group(); grp.position.set(x, 0, z);
+    const add = (mesh, px, py, pz) => { mesh.position.set(px, py, pz); mesh.castShadow = true; mesh.receiveShadow = true; deco(mesh); grp.add(mesh); return mesh; };
+    // barrel (capsule lying along X)
+    const barrel = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.0, 6, 14), h);
+    barrel.rotation.z = Math.PI / 2; barrel.scale.set(1, 1, 0.92); add(barrel, 0, 1.32, 0);
+    // haunch + chest fullness
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), h), 0.62, 1.34, 0).scale.set(0.9, 0.95, 0.92);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.46, 14, 12), h), -0.55, 1.34, 0).scale.set(0.95, 0.95, 0.9);
+    // legs: tapered smooth cylinders with a slight knee, hooves
+    for (const p of [[-0.62, -0.27], [0.6, -0.27], [-0.62, 0.27], [0.6, 0.27]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.09, 1.05, 9), h);
+      add(leg, p[0], 0.55, p[1]);
+      const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.16, 9), flat(0x1f1712));
+      add(hoof, p[0], 0.08, p[1]);
+    }
+    // arched neck (tilted cylinder) + smooth head + tapered muzzle
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.34, 0.95, 12), h);
+    neck.rotation.z = 0.7; add(neck, -0.92, 1.78, 0);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 14, 12), h);
+    head.scale.set(1.1, 0.9, 0.85); add(head, -1.26, 2.16, 0);
+    const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.17, 0.42, 10), hd);
+    muzzle.rotation.z = -0.5; add(muzzle, -1.5, 2.0, 0);
+    for (const e of [-0.13, 0.13]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 7), h); add(ear, -1.18, 2.42, e); }
+    // eyes
+    for (const e of [-0.16, 0.16]) add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 7, 6), flat(0x141414)), -1.4, 2.2, e);
+    // mane: a soft crest of squashed blobs down the neck
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 7), mane);
+      m.scale.set(0.6, 1.0, 1.1); add(m, -0.78 - i * 0.085, 2.18 - i * 0.06, 0);
+    }
+    // flowing tail
+    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.6, 4, 8), mane);
+    tail.rotation.z = -0.5; add(tail, 0.92, 1.1, 0);
+    g.add(grp);
+    return grp;
   };
   propClone(g, 'stable', 26, 2, 0, { targetH: 4.5 });   // real GLB stable
+  const stableHorse = horse(22.5, 4.5); if (stableHorse) stableHorse.rotation.y = -0.5;   // a smooth toon horse hitched outside
 
   // --- hedges, flower beds, lanterns, notice board ---
-  const hedge = (x0, z0, x1, z1) => { const dx = x1 - x0, dz = z1 - z0, n = Math.max(1, Math.round(Math.hypot(dx, dz) / 1.5)); for (let i = 0; i <= n; i++) { const t = i / n; g.add(box(1.0, 1.0, 1.0, flat(0x3f6e3a), x0 + dx * t, 0.5, z0 + dz * t)); } };
+  // Smooth, leafy garden hedge: a low earthen trough topped by a run of overlapping
+  // foliage blobs (two-tone, deformed spheres) so the silhouette reads as soft
+  // clipped box-hedge instead of a row of bright cubes. Collision is preserved by
+  // an invisible collider box; the leaves themselves are decorative (noCollide).
+  const leafMat = smooth(0x3f6e3a), leafLit = smooth(0x549153), trough = flat(0x4a3526);
+  const hedge = (x0, z0, x1, z1) => {
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), ang = Math.atan2(dx, dz);
+    const n = Math.max(2, Math.round(len / 0.7));
+    // earthen base trough running the length
+    const base = box(0.9, 0.34, len + 0.5, trough, (x0 + x1) / 2, 0.17, (z0 + z1) / 2); base.rotation.y = ang; g.add(deco(base));
+    for (let i = 0; i <= n; i++) {
+      const bx = x0 + dx * (i / n), bz = z0 + dz * (i / n);
+      // three stacked foliage blobs per station -> a rounded, slightly bumpy crown
+      for (let k = 0; k < 3; k++) {
+        const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), (i + k) % 2 ? leafLit : leafMat);
+        const r = 0.46 + (((i * 7 + k * 13) % 5) - 2) * 0.018;   // gentle size variation
+        blob.scale.set(r * 1.18, r * 0.92, r * 1.18);
+        blob.position.set(bx + ((i % 2) - 0.5) * 0.06, 0.46 + k * 0.42, bz);
+        blob.rotation.set((i % 3) * 0.4, i * 0.6, (k % 2) * 0.3);
+        blob.castShadow = true; blob.receiveShadow = true; g.add(deco(blob));
+      }
+    }
+    // invisible collider so you still can't walk through the hedge run
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.3, len + 0.3), new THREE.MeshBasicMaterial({ visible: false }));
+    col.position.set((x0 + x1) / 2, 0.65, (z0 + z1) / 2); col.rotation.y = ang; g.add(col);
+  };
   hedge(-5, -10, -5, -2); hedge(5, -10, 5, -2);
-  const flowerBed = (x, z) => { g.add(deco(box(2.0, 0.3, 1.2, flat(0x3a5a2a), x, 0.16, z))); const cols = [0xc0392b, 0xd4ac0d, 0x8e44ad, 0xe6e6e6]; for (let i = 0; i < 6; i++) g.add(deco(box(0.16, 0.3, 0.16, flat(cols[i % 4]), x - 0.8 + i * 0.32, 0.45, z + (i % 2 ? 0.3 : -0.3)))); };
+  // Flower bed: a rounded earthen mound (squashed dome) studded with little
+  // cone-and-bloom flowers — soft and organic instead of a flat box of box-petals.
+  const flowerBed = (x, z) => {
+    const mound = new THREE.Mesh(new THREE.SphereGeometry(1.05, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), flat(0x4a3526));
+    mound.scale.set(1, 0.34, 0.62); mound.position.set(x, 0.05, z); mound.receiveShadow = true; g.add(deco(mound));
+    const cols = [0xd23b2b, 0xe6bd2a, 0x9b59b6, 0xf2f2f2, 0xe67e22];
+    for (let i = 0; i < 7; i++) {
+      const fx = x - 0.78 + (i / 6) * 1.56, fz = z + Math.sin(i * 1.7) * 0.34;
+      g.add(deco(cyl(0.025, 0.04, 0.36, 5, smooth(0x3a6e3a), fx, 0.34, fz)));   // stem
+      const bloom = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13, 0), smooth(cols[i % cols.length]));
+      bloom.scale.set(1, 0.7, 1); bloom.position.set(fx, 0.52, fz); bloom.castShadow = true; g.add(deco(bloom));
+      g.add(deco(new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), smooth(0xf6d743)).translateX(fx).translateY(0.55).translateZ(fz)));  // golden centre
+    }
+  };
   flowerBed(-8, -6); flowerBed(8, -6); flowerBed(-10, 22); flowerBed(10, 22);
   for (const z of [-8, -3]) for (const sx of [-1, 1]) { g.add(cyl(0.1, 0.13, 2.6, 8, dark, sx * 4.5, 1.3, z)); g.add(deco(box(0.3, 0.4, 0.3, lampMat, sx * 4.5, 2.8, z))); }
   g.add(cyl(0.1, 0.1, 2.0, 6, wood, -3, 1.0, -2)); g.add(cyl(0.1, 0.1, 2.0, 6, wood, -1.5, 1.0, -2));
