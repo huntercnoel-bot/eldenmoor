@@ -42,6 +42,7 @@ import './ambient.js';
 import './assets.js';
 import './showcase.js';
 import './villageModels.js';
+import './townBatch.js';   // self-contained: merges static town props to cut draw calls (polls window.eldenmoor)
 import './storeModels.js';
 import './castleModel.js';
 import './castleFurniture.js';
