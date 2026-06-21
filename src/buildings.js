@@ -4,7 +4,158 @@
 // shop roofs are hidden while you're inside (see main.js).
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { stoneTexture, greyStoneTexture, plasterTexture, dirtTexture, shingleTexture, woodFloorTexture, marbleTexture, tapestryTexture, carpetTexture, stainedGlassTexture, bookshelfTexture, heraldryBannerTexture, woodPanelTexture, tiledFloorTexture, rugTexture, signTexture, portraitTexture } from './textures.js';
+
+// ---------------------------------------------------------------------------
+// Modular dungeon GLB stone for the castle INTERIORS (ground/upper/basement).
+// Quaternius pieces are one mesh of SEVERAL primitives (different materials), so
+// GLTFLoader hands back a Group of child meshes. We bake each child's world
+// matrix into a stripped (position+normal) non-indexed clone, then
+// mergeGeometries(..., true) into ONE grouped geometry + material ARRAY, which
+// feeds a single InstancedMesh per floor/wall run (one draw call). Measured at
+// import time (node scale 100 is baked by GLTFLoader):
+//   dpack_ModularFloor       -> 2.0 x 2.0 footprint, ~0.31 thick, lies in XY (Z up)
+//   dpack_ModularStoneWall   -> 0.61 thick (X) x 2.05 tall (Y) x 2.04 wide (Z)
+//   dpack_Column             -> 2.0 x 2.0 shaft, 4.92 long along +Z (base at Z~0)
+//   dpack_Torch_wall         -> wall sconce, bracket points +X, ~1.1 wide, fire on top
+// ---------------------------------------------------------------------------
+const BUILD_DIR = './assets/models/build/';
+const _gltf = new GLTFLoader();
+const _protoCache = {};   // name -> Promise<{ geometry, materials }>
+
+// Merge all child-mesh primitives of a loaded GLB into one grouped geometry.
+function _bakeProto(root) {
+  root.updateMatrixWorld(true);
+  const geos = [], materials = [];
+  root.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    let geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    geo.applyMatrix4(o.matrixWorld);
+    // strip to position + normal only so every primitive merges cleanly
+    const keep = new THREE.BufferGeometry();
+    keep.setAttribute('position', geo.getAttribute('position').clone());
+    if (geo.getAttribute('normal')) keep.setAttribute('normal', geo.getAttribute('normal').clone());
+    else keep.computeVertexNormals();
+    geos.push(keep);
+    const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+    materials.push(mat);
+  });
+  const merged = mergeGeometries(geos, true);   // true -> keep per-geometry groups (material array)
+  return { geometry: merged, materials };
+}
+
+function loadProto(name) {
+  if (!_protoCache[name]) {
+    _protoCache[name] = new Promise((ok, err) =>
+      _gltf.load(BUILD_DIR + name + '.glb', (g) => ok(_bakeProto(g.scene)), undefined, err));
+  }
+  return _protoCache[name];
+}
+
+// Build an InstancedMesh for `proto` with the given per-instance matrices.
+function instanced(proto, matrices) {
+  const im = new THREE.InstancedMesh(proto.geometry, proto.materials, matrices.length);
+  for (let i = 0; i < matrices.length; i++) im.setMatrixAt(i, matrices[i]);
+  im.instanceMatrix.needsUpdate = true;
+  im.castShadow = true; im.receiveShadow = true;
+  im.userData.__toonDone = true; im.userData.noCollide = true;  // visuals only; colliders are explicit boxes
+  return im;
+}
+
+// Measured native footprints (node-scale 100 baked in).
+const FLOOR_TILE = 2.0;     // dpack_ModularFloor span in X and Y
+const FLOOR_THICK = 0.337;  // native +Z extent = floor's top after rotateX(-90)
+const WALL_W = 2.04;        // dpack_ModularStoneWall width (along Z natively)
+const WALL_H = 2.05;        // wall height
+const COL_LEN = 4.92;       // dpack_Column length along +Z natively
+
+// Tile a modular floor across [-hw,hw] x [-hd,hd] (room local space), top at y=top.
+// The floor GLB lies in XY (thickness +Z); rotateX(-90) lays it flat with Y up.
+function buildGLBFloor(group, hw, hd, top = 0.02) {
+  loadProto('dpack_ModularFloor').then((proto) => {
+    const nx = Math.ceil((2 * hw) / FLOOR_TILE), nz = Math.ceil((2 * hd) / FLOOR_TILE);
+    const m = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationX(-Math.PI / 2), t = new THREE.Matrix4();
+    const yLift = top - FLOOR_THICK;        // so the tile's top surface lands at `top`
+    const mats = [];
+    for (let ix = 0; ix < nx; ix++) for (let iz = 0; iz < nz; iz++) {
+      const x = -hw + FLOOR_TILE * (ix + 0.5), z = -hd + FLOOR_TILE * (iz + 0.5);
+      t.makeTranslation(x, yLift, z);
+      m.multiplyMatrices(t, rot);
+      mats.push(m.clone());
+    }
+    group.add(instanced(proto, mats));
+  }).catch((e) => console.error('[buildings] floor GLB failed', e));
+}
+
+// Line one straight wall run with stacked modular wall pieces. The run goes from
+// (x0,z0)->(x1,z1) (must be axis-aligned), stacked to ~`wh` tall. The native wall
+// width runs along +Z, thickness along X; we rotate so the width follows the run.
+function buildGLBWall(group, x0, z0, x1, z1, wh) {
+  loadProto('dpack_ModularStoneWall').then((proto) => {
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
+    if (len < 0.05) return;
+    const ang = Math.atan2(dx, dz);          // rotate native +Z width toward the run direction
+    const n = Math.max(1, Math.round(len / WALL_W));
+    const rows = Math.max(1, Math.round(wh / WALL_H));
+    const m = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationY(ang), t = new THREE.Matrix4();
+    const mats = [];
+    for (let i = 0; i < n; i++) {
+      const c = (i + 0.5) / n;
+      const cx = x0 + dx * c, cz = z0 + dz * c;
+      for (let r = 0; r < rows; r++) {
+        const y = WALL_H * (r + 0.5);
+        t.makeTranslation(cx, y, cz);
+        m.multiplyMatrices(t, rot);
+        mats.push(m.clone());
+      }
+    }
+    group.add(instanced(proto, mats));
+  }).catch((e) => console.error('[buildings] wall GLB failed', e));
+}
+
+// An invisible thin collider box matching a wall run's footprint, so collision
+// stays identical after the procedural wall surface is replaced by GLB pieces.
+function wallCollider(group, x0, z0, x1, z1, h, th) {
+  const w = Math.max(th, Math.abs(x1 - x0)), d = Math.max(th, Math.abs(z1 - z0));
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ visible: false }));
+  m.position.set((x0 + x1) / 2, h / 2, (z0 + z1) / 2);
+  m.visible = false;                 // never drawn, but still seen by collision.setFromObject
+  group.add(m);
+  return m;
+}
+
+// A GLB column clone standing on its base at (x,z), shaft scaled to height `h`.
+function buildGLBColumn(group, x, z, h) {
+  loadProto('dpack_Column').then((proto) => {
+    const o = new THREE.Mesh(proto.geometry, proto.materials);
+    o.scale.z = h / COL_LEN;         // scale the native length axis (+Z) BEFORE the rotation
+    o.rotation.x = -Math.PI / 2;     // native length +Z -> stand up along +Y (base at y=0)
+    o.position.set(x, 0, z);
+    o.castShadow = true; o.receiveShadow = true;
+    o.userData.__toonDone = true; o.userData.noCollide = true;
+    group.add(o);
+  }).catch((e) => console.error('[buildings] column GLB failed', e));
+}
+
+// A GLB wall torch sconce. The piece is modelled +Z-up (flame high in +Z) with
+// the bracket reaching +X, so we stand it up (rotateX -90) inside a yawed wrapper
+// that turns the bracket toward the room. `faceAng` is that yaw.
+function buildGLBTorch(group, x, y, z, faceAng, lit = true) {
+  loadProto('dpack_Torch_wall').then((proto) => {
+    const wrap = new THREE.Group();
+    wrap.rotation.y = faceAng;
+    wrap.position.set(x, y, z);
+    const o = new THREE.Mesh(proto.geometry, proto.materials);
+    o.rotation.x = -Math.PI / 2;     // native +Z (flame) -> world up
+    o.castShadow = true; o.receiveShadow = true;
+    o.userData.__toonDone = true; o.userData.noCollide = true;
+    wrap.add(o);
+    group.add(wrap);
+  }).catch((e) => console.error('[buildings] torch GLB failed', e));
+  if (lit) { const pl = new THREE.PointLight(0xffa53a, 4, 14, 2); pl.position.set(x, y + 0.4, z); group.add(pl); }
+}
 
 // Footprints world.js uses to keep trees from growing inside things.
 export const STRUCTURES = [
@@ -191,9 +342,9 @@ function makeCastle() {
     if (light) { const pl = new THREE.PointLight(0xffa53a, 7, 16, 2); pl.position.set(x, 1.4, z); g.add(pl); }
   };
   const column = (x, z, h = WH + 3.2) => {
-    g.add(cyl(0.6, 0.72, h, 14, stone, x, h / 2, z));               // soaring shaft
     g.add(deco(box(1.7, 0.5, 1.7, stone, x, 0.25, z)));             // stepped base
     g.add(deco(box(1.4, 0.4, 1.4, stone, x, 0.65, z)));
+    buildGLBColumn(g, x, z, h - 0.5);                               // soaring GLB shaft (atop the base)
     g.add(deco(cyl(0.95, 0.65, 0.7, 14, stone, x, h - 0.3, z)));    // flared capital
     g.add(deco(box(1.7, 0.55, 1.7, stone, x, h + 0.1, z)));         // abacus
     g.add(deco(box(1.4, 0.35, 1.4, gold, x, h + 0.45, z)));         // gilt band
@@ -205,15 +356,26 @@ function makeCastle() {
     g.add(deco(box(0.12, 1.4, 0.12, marble, x + 0.35, 2.2, z)));
   };
 
-  // floors + carpet
-  g.add(deco(box(HW * 2, 0.2, HD * 2, floorMat, 0, -0.08, 0, false)));               // base flagstones (top ~0.02)
+  // floors + carpet — base flagstones are now tiled modular GLB stone (top ~0.02)
+  buildGLBFloor(g, HW, HD, 0.02);
   g.add(deco(box(20, 0.16, HD - 1, marble, 0, 0.0, HD / 2 + 0.5, false)));            // central hall marble (top ~0.08)
   g.add(deco(box(6, 0.06, 19, mapped(T.carpet), 0, 0.11, 9.5, false)));               // royal aisle carpet
 
-  // curtain walls (gate gap at front)
-  wallSeg(-HW, -HD, -2.5, -HD); wallSeg(2.5, -HD, HW, -HD);
-  wallSeg(-HW, HD, HW, HD);
-  wallSeg(-HW, -HD, -HW, HD); wallSeg(HW, -HD, HW, HD);
+  // curtain walls — modular GLB stone, with invisible colliders matching the old
+  // procedural footprint (gate gap at front, local x[-2.5..2.5]).
+  buildGLBWall(g, -HW, -HD, -2.5, -HD, WH); wallCollider(g, -HW, -HD, -2.5, -HD, WH, TH);
+  buildGLBWall(g, 2.5, -HD, HW, -HD, WH);   wallCollider(g, 2.5, -HD, HW, -HD, WH, TH);
+  buildGLBWall(g, -HW, HD, HW, HD, WH);     wallCollider(g, -HW, HD, HW, HD, WH, TH);
+  buildGLBWall(g, -HW, -HD, -HW, HD, WH);   wallCollider(g, -HW, -HD, -HW, HD, WH, TH);
+  buildGLBWall(g, HW, -HD, HW, HD, WH);     wallCollider(g, HW, -HD, HW, HD, WH, TH);
+  // keep a sculpted chamfered parapet on top of the GLB curtain so the silhouette
+  // still reads as crenellated battlements above the modular wall.
+  const crenRun = (x0, z0, x1, z1) => {
+    g.add(deco(coping(Math.max(TH, Math.abs(x1 - x0)) + 0.1, 0.4, Math.max(TH, Math.abs(z1 - z0)) + 0.1, stone, (x0 + x1) / 2, WH + 0.1, (z0 + z1) / 2)));
+    merlons(x0, z0, x1, z1, WH + 0.6);
+  };
+  crenRun(-HW, -HD, -2.5, -HD); crenRun(2.5, -HD, HW, -HD);
+  crenRun(-HW, HD, HW, HD); crenRun(-HW, -HD, -HW, HD); crenRun(HW, -HD, HW, HD);
 
   // towers: 4 grand corner drum-towers (front pair tallest), 2 side-mids,
   // and 2 grey gatehouse drums flanking the gate
@@ -339,7 +501,8 @@ function makeCastle() {
     g.add(deco(cyl(0.12, 0, 0.42, 6, silver, x + 0.5, 2.55, z)));
     g.add(deco(box(0.55, 0.78, 0.1, red, x - 0.5, 1.5, z)));        // shield
   };
-  const wallTorch = (x, z) => { g.add(deco(box(0.16, 0.5, 0.16, wood, x, 3.0, z))); g.add(deco(box(0.26, 0.32, 0.26, flameMat, x, 3.45, z))); };
+  // GLB wall sconce mounted on the side curtain wall; bracket faces the room.
+  const wallTorch = (x, z) => buildGLBTorch(g, x, 3.0, z, x < 0 ? 0 : Math.PI, false);
   const tapestry = (x, z, m) => { g.add(deco(box(2.6, 0.18, 0.16, wood, x, 5.4, z))); g.add(deco(box(2.4, 4.4, 0.12, m, x, 3.2, z))); };
   const chandelier = (z, lit) => {
     g.add(deco(box(0.06, 2.2, 0.06, flat(0x2a2622), 0, 7.6, z)));
@@ -488,7 +651,7 @@ function makeUpper() {
   const T = tex();
   const g = new THREE.Group();
   const HW = 22, HD = 21, WH = 3.6, TH = 0.6;
-  const stone = mapped(T.wall), woodF = mapped(T.wood), rugMat = mapped(T.rug), books = mapped(T.bookshelf),
+  const stone = mapped(T.wall), rugMat = mapped(T.rug), books = mapped(T.bookshelf),
         wood = flat(0x4a3320), gold = flat(0xd8b24a, 0.4), red = flat(0x8a1f1f), steel = flat(0x9aa0a8, 0.5);
   const candle = new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffcf6a, emissiveIntensity: 1.5, roughness: 0.5 });
   const sg = new THREE.MeshStandardMaterial({ map: T.stainedGlass, emissive: 0xffffff, emissiveMap: T.stainedGlass, emissiveIntensity: 0.5, roughness: 0.3 });
@@ -497,11 +660,13 @@ function makeUpper() {
   const sconce = (x, z) => { g.add(deco(box(0.14, 0.4, 0.14, wood, x, 2.3, z))); g.add(deco(box(0.24, 0.28, 0.24, candle, x, 2.6, z))); };
   const chandelier = (x, z, lit) => { g.add(deco(box(0.05, 1.6, 0.05, flat(0x2a2622), x, 4.4, z))); g.add(deco(cyl(0.9, 0.9, 0.12, 12, gold, x, 3.5, z))); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.add(deco(box(0.1, 0.28, 0.1, candle, x + Math.cos(a) * 0.8, 3.7, z + Math.sin(a) * 0.8))); } if (lit) { const pl = new THREE.PointLight(0xffce7a, 4, 18, 2); pl.position.set(x, 3.3, z); g.add(pl); } };
 
-  g.add(deco(box(HW * 2, 0.16, HD * 2, woodF, 0, 0.0, 0, false)));                 // wood floor
-  wallSeg(-HW, HD, HW, HD); merlonRun(-HW, HD, HW, HD);
-  wallSeg(-HW, -HD, -HW, HD); merlonRun(-HW, -HD, -HW, HD);
-  wallSeg(HW, -HD, HW, HD); merlonRun(HW, -HD, HW, HD);
-  wallSeg(-HW, -HD, -6, -HD); wallSeg(6, -HD, HW, -HD);                            // front wall (balcony gap)
+  buildGLBFloor(g, HW, HD, 0.02);                                                  // tiled modular GLB floor
+  // perimeter walls = modular GLB stone (+ invisible colliders), parapet on top
+  buildGLBWall(g, -HW, HD, HW, HD, WH);   wallCollider(g, -HW, HD, HW, HD, WH, TH);   merlonRun(-HW, HD, HW, HD);
+  buildGLBWall(g, -HW, -HD, -HW, HD, WH); wallCollider(g, -HW, -HD, -HW, HD, WH, TH); merlonRun(-HW, -HD, -HW, HD);
+  buildGLBWall(g, HW, -HD, HW, HD, WH);   wallCollider(g, HW, -HD, HW, HD, WH, TH);   merlonRun(HW, -HD, HW, HD);
+  buildGLBWall(g, -HW, -HD, -6, -HD, WH); wallCollider(g, -HW, -HD, -6, -HD, WH, TH);   // front wall (balcony gap)
+  buildGLBWall(g, 6, -HD, HW, -HD, WH);   wallCollider(g, 6, -HD, HW, -HD, WH, TH);
   for (let x = -6; x <= 6; x += 1.3) g.add(deco(box(0.16, 0.9, 0.16, stone, x, 0.45, -HD)));   // balcony railing
   g.add(deco(box(12.6, 0.2, 0.3, stone, 0, 0.9, -HD)));
   for (const sx of [-1, 1]) for (const z of [-12, -4, 6, 14]) g.add(deco(box(0.2, 2.4, 1.6, sg, sx * (HW - 0.04), 1.8, z)));
@@ -589,15 +754,19 @@ function makeBasement() {
   const T = tex();
   const g = new THREE.Group();
   const HW = 22, HD = 21, WH = 4, TH = 0.7;
-  const stone = mapped(T.wall, 0x6f6a60), floorD = mapped(T.dirt, 0x9a8a6a),
+  const stone = mapped(T.wall, 0x6f6a60),
         wood = flat(0x4a3320), dark = flat(0x141210), bone = flat(0xcfc8b6), gold = flat(0xd8b24a, 0.4);
   const torchM = new THREE.MeshStandardMaterial({ color: 0xffb33a, emissive: 0xff7b00, emissiveIntensity: 1.8, roughness: 0.5 });
   const wallSeg = (x0, z0, x1, z1, h = WH, th = TH) => { const w = Math.max(th, Math.abs(x1 - x0)), d = Math.max(th, Math.abs(z1 - z0)); g.add(box(w, h, d, stone, (x0 + x1) / 2, h / 2, (z0 + z1) / 2)); };
   const torch = (x, z, lit) => { g.add(deco(box(0.14, 0.5, 0.14, wood, x, 2.0, z))); g.add(deco(box(0.24, 0.3, 0.24, torchM, x, 2.4, z))); if (lit) { const pl = new THREE.PointLight(0xffa53a, 5, 13, 2); pl.position.set(x, 2.4, z); g.add(pl); } };
   const bars = (x0, z0, x1, z1) => { const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.5)); for (let i = 0; i <= n; i++) { const t = i / n; g.add(deco(box(0.1, 2.6, 0.1, dark, x0 + (x1 - x0) * t, 1.3, z0 + (z1 - z0) * t))); } };
 
-  g.add(deco(box(HW * 2, 0.16, HD * 2, floorD, 0, 0.0, 0, false)));               // dirt floor
-  wallSeg(-HW, HD, HW, HD); wallSeg(-HW, -HD, -HW, HD); wallSeg(HW, -HD, HW, HD); wallSeg(-HW, -HD, HW, -HD);
+  buildGLBFloor(g, HW, HD, 0.02);                                                 // tiled modular GLB floor
+  // perimeter walls = modular GLB stone (+ invisible colliders); cellar is fully enclosed
+  buildGLBWall(g, -HW, HD, HW, HD, WH);   wallCollider(g, -HW, HD, HW, HD, WH, TH);
+  buildGLBWall(g, -HW, -HD, -HW, HD, WH); wallCollider(g, -HW, -HD, -HW, HD, WH, TH);
+  buildGLBWall(g, HW, -HD, HW, HD, WH);   wallCollider(g, HW, -HD, HW, HD, WH, TH);
+  buildGLBWall(g, -HW, -HD, HW, -HD, WH); wallCollider(g, -HW, -HD, HW, -HD, WH, TH);
   for (const sx of [-1, 1]) for (const z of [-14, -2, 10]) torch(sx * (HW - 0.6), z, true);
   torch(-6, 18, false); torch(6, 18, false);
 
