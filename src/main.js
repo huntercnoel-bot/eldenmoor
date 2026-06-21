@@ -189,12 +189,91 @@ function startGame(username) {
   //     gets a greeting + a little "ask about..." topic menu (OSRS style). NPCs
   //     with only `dialogue` lines (and no `topics`) page through those; `flavor`
   //     is the last-ditch fallback.
+  // Build a lookup of quest-giver NPC ids → quest id, and a lookup of "deliver
+  // beat" NPCs (intermediaries a quest routes you through, e.g. the cook or the
+  // prisoner) → the list of { questId, beat } that fire on talking to them.
+  const giverQuestByNpc = {};
+  const deliverBeatsByNpc = {};
+  for (const qid of Object.keys(QUEST_DEFS)) {
+    const qd = QUEST_DEFS[qid];
+    const gid = qd.giver || qid;
+    giverQuestByNpc[gid] = qid;
+    for (const d of qd.delivers || []) {
+      (deliverBeatsByNpc[d.npc] = deliverBeatsByNpc[d.npc] || []).push({ questId: qid, beat: d });
+    }
+  }
+
   function talkTo(def) {
-    if (def.quest) { talkQuestGiver(def); return; }
+    // A quest-giver (the def carries `quest:` OR a quest names it as `giver`).
+    const giverQuest = def.quest || giverQuestByNpc[def.id];
+    if (giverQuest && tryTalkGiver(def, giverQuest)) return;
+    // An intermediary in an active quest's delivery beat (cook, prisoner, ...).
+    if (tryDeliverBeat(def)) return;
     if (def.id === 'cook') { talkCook(def); return; }
     if (Array.isArray(def.topics) && def.topics.length) { talkTopics(def); return; }
     if (Array.isArray(def.dialogue) && def.dialogue.length) showDialogue(def.dialogue, { speaker: def.name });
     else showDialogue(def.flavor || '...', { speaker: def.name });
+  }
+
+  // Route to the right quest-giver handler. The King keeps his bespoke branching
+  // intro; every other giver uses the data-driven `startConfirm` flow. Returns
+  // false if there's nothing quest-related to say (so normal chat can take over).
+  function tryTalkGiver(def, id) {
+    if (def.quest === 'king') { talkQuestGiver(def); return true; }
+    return talkGenericGiver(def, id);
+  }
+
+  // Generic, data-driven quest-giver flow for the new quests. Reads the quest's
+  // startDialogue / startConfirm / nudge / completeDialogue / doneDialogue and
+  // drives start → nudge → hand-in exactly like the King, minus his bespoke menu.
+  function talkGenericGiver(def, id) {
+    if (quests.isComplete(id)) { showDialogue(QUEST_DEFS[id].doneDialogue || [{ speaker: def.name, text: 'Well met, friend.' }], { speaker: def.name }); return true; }
+    if (quests.isActive(id)) {
+      if (quests.readyToComplete(id)) {
+        showDialogue(QUEST_DEFS[id].completeDialogue, { speaker: def.name, onDone: () => quests.complete(id) });
+      } else {
+        const st = QUEST_DEFS[id].stages[quests.stage(id)];
+        showDialogue((st && st.nudge) || [{ speaker: def.name, text: 'You\'ve work yet to do, friend.' }], { speaker: def.name });
+        quests.tryAdvance(id);
+      }
+      return true;
+    }
+    if (!quests.canStart(id)) return false;
+    // Not started — show the intro, then offer it via the startConfirm menu.
+    const qd = QUEST_DEFS[id];
+    const sc = qd.startConfirm || {};
+    const offer = () => {
+      const options = [];
+      options.push({ label: sc.yes || 'I\'ll help.', onSelect: () => {
+        quests.start(id);
+        if (typeof sc.onAccept === 'function') sc.onAccept(quests.ctx(id));
+        showDialogue(sc.yesReply || [{ speaker: def.name, text: 'My thanks, friend!' }], { speaker: def.name });
+      } });
+      if (sc.more) options.push({ label: sc.more, onSelect: () => showDialogue(sc.moreDialogue || [], { speaker: def.name, onDone: offer }) });
+      options.push({ label: sc.no || 'Not just now.', onSelect: () => showDialogue(sc.noReply || 'Another time, then.', { speaker: def.name }) });
+      showDialogue({ speaker: def.name, text: sc.prompt || 'Will you help?', options });
+    };
+    showDialogue(qd.startDialogue || [{ speaker: def.name, text: 'I\'ve a task, if you\'re willing.' }], { speaker: def.name, onDone: offer });
+    return true;
+  }
+
+  // Delivery beats: when an active quest routes you through an intermediary NPC
+  // at a particular stage (e.g. hand the loaf to the prisoner), play that beat.
+  // Returns true if a beat fired. Falls through to normal chat otherwise.
+  function tryDeliverBeat(def) {
+    const beats = deliverBeatsByNpc[def.id];
+    if (!beats) return false;
+    for (const { questId, beat } of beats) {
+      if (!quests.isActive(questId) || quests.stage(questId) !== beat.stage) continue;
+      const ctx = quests.ctx(questId);
+      if (typeof beat.requires === 'function' && !beat.requires(ctx)) {
+        if (beat.missing) { showDialogue(beat.missing, { speaker: def.name }); return true; }
+        return false;
+      }
+      showDialogue(beat.dialogue, { speaker: def.name, onDone: () => { if (typeof beat.onDone === 'function') beat.onDone(quests); } });
+      return true;
+    }
+    return false;
   }
 
   // A branching "ask about..." chat. `def.greeting` is shown first (string or
