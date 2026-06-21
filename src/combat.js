@@ -49,6 +49,7 @@ function startCombat(em) {
   const pstate = player.userData.combat = {
     hp: PLAYER_MAX_HP, maxHp: PLAYER_MAX_HP,
     inCombat: false, target: null, lastAttack: 0, dead: false,
+    spec: 100, specArmed: false, specAcc: 0,
   };
 
   // ----- DOM overlay for floating damage numbers + player HP bar ------------
@@ -67,6 +68,41 @@ function startCombat(em) {
     if (hpTxt) hpTxt.textContent = Math.max(0, Math.round(pstate.hp)) + ' / ' + pstate.maxHp;
   }
   refreshPlayerHp();
+
+  // ----- Special-attack energy bar (bottom-centre) --------------------------
+  // A clickable ⚡ bar that arms a weapon special; the next swing spends energy
+  // for a bigger/multi-hit blow. Press F or click to arm. Energy regenerates.
+  const specWrap = document.createElement('div');
+  specWrap.id = 'spec-bar';
+  specWrap.title = 'Special attack (F) — arm it, then your next hit unleashes your weapon’s special';
+  specWrap.style.cssText = 'position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:24;' +
+    'width:188px;height:22px;border:1px solid #b9892f;border-radius:11px;background:rgba(20,16,10,0.7);' +
+    'cursor:pointer;user-select:none;overflow:hidden;font-family:Georgia,serif;box-shadow:0 2px 6px rgba(0,0,0,0.5);';
+  const specFill = document.createElement('div');
+  specFill.style.cssText = 'position:absolute;inset:0;width:100%;background:linear-gradient(180deg,#ffd86a,#d98a2a);transition:width 0.2s;';
+  const specLbl = document.createElement('div');
+  specLbl.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+    'font-size:12px;font-weight:700;color:#2a1c08;text-shadow:0 1px 0 rgba(255,255,255,0.3);';
+  specWrap.appendChild(specFill); specWrap.appendChild(specLbl);
+  document.body.appendChild(specWrap);
+  function refreshSpec() {
+    const pct = Math.max(0, Math.min(100, pstate.spec));
+    specFill.style.width = pct + '%';
+    specLbl.textContent = '⚡ Special ' + Math.floor(pct) + '%' + (pstate.specArmed ? ' ◄ARMED' : '');
+    specWrap.style.borderColor = pstate.specArmed ? '#ffe89a' : '#b9892f';
+  }
+  function armSpec() {
+    if (pstate.spec < 25) { gameMessage('Not enough special attack energy.'); return; }
+    pstate.specArmed = !pstate.specArmed; refreshSpec();
+    if (em.audio && em.audio.play) em.audio.play('click');
+  }
+  specWrap.addEventListener('click', armSpec);
+  window.addEventListener('keydown', (e) => {
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+    if (e.code === 'KeyF') { e.preventDefault(); armSpec(); }
+  });
+  refreshSpec();
 
   // project a world point to screen px
   const proj = new THREE.Vector3();
@@ -292,29 +328,66 @@ function startCombat(em) {
     catch (e) { return { attack: 1, strength: 1, defence: 1 }; }
   }
 
-  function hitMonster(g) {
+  // The special attack each weapon performs (spacebar/⚡): cost in spec energy,
+  // how many hits, a damage multiplier, and an accuracy multiplier. Keyed by a
+  // weapon "kind" derived from the equipped item so we never touch items.js.
+  const SPECIALS = {
+    hollow_blade: { name: 'Soul Cleave',  cost: 50, hits: 2, mul: 1.45, acc: 2.4 },
+    scimitar:     { name: 'Sever',        cost: 55, hits: 1, mul: 1.7,  acc: 2.2 },
+    dagger:       { name: 'Puncture',     cost: 25, hits: 2, mul: 1.2,  acc: 2.6 },
+    sword:        { name: 'Cleave',       cost: 50, hits: 1, mul: 1.45, acc: 1.9 },
+    axe:          { name: 'Hack',         cost: 50, hits: 1, mul: 1.5,  acc: 1.7 },
+    fists:        { name: 'Flurry',       cost: 50, hits: 2, mul: 1.1,  acc: 1.6 },
+  };
+  function weaponSpecialKind(def) {
+    if (!def) return 'fists';
+    if (def.id === 'hollow_blade') return 'hollow_blade';
+    if (/scimitar/.test(def.id || '')) return 'scimitar';
+    if (/dagger/.test(def.id || '')) return 'dagger';
+    if (def.tool === 'axe') return 'axe';
+    return 'sword';
+  }
+
+  // One melee swing's damage roll against a monster. `opts.accMul`/`opts.dmgMul`
+  // let a special attack boost accuracy / damage; returns the damage dealt.
+  function rollMelee(g, opts) {
+    opts = opts || {};
     const md = g.userData.monster;
     const wd = weaponDamage(em.equipment && em.equipment.getWeapon && em.equipment.getWeapon());
     const eb = gearBonuses();
     const pb = prayerBoosts();
     const atk = lvl('attack', 1), str = lvl('strength', 1);
-    // Accuracy: the player's Attack level + worn Attack bonus (scaled by any
-    // active Attack prayer) push against the monster's defence. Starts generous
-    // and climbs, so even a fresh hero connects.
-    const effAtk = (atk + 4 + eb.attack * 0.6) * pb.attack;
-    const hitChance = Math.max(0.45, Math.min(0.97, effAtk / (effAtk + md.type.defense * 2.4)));
+    const effAtk = (atk + 4 + eb.attack * 0.6) * pb.attack * (opts.accMul || 1);
+    const hitChance = Math.max(0.45, Math.min(0.99, effAtk / (effAtk + md.type.defense * 2.4)));
     const bx = g.position.x, by = g.position.y + (md.type.hpBarY || 1.2), bz = g.position.z;
-    if (Math.random() > hitChance) {
-      floatNumber(bx, by, bz, '0', 'miss');
-      return;
-    }
-    // Max hit scales the weapon's top end by Strength + worn Strength bonus +
-    // any active Strength prayer; roll 0..max like OSRS.
-    const maxHit = Math.max(wd.min, Math.round((wd.max + eb.strength * 0.35) * (1 + (str - 1) * 0.05) * pb.strength));
+    if (Math.random() > hitChance) { floatNumber(bx, by, bz, '0', 'miss'); return 0; }
+    const maxHit = Math.max(wd.min, Math.round((wd.max + eb.strength * 0.35) * (1 + (str - 1) * 0.05) * pb.strength * (opts.dmgMul || 1)));
     const dmg = randInt(0, maxHit);
     md.hp -= dmg;
-    floatNumber(bx, by, bz, String(dmg), dmg >= maxHit && dmg > 0 ? 'big' : (dmg === 0 ? 'miss' : 'dmg'));
+    floatNumber(bx, by, bz, String(dmg), opts.special ? 'big' : (dmg >= maxHit && dmg > 0 ? 'big' : (dmg === 0 ? 'miss' : 'dmg')));
     if (em.vfx && em.vfx.burst) em.vfx.burst('hit', bx, by, bz);
+    return dmg;
+  }
+
+  function hitMonster(g) {
+    const md = g.userData.monster;
+    // If the player armed a special and has the energy for it, fire it now.
+    if (pstate.specArmed) {
+      pstate.specArmed = false;
+      const def = em.equipment && em.equipment.getWeapon && em.equipment.getWeapon();
+      const spec = SPECIALS[weaponSpecialKind(def)] || SPECIALS.sword;
+      if (pstate.spec >= spec.cost) {
+        pstate.spec -= spec.cost; refreshSpec();
+        floatNumber(g.position.x, g.position.y + (md.type.hpBarY || 1.2) + 0.4, g.position.z, spec.name + '!', 'loot');
+        if (em.audio && em.audio.play) em.audio.play('levelup');
+        for (let i = 0; i < spec.hits && md.hp > 0; i++) rollMelee(g, { accMul: spec.acc, dmgMul: spec.mul, special: true });
+        if (md.hp <= 0) killMonster(g);
+        return;
+      } else {
+        gameMessage('Not enough special attack energy.');
+      }
+    }
+    rollMelee(g);
     if (md.hp <= 0) killMonster(g);
   }
 
@@ -421,6 +494,12 @@ function startCombat(em) {
       if (pstate.hp < pstate.maxHp) {
         pstate.regenAcc = (pstate.regenAcc || 0) + dt;
         if (pstate.regenAcc >= 4.5) { pstate.regenAcc = 0; pstate.hp = Math.min(pstate.maxHp, pstate.hp + 1); refreshPlayerHp(); }
+      }
+      // special-attack energy regenerates to full over ~45s
+      if (pstate.spec < 100) {
+        pstate.spec = Math.min(100, pstate.spec + dt * (100 / 45));
+        pstate.specAcc = (pstate.specAcc || 0) + dt;
+        if (pstate.specAcc >= 0.4) { pstate.specAcc = 0; refreshSpec(); }
       }
     }
 
