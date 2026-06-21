@@ -132,7 +132,13 @@ function startGame(username) {
   // 1) RENDERER (antialias OFF — some new GPU drivers render black with MSAA).
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));   // cap for high-DPI GPU cost
+  // Cap pixelRatio for high-DPI GPU cost. We keep this 1.5 ceiling, but the
+  // adaptive sampler in the loop may step the *applied* ratio down (never up
+  // past the ceiling) if frame times stay high, so weak GPUs stay smooth.
+  const PR_CEIL = Math.min(window.devicePixelRatio, 1.5);
+  const PR_FLOOR = Math.min(window.devicePixelRatio, 1.0);
+  let appliedPR = PR_CEIL;
+  renderer.setPixelRatio(appliedPR);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // cinematic, richer contrast + highlights
@@ -447,9 +453,36 @@ function startGame(username) {
   const clock = new THREE.Clock();
   const coordsEl = document.getElementById('coords');
 
-  renderer.setAnimationLoop(() => {
+  // Throttle screen-projected DOM billboards (NPC name labels + quest markers).
+  // These re-write CSS for ~25 nodes; refreshing them at ~30Hz instead of every
+  // frame is visually identical but halves that per-frame DOM/layout cost.
+  let labelTimer = 0;
+  const LABEL_INTERVAL = 1 / 30;
+
+  // Adaptive quality: sample frame time over a short window; if the GPU is
+  // clearly struggling (avg frame well over a 60fps budget) step the applied
+  // pixelRatio down toward PR_FLOOR; if it recovers, ease back toward PR_CEIL.
+  // Never exceeds the existing 1.5 ceiling, never drops below 1.0 — so the look
+  // is preserved while smoothing out sustained slow frames.
+  let frameAccum = 0, frameCount = 0;
+
+  function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);
     const t = clock.elapsedTime;
+
+    // Adaptive pixelRatio sampler — evaluate every ~1s of frames.
+    frameAccum += dt; frameCount++;
+    if (frameAccum >= 1) {
+      const avg = frameAccum / frameCount;
+      if (avg > 0.022 && appliedPR > PR_FLOOR) {           // < ~45fps sustained → ease down
+        appliedPR = Math.max(PR_FLOOR, appliedPR - 0.25);
+        renderer.setPixelRatio(appliedPR);
+      } else if (avg < 0.015 && appliedPR < PR_CEIL) {     // comfortably > 66fps → ease back up
+        appliedPR = Math.min(PR_CEIL, appliedPR + 0.25);
+        renderer.setPixelRatio(appliedPR);
+      }
+      frameAccum = 0; frameCount = 0;
+    }
 
     const prevX = player.position.x, prevZ = player.position.z;
     const wasd = controls.update(dt);
@@ -475,8 +508,14 @@ function startGame(username) {
     questPollTimer += dt;
     if (questPollTimer >= 0.5) { questPollTimer = 0; quests.poll(); }
     updateNpcs(npcs, dt, t);
-    updateNpcLabels(npcs, camera);
-    questMarkers.update(camera);
+    // NPC name labels + quest markers are screen-projected DOM; refresh at ~30Hz
+    // (imperceptible) rather than every frame to cut DOM/layout churn.
+    labelTimer += dt;
+    if (labelTimer >= LABEL_INTERVAL) {
+      updateNpcLabels(npcs, camera);
+      questMarkers.update(camera, labelTimer);
+      labelTimer = 0;
+    }
     remotePlayers.update(dt, t);
     posTimer += dt;
     if (posTimer >= 0.08) {
@@ -489,6 +528,23 @@ function startGame(username) {
       coordsEl.textContent = `x: ${player.position.x.toFixed(1)}   z: ${player.position.z.toFixed(1)}`;
     }
     renderer.render(scene, camera);
+  }
+  renderer.setAnimationLoop(frame);
+
+  // PAUSE WHEN HIDDEN — a backgrounded tab shouldn't burn CPU/GPU. Stop the
+  // render loop on visibilitychange and resume it cleanly when we're shown
+  // again, resetting the clock so the first resumed frame doesn't see a huge
+  // accumulated delta (which would spike movement/smoothing).
+  let loopRunning = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (loopRunning) { renderer.setAnimationLoop(null); loopRunning = false; }
+    } else if (!loopRunning) {
+      clock.getDelta();        // discard the long hidden gap
+      frameAccum = 0; frameCount = 0; labelTimer = 0;
+      renderer.setAnimationLoop(frame);
+      loopRunning = true;
+    }
   });
 
   // 8) RESIZE.

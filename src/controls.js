@@ -98,11 +98,18 @@ export function setupControls(player, camera, dom) {
     // overshoot — clamp it so motion stays stable no matter the framerate.
     dt = Math.min(dt, MAX_DT);
 
+    // Pre-compute this frame's smoothing factors once (each is a Math.exp) and
+    // reuse them — same feel, but no recomputing the same rate twice per frame.
+    const fOrbit = smoothFactor(ORBIT_RATE, dt);
+    const fZoom  = smoothFactor(ZOOM_RATE, dt);
+    const fPos   = smoothFactor(CAM_POS_RATE, dt);
+    const fLook  = smoothFactor(CAM_LOOK_RATE, dt);
+
     // Ease the orbit toward where the mouse/scroll wants it. Subtle on yaw/pitch
     // so flicks read as smooth, not laggy; the zoom glides instead of stepping.
-    yaw      = lerpAngle(yaw, yawTarget, smoothFactor(ORBIT_RATE, dt));
-    pitch   += (pitchTarget - pitch) * smoothFactor(ORBIT_RATE, dt);
-    distance += (distTarget - distance) * smoothFactor(ZOOM_RATE, dt);
+    yaw      = lerpAngle(yaw, yawTarget, fOrbit);
+    pitch   += (pitchTarget - pitch) * fOrbit;
+    distance += (distTarget - distance) * fZoom;
 
     // "Forward" = where the camera is looking, flattened onto the ground.
     // Use the live (eased) yaw so movement direction tracks the camera tightly.
@@ -137,13 +144,13 @@ export function setupControls(player, camera, dom) {
       seeded = true;
     } else {
       // Damped follow: glide the camera body toward its orbit point.
-      camera.position.lerp(desiredPos, smoothFactor(CAM_POS_RATE, dt));
+      camera.position.lerp(desiredPos, fPos);
     }
 
     // Smooth the look-at target too, so the framing settles gently.
-    lookTarget.x += (player.position.x       - lookTarget.x) * smoothFactor(CAM_LOOK_RATE, dt);
-    lookTarget.y += (player.position.y + 1.3 - lookTarget.y) * smoothFactor(CAM_LOOK_RATE, dt);
-    lookTarget.z += (player.position.z       - lookTarget.z) * smoothFactor(CAM_LOOK_RATE, dt);
+    lookTarget.x += (player.position.x       - lookTarget.x) * fLook;
+    lookTarget.y += (player.position.y + 1.3 - lookTarget.y) * fLook;
+    lookTarget.z += (player.position.z       - lookTarget.z) * fLook;
     camera.lookAt(lookTarget);
 
     return isMoving;
