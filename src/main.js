@@ -21,6 +21,7 @@ import { setupSocial } from './social.js';
 import { showDialogue } from './dialogue.js';
 import { createQuests, QUEST_DEFS } from './quests.js';
 import './banking.js';   // self-contained OSRS-style bank (polls window.eldenmoor)
+import './minimap.js';   // self-contained OSRS-style minimap (polls window.eldenmoor)
 import { createQuestMarkers } from './questmarkers.js';
 import { toonify, applyToonTo } from './toon.js';
 import './vfx.js';
