@@ -28,6 +28,7 @@ import './audio.js';
 import './combat.js';
 import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; reads window.eldenmoor)
 import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
+import './dungeon.js';   // Crypt of the Hollow King — undead dungeon zone (self-initializing)
 import './ambient.js';
 import './assets.js';
 import './showcase.js';
