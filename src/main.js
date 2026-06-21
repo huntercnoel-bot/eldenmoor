@@ -125,7 +125,9 @@ function startGame(username) {
 
   // 2) SCENE + CAMERA.
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+  // Far clip kept tight (was 1000) so distant town/forest isn't drawn — big perf
+  // win. Fog fades scenery out before this, so the cutoff isn't visible.
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 185);
 
   // 3) WORLD, hero, townsfolk.
   buildWorld(scene);
@@ -315,7 +317,7 @@ function startGame(username) {
     if (scene.userData.hemi) scene.userData.hemi.intensity = (n === -1) ? 0.32 : 1.0;
     if (scene.userData.sun) scene.userData.sun.intensity = (n === -1) ? 0.25 : 2.7;
     scene.background = new THREE.Color(n === -1 ? 0x100c08 : 0xdde9f0);
-    scene.fog = (n === -1) ? new THREE.Fog(0x100c08, 10, 55) : new THREE.Fog(0xc6dcee, 55, 180);
+    scene.fog = (n === -1) ? new THREE.Fog(0x100c08, 10, 55) : new THREE.Fog(0xc6dcee, 50, 150);
     collision.setActiveFloor(n);
     setNpcsFloor(npcs, n);
     remotePlayers.setVisible(n === 0);

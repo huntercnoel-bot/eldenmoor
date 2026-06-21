@@ -20,7 +20,7 @@ export function buildWorld(scene) {
   // without crushing the foreground or blowing out the cel-shaded mid-tones.
   const HORIZON = 0xead9bd;            // warm hazy gold at the skyline
   scene.background = new THREE.Color(HORIZON);
-  scene.fog = new THREE.Fog(0xdcd2c4, 48, 205);
+  scene.fog = new THREE.Fog(0xdcd2c4, 48, 150);   // pulled in for performance (was 205)
   scene.userData.outdoor = [];        // scenery toggled off when you go upstairs / underground
 
   // Custom gradient sky dome (deep blue zenith -> warm gold horizon glow) with a
@@ -51,7 +51,7 @@ export function buildWorld(scene) {
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);          // shadow sharpness
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 200;
+  sun.shadow.camera.far = 130;   // shadows only near the player (perf)
   sun.shadow.camera.left = -90;  sun.shadow.camera.right = 90;
   sun.shadow.camera.top = 90;    sun.shadow.camera.bottom = -90;
   sun.shadow.bias = -0.0004;                    // removes shadow "acne" specks
