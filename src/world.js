@@ -72,7 +72,7 @@ function loadProto(name) {
 // Build one InstancedMesh covering many placements of a model. `placements` is
 // an array of { x, z, ry, s, y }. Loaded async; added to the scene + outdoor
 // list when ready. shadow=false for the cheap, plentiful ground cover.
-function instanceScatter(scene, name, placements, { shadow = true } = {}) {
+function instanceScatter(scene, name, placements, { shadow = true, tint = false } = {}) {
   if (!placements.length) return;
   loadProto(name).then(({ geometry, material }) => {
     const inst = new THREE.InstancedMesh(geometry, material, placements.length);
@@ -83,11 +83,28 @@ function instanceScatter(scene, name, placements, { shadow = true } = {}) {
     placements.forEach((pl, i) => {
       q.setFromAxisAngle(up, pl.ry || 0);
       p.set(pl.x, pl.y || 0, pl.z);
-      sc.setScalar(pl.s || 1);
+      // gentle per-instance non-uniform scale so a field of clones never looks
+      // mechanically identical — a touch taller/shorter and wider/thinner.
+      const s = pl.s || 1;
+      sc.set(s * (0.88 + Math.random() * 0.24), s * (0.85 + Math.random() * 0.35), s * (0.88 + Math.random() * 0.24));
       m.compose(p, q, sc);
       inst.setMatrixAt(i, m);
     });
     inst.instanceMatrix.needsUpdate = true;
+    // Subtle per-instance colour variation (warmer/cooler, lighter/darker green)
+    // so ground cover reads as a varied living meadow, not stamped copies. Only
+    // applied where it reads well (grass/plants), driven by setColorAt.
+    if (tint) {
+      const col = new THREE.Color();
+      for (let i = 0; i < placements.length; i++) {
+        const h = 0.22 + (Math.random() - 0.5) * 0.06;   // green band, slight hue jitter
+        const s = 0.45 + Math.random() * 0.25;
+        const l = 0.46 + (Math.random() - 0.5) * 0.22;
+        col.setHSL(h, s, l);
+        inst.setColorAt(i, col);
+      }
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    }
     scene.add(inst);
     (scene.userData.outdoor = scene.userData.outdoor || []).push(inst);
   }).catch((e) => console.error('[world] instance load failed', name, e));
@@ -132,7 +149,7 @@ export function buildWorld(scene) {
   // Warm, slightly denser haze that starts a touch further out so the foreground
   // meadow stays crisp while distant towers melt into golden light. Far stays at
   // 150 (perf): the draw distance is NOT increased, only the near edge eased back.
-  scene.fog = new THREE.Fog(0xe2d4ba, 62, 150);   // pulled in for performance (was 205)
+  scene.fog = new THREE.Fog(0xdfe0c8, 70, 168);   // eased a touch further so landmarks read, cooler-warm haze
   scene.userData.outdoor = [];        // scenery toggled off when you go upstairs / underground
 
   // Custom gradient sky dome (deep blue zenith -> warm gold horizon glow) with a
@@ -183,7 +200,7 @@ export function buildWorld(scene) {
   // A cool, dim sky-fill from the opposite side. It does NOT cast shadows; it
   // just keeps the shaded sides from going dead-flat and adds gentle blue
   // counter-light against the warm sun — the classic warm/cool form read.
-  const skyFill = new THREE.DirectionalLight(0xa6c0e0, 0.5);
+  const skyFill = new THREE.DirectionalLight(0xaecce8, 0.55);
   skyFill.position.set(-38, 24, -30);
   scene.add(skyFill); scene.userData.skyFill = skyFill;
 
@@ -191,7 +208,7 @@ export function buildWorld(scene) {
   const grassMap = grassTexture();
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshStandardMaterial({ map: grassMap, color: 0xeef0e0, roughness: 1, metalness: 0 })
+    new THREE.MeshStandardMaterial({ map: grassMap, color: 0xf4f6e6, roughness: 1, metalness: 0 })
   );
   ground.rotation.x = -Math.PI / 2;  // lay the plane flat
   ground.receiveShadow = true;
@@ -215,14 +232,14 @@ export function buildWorld(scene) {
     scene.userData.outdoor.push(m);
   };
   // ring of varied-tone patches out around the town/forest edge
-  const patchTones = [0xbfd28a, 0x7f9456, 0xcabf86, 0x9ab16a];
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
-    const rad = 30 + Math.random() * 48;
+  const patchTones = [0xcadf95, 0x86a25a, 0xd2c98c, 0xa6c074, 0xbed888];
+  for (let i = 0; i < 20; i++) {
+    const a = (i / 20) * Math.PI * 2 + Math.random() * 0.5;
+    const rad = 28 + Math.random() * 52;
     const px = Math.cos(a) * rad, pz = Math.sin(a) * rad;
     // skip patches that would land on the pond
     if (Math.hypot(px - POND.x, pz - POND.z) < POND.r + 3) continue;
-    meadowPatch(px, pz, 6 + Math.random() * 9, patchTones[i % patchTones.length], 0.22 + Math.random() * 0.16);
+    meadowPatch(px, pz, 6 + Math.random() * 10, patchTones[i % patchTones.length], 0.2 + Math.random() * 0.18);
   }
 
   // A lighter "dirt" clearing where the hero starts.
@@ -277,16 +294,37 @@ export function buildWorld(scene) {
     pp.setZ(i, (1 - Math.min(1, Math.hypot(dx, dy) / POND.r)) * 0.12);
   }
   pp.needsUpdate = true; pondGeo.computeVertexNormals();
-  const pond = new THREE.Mesh(
-    pondGeo,
-    new THREE.MeshStandardMaterial({ color: 0x2f6ea5, roughness: 0.12, metalness: 0.25,
-      transparent: true, opacity: 0.88 })
-  );
+  const pondMat = new THREE.MeshStandardMaterial({
+    color: 0x2f86c4, roughness: 0.12, metalness: 0.3,
+    emissive: 0x12435f, emissiveIntensity: 0.45,
+    transparent: true, opacity: 0.86,
+  });
+  pondMat.userData.__toonDone = true;
+  const pond = new THREE.Mesh(pondGeo, pondMat);
   pond.rotation.x = -Math.PI / 2;
   pond.position.set(POND.x, 0.05, POND.z);
+  pond.userData.__toonDone = true;
+  // a soft foam ring lapping the pond's edge, gently pulsing
+  const pondFoamMat = new THREE.MeshStandardMaterial({
+    color: 0xeaf6ff, emissive: 0xbfe2ff, emissiveIntensity: 0.4,
+    roughness: 1, transparent: true, opacity: 0.5, depthWrite: false,
+  });
+  pondFoamMat.userData.__toonDone = true;
+  const pondFoam = new THREE.Mesh(new THREE.RingGeometry(POND.r - 0.7, POND.r + 0.2, 48), pondFoamMat);
+  pondFoam.rotation.x = -Math.PI / 2;
+  pondFoam.position.set(POND.x, 0.052, POND.z);
+  pondFoam.userData.__toonDone = true;
+  (function pondFoamPulse() {
+    const tick = (now) => {
+      requestAnimationFrame(tick);
+      pondFoamMat.opacity = 0.4 + Math.sin((now || 0) * 0.0016 + 1) * 0.16;
+    };
+    requestAnimationFrame(tick);
+  })();
   scene.add(shore);
   scene.add(pond);
-  scene.userData.outdoor.push(ground, clearing, shore, pond);
+  scene.add(pondFoam);
+  scene.userData.outdoor.push(ground, clearing, shore, pond, pondFoam);
 
   // --- The castle (home base) + the two shop buildings ---
   buildStructures(scene);
@@ -358,33 +396,40 @@ export function buildWorld(scene) {
   // model (one draw call each) so the meadow can stay lush without lag.
   const grassP = [], shortGrassP = [], grass2P = [], flowerP = [], bushP = [], plantP = [];
   const grassBuckets = [grassP, grass2P, shortGrassP];
-  for (let i = 0; i < 34; i++) {
-    const p = spot(76);
-    const n = 2 + ((Math.random() * 4) | 0);          // a little knot of tufts
+  // Denser meadow: more seed knots, more tufts per knot, more wildflowers, so the
+  // fields read lush. Still one InstancedMesh per model (a handful of draw calls).
+  for (let i = 0; i < 70; i++) {
+    const p = spot(80);
+    const n = 3 + ((Math.random() * 5) | 0);          // a fuller knot of tufts
     for (let k = 0; k < n; k++) {
-      const q = k === 0 ? p : spotNear({ x: p.x, z: p.z }, 0.6, 2.4);
-      const place = { x: q.x, z: q.z, ry: Math.random() * Math.PI * 2, s: 1.4 + Math.random() * 1.0 };
+      const q = k === 0 ? p : spotNear({ x: p.x, z: p.z }, 0.5, 2.8);
+      const place = { x: q.x, z: q.z, ry: Math.random() * Math.PI * 2, s: 1.4 + Math.random() * 1.1 };
       grassBuckets[(Math.random() * grassBuckets.length) | 0].push(place);
-      if (Math.random() < 0.22) flowerP.push({ x: q.x + (Math.random() - 0.5), z: q.z + (Math.random() - 0.5), ry: Math.random() * Math.PI * 2, s: 1.2 + Math.random() * 0.7 });
+      if (Math.random() < 0.3) flowerP.push({ x: q.x + (Math.random() - 0.5), z: q.z + (Math.random() - 0.5), ry: Math.random() * Math.PI * 2, s: 1.2 + Math.random() * 0.8 });
     }
   }
-  // Leafy bushes + small plants softening the treeline and dotting the meadow.
-  for (let i = 0; i < 18; i++) {
-    const p = spot(74);
-    const bk = [bushP, bushP, plantP][(Math.random() * 3) | 0];
-    bk.push({ x: p.x, z: p.z, ry: Math.random() * Math.PI * 2, s: 1.3 + Math.random() * 0.8 });
+  // Leafy bushes + small plants/ferns softening the treeline and dotting the
+  // meadow, sometimes in little clumps for a wilder, fuller look.
+  for (let i = 0; i < 36; i++) {
+    const p = spot(78);
+    const n = Math.random() < 0.4 ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      const q = k === 0 ? p : spotNear({ x: p.x, z: p.z }, 0.8, 2.5);
+      const bk = [bushP, bushP, plantP][(Math.random() * 3) | 0];
+      bk.push({ x: q.x, z: q.z, ry: Math.random() * Math.PI * 2, s: 1.3 + Math.random() * 0.9 });
+    }
   }
-  instanceScatter(scene, 'nat_Grass', grassP, { shadow: false });
-  instanceScatter(scene, 'nat_Grass_2', grass2P, { shadow: false });
-  instanceScatter(scene, 'nat_Grass_Short', shortGrassP, { shadow: false });
+  instanceScatter(scene, 'nat_Grass', grassP, { shadow: false, tint: true });
+  instanceScatter(scene, 'nat_Grass_2', grass2P, { shadow: false, tint: true });
+  instanceScatter(scene, 'nat_Grass_Short', shortGrassP, { shadow: false, tint: true });
   instanceScatter(scene, 'nat_Flowers', flowerP, { shadow: false });
   // bushes split across the two bush models + berry bush for variety
   instanceScatter(scene, 'nat_Bush_1', bushP.filter((_, i) => i % 3 === 0));
   instanceScatter(scene, 'nat_Bush_2', bushP.filter((_, i) => i % 3 === 1));
   instanceScatter(scene, 'nat_BushBerries_1', bushP.filter((_, i) => i % 3 === 2));
-  instanceScatter(scene, 'nat_Plant_1', plantP.filter((_, i) => i % 3 === 0), { shadow: false });
-  instanceScatter(scene, 'nat_Plant_3', plantP.filter((_, i) => i % 3 === 1), { shadow: false });
-  instanceScatter(scene, 'nat_Plant_5', plantP.filter((_, i) => i % 3 === 2), { shadow: false });
+  instanceScatter(scene, 'nat_Plant_1', plantP.filter((_, i) => i % 3 === 0), { shadow: false, tint: true });
+  instanceScatter(scene, 'nat_Plant_3', plantP.filter((_, i) => i % 3 === 1), { shadow: false, tint: true });
+  instanceScatter(scene, 'nat_Plant_5', plantP.filter((_, i) => i % 3 === 2), { shadow: false, tint: true });
 }
 
 // --- Atmosphere helpers ----------------------------------------------------
@@ -554,10 +599,15 @@ function makeTree(scene, x, z, tier) {
   // sized to a target world height independently inside attachClone.
   g.position.set(x, 0, z);
   g.rotation.y = Math.random() * Math.PI * 2;
-  g.scale.setScalar(1.1 + Math.random() * 0.3);
+  // a little side-tilt + non-uniform scale so a grove doesn't read as identical
+  // cones — fuller, wilder silhouettes.
+  g.rotation.x = (Math.random() - 0.5) * 0.05;
+  g.rotation.z = (Math.random() - 0.5) * 0.05;
+  const baseS = 1.05 + Math.random() * 0.45;
+  g.scale.set(baseS * (0.92 + Math.random() * 0.16), baseS, baseS * (0.92 + Math.random() * 0.16));
 
   const modelName = def.models[(Math.random() * def.models.length) | 0];
-  const targetH = def.h * (0.85 + Math.random() * 0.3);
+  const targetH = def.h * (0.8 + Math.random() * 0.45);   // wider height spread
   // Magic trees keep a faint dusk glow on their material (shared across that
   // model's clones, applied once when the proto resolves).
   attachClone(g, modelName, { shadow: true, targetH, onMesh: (mesh) => {

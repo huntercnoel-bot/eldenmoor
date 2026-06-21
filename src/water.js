@@ -6,7 +6,9 @@
 
 import * as THREE from '../vendor/three.module.js';
 
-const deco = (m) => { m.userData.noCollide = true; return m; };
+// noCollide keeps the gate/causeway walkable; __toonDone keeps the global
+// cel-shade pass from re-skinning our hand-tuned translucent water + foam.
+const deco = (m) => { m.userData.noCollide = true; m.userData.__toonDone = true; return m; };
 
 // Shared water material: deep RuneScape blue with a real tiling water normal map
 // (the canonical three.js waternormals) for moving ripples. One shared material +
@@ -17,17 +19,22 @@ function waterMat() {
   if (_waterMat) return _waterMat;
   const nm = new THREE.TextureLoader().load('./assets/textures/water/waternormals.jpg');
   nm.wrapS = nm.wrapT = THREE.RepeatWrapping;
+  // Brighter, more inviting toon water: a clean azure-teal with a small emissive
+  // lift so it stays vivid and luminous against the cel-shaded world instead of
+  // going flat/grey. Tagged __toonDone everywhere so the toon pass leaves it be.
   _waterMat = new THREE.MeshStandardMaterial({
-    color: 0x2f6ea5, roughness: 0.18, metalness: 0.35,
-    transparent: true, opacity: 0.86,
-    normalMap: nm, normalScale: new THREE.Vector2(0.45, 0.45),
+    color: 0x2f86c4, roughness: 0.14, metalness: 0.4,
+    emissive: 0x12435f, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.84,
+    normalMap: nm, normalScale: new THREE.Vector2(0.5, 0.5),
   });
-  // scroll the ripples
+  _waterMat.userData.__toonDone = true;
+  // scroll the ripples (two layers at different speeds for livelier motion)
   (function ripple() {
     const tick = (now) => {
       requestAnimationFrame(tick);
-      const t = (now || 0) * 0.00008;
-      nm.offset.set(t % 1, (t * 0.7) % 1);
+      const t = (now || 0) * 0.00009;
+      nm.offset.set(t % 1, (t * 0.65) % 1);
     };
     requestAnimationFrame(tick);
   })();
@@ -99,6 +106,35 @@ export function buildWater(scene) {
   rim(-23.5, 18.6, -10, 19); rim(10, 18.6, 23.5, 19);   // front shore (sides of the causeway)
   rim(-23.9, 19, -23.5, 69.5); rim(23.5, 19, 23.9, 69.5); // east/west shore
   rim(-23.5, 69.5, 23.5, 69.9);                          // back shore
+
+  // Soft white foam licking the island shore, drawn as thin pale strips laid on
+  // the water just outside the kerb. A gently pulsing opacity makes the foam
+  // breathe like lapping water. Cheap: a few strips, one shared material.
+  const foamMat = new THREE.MeshStandardMaterial({
+    color: 0xeaf6ff, emissive: 0xbfe2ff, emissiveIntensity: 0.4,
+    roughness: 1, transparent: true, opacity: 0.5, depthWrite: false,
+  });
+  foamMat.userData.__toonDone = true;
+  const foams = [];
+  const foamStrip = (x0, z0, x1, z1) => {
+    const w = Math.max(0.6, Math.abs(x1 - x0)) + 0.4, d = Math.max(0.6, Math.abs(z1 - z0)) + 0.4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), foamMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set((x0 + x1) / 2, 0.165, (z0 + z1) / 2);
+    m.receiveShadow = false;
+    g.add(deco(m)); foams.push(m);
+  };
+  // a thin (~1u) foam band hugging each shore edge, just inside the water
+  foamStrip(-23.5, 18.8, -10, 19.6); foamStrip(10, 18.8, 23.5, 19.6);  // front
+  foamStrip(-24.4, 19, -23.3, 69.5); foamStrip(23.3, 19, 24.4, 69.5);  // sides
+  foamStrip(-23.5, 69.3, 23.5, 70.4);                                  // back
+  (function foamPulse() {
+    const tick = (now) => {
+      requestAnimationFrame(tick);
+      foamMat.opacity = 0.42 + Math.sin((now || 0) * 0.0016) * 0.16;
+    };
+    requestAnimationFrame(tick);
+  })();
 
   scene.add(g);
   (scene.userData.outdoor = scene.userData.outdoor || []).push(g);
