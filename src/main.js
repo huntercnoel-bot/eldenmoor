@@ -384,7 +384,7 @@ function startGame(username) {
   });
 
   // Exposed for debugging / tinkering.
-  window.eldenmoor = { scene, camera, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, questMarkers, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
+  window.eldenmoor = { scene, camera, renderer, player, skills, inventory, equipment, interactions, shop, npcs, save, quests, questMarkers, net, username, remotePlayers, collision, setFloor, getFloor: () => curFloor,
     // cel-shade helper exposed so async-spawned meshes (monsters) can toon-ify themselves
     applyToonTo,
     // talk(npcId) — runs the same talk flow a click would (handy for testing/wiring).

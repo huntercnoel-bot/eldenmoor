@@ -30,6 +30,13 @@ const DIR = './assets/models/npc/';
 const loader = new GLTFLoader();
 const cache = {};   // url -> Promise<gltf>
 
+// The Quaternius modular men & women all ship in a stiff T-pose. Dropping the
+// arms (verified by rendering every model AFTER the skeleton clone): the men need
+// a local-Y rotation only (bind X/Z preserved); the women need a Y *and* a Z
+// rotation. Bind X is always preserved; a tiny X-swing rides on top for
+// breathing / walking. Never zero all three axes — that flings the arms up.
+const ARM = { menY: 1.15, womenY: 2.2, womenZ: 1.25 };
+
 function load(url) {
   if (!cache[url]) cache[url] = new Promise((ok, err) => loader.load(url, ok, undefined, err));
   return cache[url];
@@ -63,6 +70,26 @@ function cloneSkinned(source) {
   });
 
   return clone;
+}
+
+// Reliable height/footing for a (possibly skinned) model. Box3.setFromObject is
+// unreliable on freshly-cloned SkinnedMeshes (stale world matrices + bind-pose
+// quirks gave wildly wrong sizes), so we measure the rest-pose silhouette
+// straight from the transformed vertex positions. Returns world-space y bounds.
+const _v = new THREE.Vector3();
+function measureY(model) {
+  model.updateMatrixWorld(true);
+  let min = Infinity, max = -Infinity;
+  model.traverse((o) => {
+    if (!(o.isMesh || o.isSkinnedMesh) || !o.geometry || !o.geometry.attributes.position) return;
+    const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      _v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      if (_v.y < min) min = _v.y;
+      if (_v.y > max) max = _v.y;
+    }
+  });
+  return { min, max, h: max - min };
 }
 
 // Quaternius characters (modular + KnightCharacter) face +Z in their source;
@@ -147,12 +174,12 @@ async function swapOne(em, n) {
   model.name = 'npc-' + def.id;
 
   // --- scale to a human height, normalise so the feet sit on y=0 ---
-  const sz = new THREE.Vector3();
-  new THREE.Box3().setFromObject(model).getSize(sz);
-  model.scale.setScalar(role.h / (sz.y || 1));
-  model.rotation.y = role.face || 0;
-  model.updateMatrixWorld(true);
-  model.position.y = -new THREE.Box3().setFromObject(model).min.y;
+  model.rotation.y = role.face || 0;          // Y-rotation doesn't change height
+  let m = measureY(model);                     // native rest-pose height (scale 1)
+  let nativeH = (isFinite(m.h) && m.h > 0.01) ? m.h : 1.8;
+  const s = role.h / nativeH;
+  model.scale.setScalar(s);
+  model.position.y = -m.min * s;               // drop feet to the group's y=0
 
   model.traverse((m) => {
     if (m.isMesh || m.isSkinnedMesh) {
@@ -169,37 +196,34 @@ async function swapOne(em, n) {
   group.traverse((o) => { if (o.isMesh) o.visible = false; });
   group.add(model);
 
-  // ----- animation -----------------------------------------------------------
+  // ----- animation / pose ----------------------------------------------------
+  // KnightCharacter ships its own rig-correct clips → use them. The clip-less
+  // modular men/women can't borrow them (same bone names, different bind
+  // orientation, which distorts the pose), so instead we force their shared rig
+  // into a relaxed A-pose and breathe/swing it procedurally in the tick loop.
   const mixer = new THREE.AnimationMixer(model);
-  let idleAction = null, walkAction = null;
-
-  if (role.clips && gltf.animations && gltf.animations.length) {
-    const idleClip = pickClip(gltf.animations, 'idle');
-    const walkClip = pickClip(gltf.animations, 'walk');
-    if (idleClip) idleAction = mixer.clipAction(idleClip);
-    if (walkClip) walkAction = mixer.clipAction(walkClip);
+  const own = (gltf.animations && gltf.animations.length) ? gltf.animations : null;
+  let idleAction = null, walkAction = null, arms = null;
+  if (own) {
+    const ic = pickClip(own, 'idle'), wc = pickClip(own, 'walk');
+    if (ic) idleAction = mixer.clipAction(ic);
+    if (wc) walkAction = mixer.clipAction(wc);
     if (idleAction) idleAction.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.2).play();
-  }
-
-  // Cache the bones we nudge for the procedural relaxed-stand fallback so we can
-  // breathe / shuffle clip-less modular models without ever T-posing.
-  const bones = { upL: null, upR: null, hips: null };
-  if (!idleAction) {
+  } else {
+    arms = { upL: null, upR: null, women: role.file.indexOf('women_') >= 0 };
     model.traverse((o) => {
       if (!o.isBone) return;
-      // GLTFLoader strips dots: "UpperArm.L" -> "UpperArmL", "Hips" stays "Hips".
-      if (o.name === 'UpperArmL') bones.upL = o;
-      else if (o.name === 'UpperArmR') bones.upR = o;
-      else if (o.name === 'Hips') bones.hips = o;
+      if (o.name === 'UpperArmL') arms.upL = o;
+      else if (o.name === 'UpperArmR') arms.upR = o;
     });
-    // remember the natural bind rotation so we layer relative to the A-pose.
-    if (bones.upL) bones.upL.userData.__base = bones.upL.rotation.clone();
-    if (bones.upR) bones.upR.userData.__base = bones.upR.rotation.clone();
-    if (bones.hips) bones.hips.userData.__base = bones.hips.rotation.clone();
+    // remember the bind rotation so we only override the one arm-down axis and
+    // leave the other two as authored (zeroing them flings the arms up).
+    if (arms.upL) arms.baseL = arms.upL.rotation.clone();
+    if (arms.upR) arms.baseR = arms.upR.rotation.clone();
   }
 
   n._model = {
-    model, mixer, idleAction, walkAction, bones,
+    model, mixer, idleAction, walkAction, arms,
     current: idleAction,
     lastX: group.position.x, lastZ: group.position.z,
     moving: false, phase: Math.random() * Math.PI * 2,
@@ -234,37 +258,27 @@ async function swapNpcs(em) {
       const dx = g.position.x - st.lastX, dz = g.position.z - st.lastZ;
       st.lastX = g.position.x; st.lastZ = g.position.z;
       const speed = Math.hypot(dx, dz) / (dt || 1 / 60);
-      // smooth the moving flag a touch so brief pauses don't flicker the state
-      const movingNow = speed > 0.05;
-      st.moving = movingNow;
+      st.moving = speed > 0.05;
 
       if (st.idleAction || st.walkAction) {
-        // clip-driven model (the Knight): crossfade Idle <-> Walking
+        // clip-driven model (the Knight): crossfade its own Idle <-> Walk
         fadeTo(st, st.moving ? (st.walkAction || st.idleAction) : (st.idleAction || st.walkAction));
         st.mixer.update(dt);
-      } else {
-        // clip-less modular model: subtle relaxed stand + walking shuffle so it
-        // always looks alive and NEVER freezes in a stiff T/A pose.
-        st.phase += dt * (st.moving ? 9 : 1.6);
-        const b = st.bones;
-        if (b.upL && b.upR) {
-          const baseL = b.upL.userData.__base, baseR = b.upR.userData.__base;
-          if (st.moving) {
-            const sw = Math.sin(st.phase) * 0.32;       // arm swing
-            b.upL.rotation.set(baseL.x + sw, baseL.y, baseL.z);
-            b.upR.rotation.set(baseR.x - sw, baseR.y, baseR.z);
-          } else {
-            const br = Math.sin(st.phase) * 0.025;       // gentle breathing sway
-            b.upL.rotation.set(baseL.x + br, baseL.y, baseL.z);
-            b.upR.rotation.set(baseR.x + br, baseR.y, baseR.z);
-          }
+      } else if (st.arms) {
+        // clip-less modular model: hold a relaxed arms-down stand (men drop on Y,
+        // women on Z), with a small X-swing for breathing / walking. Never T-poses.
+        const a = st.arms;
+        st.phase += dt * (st.moving ? 9 : 1.5);
+        const sw = Math.sin(st.phase) * (st.moving ? 0.16 : 0.025);
+        const bL = a.baseL, bR = a.baseR;
+        if (a.women) {   // women: drop on Y and Z, keep bind X
+          if (a.upL) a.upL.rotation.set(bL.x + sw, -ARM.womenY, ARM.womenZ);
+          if (a.upR) a.upR.rotation.set(bR.x - sw, ARM.womenY, -ARM.womenZ);
+        } else {         // men: drop on Y, keep bind X/Z
+          if (a.upL) a.upL.rotation.set(bL.x + sw, -ARM.menY, bL.z);
+          if (a.upR) a.upR.rotation.set(bR.x - sw, ARM.menY, bR.z);
         }
-        if (b.hips) {
-          const base = b.hips.userData.__base;
-          const bob = Math.sin(st.phase * 2) * (st.moving ? 0.04 : 0.012);
-          b.hips.rotation.set(base.x, base.y, base.z + bob);
-        }
-        st.mixer.update(dt);   // harmless (no actions) but keeps the API uniform
+        st.mixer.update(dt);
       }
     }
   })();
