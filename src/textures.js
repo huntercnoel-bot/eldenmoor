@@ -15,43 +15,52 @@ function finish(canvas, rep) {
 }
 
 export function grassTexture(rep = 55) {
-  const c = cv(256), g = c.getContext('2d');
+  const S = 512;
+  const c = cv(S), g = c.getContext('2d');
   // Base turf laid down as a soft vertical gradient (deeper green low, warmer up
   // top) so the sheet never reads as one flat colour even before the detail.
-  const base = g.createLinearGradient(0, 0, 0, 256);
-  base.addColorStop(0.0, '#566f2c');
-  base.addColorStop(0.5, '#647e35');
-  base.addColorStop(1.0, '#586f2e');
-  g.fillStyle = base; g.fillRect(0, 0, 256, 256);
-  // Broad low-frequency colour blotches — sun-bleached, mossy and earthier
+  // Brighter, more saturated meadow green so the toon bands read as lush, not
+  // muddy olive.
+  const base = g.createLinearGradient(0, 0, 0, S);
+  base.addColorStop(0.0, '#577d2e');
+  base.addColorStop(0.5, '#6c963a');
+  base.addColorStop(1.0, '#5d8330');
+  g.fillStyle = base; g.fillRect(0, 0, S, S);
+  // Wrapped low-frequency colour blotches — sun-bleached, mossy and earthier
   // patches — give the lawn organic large-scale variation when it tiles out.
+  // Drawing each blotch wrapped across the seam keeps the tile seamless.
   const blot = [
-    [104, 124, 60, 0.18],   // sun-warmed lighter green
-    [70, 92, 42, 0.20],     // shadowed deeper green
-    [120, 116, 64, 0.14],   // dry/strawy patch
-    [78, 104, 54, 0.16],    // fresh mossy green
+    [124, 158, 72, 0.20],   // sun-warmed lighter green
+    [74, 104, 44, 0.22],    // shadowed deeper green
+    [134, 132, 70, 0.14],   // dry/strawy patch
+    [86, 124, 56, 0.18],    // fresh mossy green
   ];
-  for (let i = 0; i < 80; i++) {
+  const wrapArc = (cx, cy, r) => {
+    for (let ox = -S; ox <= S; ox += S) for (let oy = -S; oy <= S; oy += S) {
+      g.beginPath(); g.arc(cx + ox, cy + oy, r, 0, 7); g.fill();
+    }
+  };
+  for (let i = 0; i < 140; i++) {
     const [r, gg, b, a] = blot[(Math.random() * blot.length) | 0];
     g.fillStyle = `rgba(${r},${gg},${b},${(a * (0.5 + Math.random())).toFixed(2)})`;
-    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 10 + Math.random() * 30, 0, 7); g.fill();
+    wrapArc(Math.random() * S, Math.random() * S, 16 + Math.random() * 54);
   }
   // Small dirt scuffs poking through the turf so it doesn't look carpeted.
-  for (let i = 0; i < 26; i++) {
-    g.fillStyle = `rgba(${(112 + Math.random() * 26) | 0},${(92 + Math.random() * 22) | 0},${(58 + Math.random() * 18) | 0},0.16)`;
-    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 3 + Math.random() * 7, 0, 7); g.fill();
+  for (let i = 0; i < 44; i++) {
+    g.fillStyle = `rgba(${(116 + Math.random() * 26) | 0},${(94 + Math.random() * 22) | 0},${(60 + Math.random() * 18) | 0},0.14)`;
+    wrapArc(Math.random() * S, Math.random() * S, 5 + Math.random() * 12);
   }
-  for (let i = 0; i < 6000; i++) {                                     // fine upright grass blades
-    const v = Math.random(), x = Math.random() * 256, y = Math.random() * 256;
-    g.strokeStyle = `rgba(${(62 + v * 70) | 0},${(94 + v * 70) | 0},${(40 + v * 42) | 0},0.5)`;
-    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2.4, y - (2 + Math.random() * 4)); g.stroke();
+  for (let i = 0; i < 16000; i++) {                                    // fine upright grass blades
+    const v = Math.random(), x = Math.random() * S, y = Math.random() * S;
+    g.strokeStyle = `rgba(${(66 + v * 78) | 0},${(104 + v * 80) | 0},${(42 + v * 46) | 0},0.5)`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2.8, y - (2 + Math.random() * 5)); g.stroke();
   }
   // A sprinkle of tiny pale wildflower flecks for a touch of RS/WoW meadow life.
-  const fcol = ['#e8e0b0', '#dcd28a', '#cfd6b6'];
-  for (let i = 0; i < 50; i++) {
+  const fcol = ['#eee6b4', '#e2d88e', '#d4dcba', '#e8b6c8', '#c9d8ef'];
+  for (let i = 0; i < 120; i++) {
     g.fillStyle = fcol[(Math.random() * fcol.length) | 0];
-    g.globalAlpha = 0.5 + Math.random() * 0.3;
-    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 0.8 + Math.random() * 1.2, 0, 7); g.fill();
+    g.globalAlpha = 0.45 + Math.random() * 0.35;
+    g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 0.9 + Math.random() * 1.4, 0, 7); g.fill();
   }
   g.globalAlpha = 1;
   return finish(c, rep);
