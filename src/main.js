@@ -27,6 +27,7 @@ import './vfx.js';
 import './audio.js';
 import './combat.js';
 import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; reads window.eldenmoor)
+import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
 import './ambient.js';
 import './assets.js';
 import './showcase.js';
@@ -167,6 +168,8 @@ function startGame(username) {
   const hadSave = save.load();
   if (!hadSave) {
     inventory.add('bronze_axe', 1);
+    inventory.add('pickaxe', 1);   // for Mining the quarry NE of town
+    inventory.add('hammer', 1);    // for Smithing at the anvil
     inventory.add('wooden_shield', 1);
     inventory.add('coins', 25);
     // a starter set of wearable steel armour — equip from the bag to put it on

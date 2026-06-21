@@ -9,7 +9,7 @@ const SHOPS = {
   general: {
     name: "Bramble's General Store",
     greet: '"Welcome, traveller! Wares for every journey — have a look around."',
-    stock: ['rope', 'tinderbox', 'torch', 'bucket', 'bread', 'clay_pot', 'pickaxe', 'fishing_rod', 'wooden_shield'],
+    stock: ['rope', 'tinderbox', 'torch', 'bucket', 'bread', 'clay_pot', 'pickaxe', 'steel_pickaxe', 'hammer', 'fishing_rod', 'wooden_shield'],
   },
   axes: {
     name: "Hilda's Fine Axes",
