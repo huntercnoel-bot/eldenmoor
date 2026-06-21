@@ -445,6 +445,14 @@ function startFishing(em) {
       if (clock >= f.diesAt) {
         if (f.vfx && em.vfx && em.vfx.detach) em.vfx.detach(f.vfx);
         scene.remove(f.group);
+        // dispose the charred-log geometry/materials so a long session doesn't leak
+        f.group.traverse((o) => {
+          if (!o.isMesh) return;
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose && m.dispose());
+        });
+        const outdoor = scene.userData.outdoor;
+        if (outdoor) { const idx = outdoor.indexOf(f.group); if (idx >= 0) outdoor.splice(idx, 1); }
         fires.splice(i, 1);
       }
     }
