@@ -16,8 +16,9 @@ __pycache__/
 # Subagent git worktrees
 .claude/worktrees/
 
-# Castle/asset candidates under review (large, unvetted; not committed until chosen)
+# Asset candidates under review (large, unvetted; not committed until chosen)
 assets/models/castle_options/
 assets/models/castle_candidates/
+assets/models/interior_options/
 # Temp standalone preview pages used for rendering candidates
 /_*.html
