@@ -748,6 +748,276 @@ export const QUEST_DEFS = {
       { speaker: 'Hilda', text: 'Commission filled and the customer happy — all your doing, love. You\'ve a smith\'s arms now and the tools to match. Bring me ore any time; I do love watching a pupil work.' },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // QUEST 8 — "Loose and True" (RANGED TUTOR). Mara the market trader was a
+  // huntress before she ever kept a stall — she still strings her own bows and
+  // misses the greenwood. She takes the player on as a bow-pupil: first prove
+  // you can shoot by loosing arrows at foes until the Ranged skill stirs (we
+  // snapshot your Ranged XP on accept and watch it climb — the same low-coupling
+  // trick the Magic and Prayer quests use, no hook into ranged.js needed); then
+  // bring her a bundle of feathers for fletching, the way every fletcher pays
+  // their teacher. Rewards a better bow, a quiver of arrows, Ranged XP and coin.
+  // -------------------------------------------------------------------------
+  mara: {
+    id: 'mara',
+    name: 'Loose and True',
+    giver: 'mara',
+    city: 'Eldenmoor',
+    intro: 'Mara kept a hunter\'s eye long before she kept a market stall. She still strings her own bows, and she\'d gladly teach a steady hand to shoot.',
+    startConfirm: {
+      prompt: 'So — shall I make a bow-shot of you, here and now?',
+      yes: 'Teach me the bow, Mara. I\'ll learn to loose.',
+      no: 'The bow can wait. I\'ve other roads.',
+      more: 'How does one shoot a bow?',
+      moreDialogue: [
+        { speaker: 'Mara', text: 'Simple as breathing, once your arm learns it. Equip a shortbow, fill your quiver with arrows — bronze\'ll do to start — and click a foe. The arrow flies, and the Ranged skill wakes in you.' },
+        { speaker: 'Mara', text: 'I keep bows and arrows right here on the stall if you\'ve none. Loose at rats, goblins, anything that won\'t mind a feather in its hide. Shoot enough and you\'ll feel it — the eye sharpens, the hand steadies.' },
+      ],
+      noReply: 'Suit yourself. But a sword\'s no use to a foe across a river, love — and the greenwood\'s full of those. Come back when you fancy learning the bow.',
+      yesReply: [
+        { speaker: 'Mara', text: 'That\'s the spirit! Right — string a shortbow, pouch some arrows, and go LOOSE them. At a rat, a goblin, whatever crosses you. Shoot until I can see the hunter waking in you — won\'t take long if your eye\'s any good.' },
+        { speaker: 'Mara', text: 'And mind — an empty quiver shoots nothing. Keep arrows on you. Off you go, my little fletchling.' },
+      ],
+      // Snapshot Ranged XP at enrolment, so "loose arrows until the skill stirs"
+      // is measured purely by the XP that shooting grants — no hook into ranged.js.
+      onAccept: (ctx) => { ctx.flags.rangedXpBase = (ctx.skills.state.ranged && ctx.skills.state.ranged.xp) || 0; },
+    },
+    startDialogue: [
+      { speaker: 'Mara', text: 'You\'ve the stance of someone who could shoot, you know. Stand square, weight even — aye, I watch how folk hold themselves. Force of old habit.' },
+      { speaker: 'Mara', text: 'Before this stall, I hunted the greenwood north of here — twelve years, bow in hand, never went hungry. These days I sell turnips and miss the trees. There\'s a confession for you.' },
+      { speaker: 'Mara', text: 'But a good eye shouldn\'t go to waste, and you\'ve got one. Let me teach you the bow — to loose an arrow loose and true. What do you say, hm?' },
+    ],
+    stages: [
+      {
+        name: 'Loose arrows until the eye sharpens',
+        journal: 'Mara has taken you on as a bow-pupil. Equip a shortbow and arrows (she sells both at her stall), then click foes to loose arrows at them until the Ranged skill stirs in you. Gain roughly 40 Ranged XP.',
+        objective: {
+          hint: 'Shoot foes with a bow until you gain ~40 Ranged XP.',
+          check: (ctx) => {
+            const xp = (ctx.skills.state.ranged && ctx.skills.state.ranged.xp) || 0;
+            const base = ctx.flags.rangedXpBase || 0;
+            return (xp - base) >= 40;
+          },
+        },
+        progressHint: (ctx) => {
+          const xp = (ctx.skills.state.ranged && ctx.skills.state.ranged.xp) || 0;
+          const base = ctx.flags.rangedXpBase || 0;
+          return 'Ranged XP loosed (' + Math.min(Math.floor(xp - base), 40) + ' / 40).';
+        },
+        nudge: [
+          { speaker: 'Mara', text: 'I don\'t see the hunter in you yet, fletchling. Equip a bow, keep arrows in your quiver, and LOOSE them at something. The eye only sharpens with the shooting — there\'s no shortcut to a true shot.' },
+        ],
+      },
+      {
+        name: 'Gather feathers for the fletching',
+        journal: 'The hunter\'s eye has woken in you — Mara saw it. Now she asks a fletcher\'s tithe: bring her 15 feathers so she can fletch a fresh batch of arrows. Feathers come from foes and the wilds, and her stall keeps some too.',
+        objective: {
+          hint: 'Bring Mara 15 feathers for fletching.',
+          check: (ctx) => ctx.inventory.count('feather') >= 15,
+        },
+        progressHint: (ctx) => 'Feathers (' + Math.min(ctx.inventory.count('feather'), 15) + ' / 15).',
+        nudge: [
+          { speaker: 'Mara', text: 'Shooting\'s coming along a treat — but my arrow-bench runs dry. Fifteen feathers, fletchling, that\'s the tithe every bow-pupil owes their teacher. Off you go and gather them.' },
+        ],
+      },
+      {
+        name: 'Return to Mara',
+        journal: 'You have the feathers and a hunter\'s eye to match. Return to Mara at her market stall to finish your bow-lesson and claim a marksman\'s due.',
+        objective: { hint: 'Return to Mara at the market stall.', check: () => false },
+        nudge: [
+          { speaker: 'Mara', text: 'Feathers in hand and a true eye besides — come to the stall, love, and let\'s call the lesson learned.' },
+        ],
+      },
+    ],
+    // Takes the feathers for her fletching-bench, then sets the new archer up: an
+    // oak shortbow to grow into, a healthy quiver of iron arrows, Ranged XP for
+    // the shooting, and coin.
+    reward: {
+      text: 'an Oak shortbow, 60 iron arrows, 220 Ranged XP, and 180 coins',
+      grant: (ctx) => {
+        ctx.inventory.removeN('feather', 15); // onto the fletching-bench
+        ctx.inventory.add('oak_shortbow', 1);
+        ctx.inventory.add('iron_arrow', 60);
+        ctx.inventory.add('coins', 180);
+        ctx.skills.addXp('ranged', 220);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Mara', text: 'There it is — the hunter\'s eye, plain as day. A week ago you\'d have missed a barn from inside it. Now you loose loose and TRUE. I\'ve a knack for spotting it, and you\'ve got it.' },
+      { speaker: 'Mara', text: 'Feathers go straight on my bench — fine ones, too. Bless you for the tithe; it\'s an old hunter\'s custom and you honoured it without a grumble.' },
+      { speaker: 'Mara', text: 'So here\'s a marksman\'s due, and no haggling: an oak shortbow — a real step up from that stick you started on — a good quiver of iron arrows, and coin besides. Keep your string waxed and your quiver full.' },
+      { speaker: 'Mara', text: 'Get yourself to the greenwood north some day, fletchling. That\'s where a bow truly sings. And if you ever want to learn the maple bow... well. You know which stall to find.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Mara', text: 'My finest bow-pupil. Quiver full, eye true, and the greenwood waiting. Bring me feathers any time — I\'ll always fletch for a hunter who shoots loose and true.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 9 — "The Hollow King" (BOSS-SLAYER EPIC). Duke Veylin, King Aldric's
+  // Royal Steward, carries a grief the court does not speak of: the old king —
+  // Aldric's own father — fell to a curse and rose again as the HOLLOW KING, a
+  // gilded bone-tyrant who broods in the Crypt of the Hollow King far to the
+  // north-west. Veylin, who served the father and now serves the son, can no
+  // longer bear that his old liege wanders undead. He sends a champion to lay
+  // the Hollow King to rest at last. Tracked through onMonsterKill('hollow_king').
+  // Rewards a great coin purse, real combat XP, and a prestigious hollow unique.
+  // -------------------------------------------------------------------------
+  veylin: {
+    id: 'veylin',
+    name: 'The Hollow King',
+    giver: 'duke',
+    city: 'Eldenmoor',
+    intro: 'Duke Veylin, the Royal Steward, carries a grief the court will not name — and a charge no ordinary soldier could bear. He seeks a champion equal to the Crypt of the Hollow King.',
+    startConfirm: {
+      prompt: 'So I ask you plainly, champion: will you go to the crypt, and lay the Hollow King to rest?',
+      yes: 'I will go to the crypt. The Hollow King falls by my hand.',
+      no: 'That is a tomb I am not yet ready to walk.',
+      more: 'Who is the Hollow King?',
+      moreDialogue: [
+        { speaker: 'Duke Veylin', text: 'He was King Aldric\'s own father — our old liege, whom I served as a young man. A wise and warm king, until the curse took him. He did not die so much as... empty. The Light went out of him, and something cold filled the husk.' },
+        { speaker: 'Duke Veylin', text: 'We bore his body to the crypt in the north-west with all honour. But he would not stay buried. He rose — gilded in his own bones, crowned still, and HOLLOW. He broods there yet, and the land near the crypt sickens for his presence.' },
+        { speaker: 'Duke Veylin', text: 'Aldric does not know I send anyone. He could not give the order — to strike down his own father, even risen and ruined? No son could. So the charge falls to his steward, and through me, to you. Go armed and armoured, champion. The Hollow King does not fall to the timid.' },
+      ],
+      noReply: 'I understand. It is no shame to know your own measure — the crypt has unmade braver souls than either of us. But the Hollow King waits, and so, alas, do I. Return when your blade is ready for a king.',
+      yesReply: [
+        { speaker: 'Duke Veylin', text: 'Then you have a steward\'s gratitude, and you will have a king\'s, though Aldric must never learn the cost of it. Go to the Crypt of the Hollow King — far to the north-west, past the safe roads. You will know it by the silence.' },
+        { speaker: 'Duke Veylin', text: 'Bring sword and shield, food and faith. Strike down the Hollow King — end what the curse began — and return to me. Carry steel, champion. And carry mercy, if you can spare it. He was a good king, once.' },
+      ],
+    },
+    startDialogue: [
+      { speaker: 'Duke Veylin', text: 'A moment of your time, and your discretion — I am the Royal Steward, and what I must speak of cannot be spoken near the throne. Walk with me a step. Good.' },
+      { speaker: 'Duke Veylin', text: 'There is a grief in this court older than the cold hearth, older than any goblin in the hills. Far to the north-west lies a crypt, and in it sits a thing that wears a crown it has no right to wear. We call it the Hollow King.' },
+      { speaker: 'Duke Veylin', text: 'I will not yet tell you whose bones those are — that is a weight you may not wish to carry. But I will tell you this: while he sits undead, this realm is not whole, and an old man\'s conscience finds no rest. I need a champion to end him. Could that champion be you?' },
+    ],
+    stages: [
+      {
+        name: 'Slay the Hollow King',
+        journal: 'Duke Veylin charges you to lay the Hollow King to rest. Travel far to the north-west — past the safe roads — to the Crypt of the Hollow King. Go armed and armoured, with food and prayer, and strike down the gilded bone-king who broods within.',
+        objective: {
+          hint: 'Slay the Hollow King in his crypt to the north-west (0 / 1).',
+          check: (ctx) => (ctx.flags.hollowKingKills || 0) >= 1,
+        },
+        progressHint: (ctx) => 'The Hollow King (' + Math.min(ctx.flags.hollowKingKills || 0, 1) + ' / 1) lies undefeated in his crypt to the north-west.',
+        nudge: [
+          { speaker: 'Duke Veylin', text: 'He still sits his cold throne — I would feel it, were he gone. The Crypt of the Hollow King lies far to the north-west, champion, past the safe roads. Go armed, go armoured, and do not turn back at the silence.' },
+        ],
+      },
+      {
+        name: 'Return to Duke Veylin',
+        journal: 'The Hollow King is fallen — the crown toppled, the curse broken, the old liege at rest at last. Return to Duke Veylin in the great hall to bring him the word he has waited a lifetime to hear.',
+        objective: { hint: 'Return to Duke Veylin in the great hall.', check: () => false },
+        nudge: [
+          { speaker: 'Duke Veylin', text: 'I can scarcely believe the air feels lighter — is it done? Come to me, champion, and tell me plainly. I have waited a long time for these words.' },
+        ],
+      },
+    ],
+    // A king-slayer's due: a great coin purse, deep combat XP across the melee
+    // skills and Hitpoints for the fight of their life, and a prestigious hollow
+    // unique — the Crown of the Hollow, borne home from the toppled throne.
+    reward: {
+      text: '2000 coins, deep combat XP (Attack/Strength/Defence/Hitpoints), and the Crown of the Hollow',
+      grant: (ctx) => {
+        ctx.inventory.add('coins', 2000);
+        ctx.inventory.add('crown_of_the_hollow', 1); // borne home from the cold throne
+        ctx.skills.addXp('attack', 1200);
+        ctx.skills.addXp('strength', 1200);
+        ctx.skills.addXp('defence', 1000);
+        ctx.skills.addXp('hitpoints', 800);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Duke Veylin', text: 'It is done. I see it in your eyes before you speak — the weight of it, and the mercy. The Hollow King is fallen, the crown toppled from those gilded bones at last.' },
+      { speaker: 'Duke Veylin', text: 'Then I may tell you now what I could not before: those bones were King Aldric\'s father — my old liege, and as good a king as ever warmed that cold throne. The curse stole his death from him, and you have given it back. He rests now. Truly rests.' },
+      { speaker: 'Duke Veylin', text: 'Aldric will never know whose hand I stayed, nor whose I loosed. He will only know the land sleeps easier, and wonder why his steward weeps at the council table. Let him wonder. Some mercies are best carried quietly.' },
+      { speaker: 'Duke Veylin', text: 'Take this — a king\'s purse, for it is a king you laid to rest. And the crown itself, borne home from that ruined throne: wear it not as a trophy, but as a remembrance. You ended an age tonight, champion. Few living can say the same.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Duke Veylin', text: 'The old king rests, the crypt is silent, and an old steward\'s conscience is clean at last — all by your hand. Carry that crown with honour, champion. It remembers a good king, as do I.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 10 — "Bram's Empty Pot" (FISHING / COOKING ERRAND). Bram, who keeps
+  // The Prancing Stag, has a common-room full of thirsty patrons and an empty
+  // stockpot — his fishmonger never came and his nets are bare. He sends the
+  // player down to the water to catch and cook a mess of fish for the night's
+  // stew. Verified by checking the bag when the pupil talks to Bram (low
+  // coupling — no hook into fishing.js). Rewards coin, hearty cooked food to
+  // carry off, and Fishing & Cooking XP for the work.
+  // -------------------------------------------------------------------------
+  bram: {
+    id: 'bram',
+    name: 'Bram\'s Empty Pot',
+    giver: 'innkeep',
+    city: 'Eldenmoor',
+    intro: 'Bram of The Prancing Stag has a full common-room and an empty stockpot — his fish never came. He needs a quick hand at rod and fire to save the night\'s supper.',
+    startConfirm: {
+      prompt: 'So — will you fish me up a supper, and cook it proper while you\'re at it?',
+      yes: 'Hand me a rod, Bram. I\'ll catch and cook your supper.',
+      no: 'Find another fisher tonight, Bram.',
+      more: 'What do you need, exactly?',
+      moreDialogue: [
+        { speaker: 'Bram', text: 'Fish, friend, and cooked — I\'ll not serve raw shrimp to a paying room. Get down to the water, catch yourself a mess of shrimp, then cook \'em on a fire or a range till they\'re done. Burnt ones I can\'t use, mind.' },
+        { speaker: 'Bram', text: 'Five good cooked shrimp and I can stretch the stew to feed the lot. There\'s fishing spots by the water and a range right here in my kitchen — borrow it gladly. Easy work for a quick hand.' },
+      ],
+      noReply: 'Ah, no matter. I\'ll water down the ale and pray the fishmonger turns up. But if you change your mind, the rod\'s by the door and the room\'s still hungry.',
+      yesReply: [
+        { speaker: 'Bram', text: 'You\'re a lifesaver! Right — down to the water, catch your shrimp, and cook \'em through on a fire or my kitchen range. Five good cooked ones, no cinders. The stew\'ll do the rest.' },
+        { speaker: 'Bram', text: 'Off you go — and don\'t dawdle, the patrons get surly on empty bellies. Bring \'em back warm and I\'ll see you right.' },
+      ],
+    },
+    startDialogue: [
+      { speaker: 'Bram', text: 'Welcome to The Prancing Stag — mind the spilt ale. Actually, friend, you\'ve walked in at just the wrong moment, or just the right one. Depends entirely on whether you can fish.' },
+      { speaker: 'Bram', text: 'Common-room\'s packed, the ale\'s flowing, and my stockpot is BONE empty. My fishmonger never showed — nets torn, he says, the lazy article — and a stew with no fish is just hot water with opinions.' },
+      { speaker: 'Bram', text: 'I can\'t leave the bar, but you look spry. Would you catch me a mess of shrimp and cook \'em up? Save my supper service and I\'ll fill your purse and your belly both.' },
+    ],
+    stages: [
+      {
+        name: 'Catch and cook the supper',
+        journal: 'Bram\'s stockpot is empty. Head to a fishing spot by the water, catch raw shrimp, then cook them through on a fire or a cooking range (there\'s one in Bram\'s kitchen) until you carry 5 cooked shrimp. Burnt ones won\'t do.',
+        objective: {
+          hint: 'Catch and cook 5 shrimp for Bram\'s stew.',
+          check: (ctx) => ctx.inventory.count('cooked_shrimp') >= 5,
+        },
+        progressHint: (ctx) => 'Cooked shrimp (' + Math.min(ctx.inventory.count('cooked_shrimp'), 5) + ' / 5).',
+        nudge: [
+          { speaker: 'Bram', text: 'Pot\'s still empty, friend, and the room\'s still hungry. Five cooked shrimp — catch \'em at the water, cook \'em on a fire or my range, and watch they don\'t burn. The stew won\'t make itself.' },
+        ],
+      },
+      {
+        name: 'Bring the catch to Bram',
+        journal: 'You\'ve a fine mess of cooked shrimp. Carry them back to Bram behind the bar at The Prancing Stag so he can fill his stockpot and save the supper service.',
+        objective: { hint: 'Bring the 5 cooked shrimp to Bram at the bar.', check: () => false },
+        nudge: [
+          { speaker: 'Bram', text: 'Is that cooked shrimp I smell? Bring \'em here to the bar, friend, and into the pot they go!' },
+        ],
+      },
+    ],
+    // Takes the cooked shrimp into the stew, then pays a grateful innkeeper's
+    // due: coin, a hot trout-and-bread supper for the road, and Fishing & Cooking
+    // XP for the work.
+    reward: {
+      text: '160 coins, 3 cooked Trout, a Loaf of bread, 120 Fishing XP, and 120 Cooking XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('cooked_shrimp', 5); // into the stockpot
+        ctx.inventory.add('coins', 160);
+        ctx.inventory.add('cooked_trout', 3); // a hot supper off the Stag's range
+        ctx.inventory.add('bread', 1);
+        ctx.skills.addXp('fishing', 120);
+        ctx.skills.addXp('cooking', 120);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Bram', text: 'In they go — and would you LISTEN to that pot start to sing! Five fat cooked shrimp, not a cinder among \'em. The stew\'s saved, the room\'s fed, and Bram is a happy innkeeper once more.' },
+      { speaker: 'Bram', text: 'You\'ve a real knack at the rod AND the fire, friend — half my regulars can do neither. The fishmonger could learn a thing from you, the torn-net layabout.' },
+      { speaker: 'Bram', text: 'Here\'s your purse, earned twice over. And take a few trout off my range, fresh-cooked, and a loaf — nobody leaves the Stag hungry, least of all the soul that filled its pot. Mind the spilt ale on your way out, eh!' },
+    ],
+    doneDialogue: [
+      { speaker: 'Bram', text: 'Pot\'s full, room\'s fed, and the ale\'s flowing again — all thanks to you. There\'s always a stool and a stew for you at the Stag, friend. Bring me fish any time the nets run dry.' },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
