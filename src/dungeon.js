@@ -136,14 +136,18 @@ function buildCryptMouth() {
   mound.scale.set(1, 0.45, 0.8); mound.position.y = -0.1; mound.receiveShadow = true;
   g.add(mound);
 
-  // doorway frame: two jambs + a lintel, around a black void plane
+  // doorway frame: two jambs + a rounded arch voussoir, around a black void
   g.add(box(0.7, 3.2, 0.9, stone, -1.6, 1.6, 0));
   g.add(box(0.7, 3.2, 0.9, stone, 1.6, 1.6, 0));
-  g.add(box(4.0, 0.9, 0.9, stone, 0, 3.6, 0));
-  // pitch-black doorway (slightly recessed)
+  // semicircular stone arch over the doorway (sculpted, not a square lintel)
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.42, 8, 16, Math.PI), stone);
+  arch.position.set(0, 3.2, 0); arch.castShadow = true; g.add(arch);
+  g.add(box(4.2, 0.5, 1.0, stone, 0, 3.95, 0));        // capping course over the arch
+  // pitch-black doorway: a flat panel + a half-disc head following the arch
   const doorway = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.2), voidM);
-  doorway.position.set(0, 1.6, 0.36);
-  g.add(doorway);
+  doorway.position.set(0, 1.6, 0.36); g.add(doorway);
+  const doorTop = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16, 0, Math.PI), voidM);
+  doorTop.position.set(0, 3.2, 0.36); g.add(doorTop);
 
   // carved skull keystone over the lintel
   const skull = ball(0.5, mat(0xcfc7af, 0.9), 0, 4.2, 0.2);
@@ -180,6 +184,37 @@ function buildCryptMouth() {
   return g;
 }
 
+// A tall broken watch-tower rising behind the crypt — a crumbling round drum with
+// a jagged, snapped-off top, mossed stone courses and a couple of arrow-slits.
+// Gives the zone a real silhouette readable from across the field.
+function buildRuinedTower() {
+  const g = new THREE.Group();
+  const stone = mat(0x5f5b52, 0.95);
+  const darkStone = mat(0x46433c, 0.95);
+  const moss = mat(0x46562f, 0.95);
+  // splayed footing + tapering drum
+  g.add(cyl(2.6, 3.1, 0.9, 18, darkStone, 0, 0.45, 0));
+  g.add(cyl(2.1, 2.5, 7.5, 18, stone, 0, 4.5, 0));
+  // string courses (sculpted rings)
+  for (const y of [2.4, 5.0]) g.add(cyl(2.3, 2.45, 0.35, 18, darkStone, 0, y, 0));
+  // jagged broken crown: a ring of merlons of uneven height (snapped-off look)
+  const top = 8.2;
+  for (let k = 0; k < 11; k++) {
+    const a = k / 11 * Math.PI * 2;
+    const h = 0.5 + ((k * 7) % 5) * 0.34;            // pseudo-random heights
+    const r = 1.95;
+    g.add(box(0.7, h, 0.5, stone, Math.cos(a) * r, top + h / 2, Math.sin(a) * r, a));
+  }
+  // arrow-slit reveals
+  for (const a of [0.4, 2.1, 4.0]) g.add(box(0.3, 1.4, 0.6, darkStone, Math.cos(a) * 2.05, 5.3, Math.sin(a) * 2.05, a));
+  // a fallen chunk of wall at the base + a cloak of moss
+  g.add(box(1.6, 1.0, 1.3, darkStone, 2.4, 0.4, 1.6, 0.7));
+  g.add(box(1.1, 0.7, 0.9, stone, -2.2, 0.3, 1.9, -0.5));
+  const mossPatch = cyl(2.13, 2.5, 1.6, 18, moss, 0, 1.6, 0);
+  mossPatch.scale.set(1, 1, 0.55); g.add(mossPatch);
+  return g;
+}
+
 // ---------------------------------------------------------------------------
 //  build + wire into the scene
 // ---------------------------------------------------------------------------
@@ -189,6 +224,11 @@ function buildDungeon(em) {
   root.name = 'dungeon-crypt';
   root.position.set(CX, 0, CZ);
   root.rotation.y = FACE;
+
+  // a tall broken watch-tower looming behind the crypt — the zone's landmark
+  const ruin = buildRuinedTower();
+  ruin.position.set(-3.5, 0, -9);
+  root.add(ruin);
 
   // the crypt mouth at the centre-back of the zone
   const crypt = buildCryptMouth();
