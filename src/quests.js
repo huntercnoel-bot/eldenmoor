@@ -429,6 +429,325 @@ export const QUEST_DEFS = {
       },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // QUEST 5 — "Sparks of the Arcane" (MAGIC TUTOR). Lady Maelis, the King's
+  // advisor, reads more than maps — she keeps the old arcane lore of the court,
+  // and frets that no living soul in Eldenmoor can so much as light a candle with
+  // a word. She takes the player on as a pupil: first, prove you can channel a
+  // spell by casting until the Magic skill stirs (we snapshot your Magic XP when
+  // you accept and watch it climb — no hook into magic.js needed); then bring her
+  // a handful of mind runes to stock her teaching-coffer. A skill-tutor quest that
+  // sends the player to the spellbook, rewarding runes, a Magic XP lamp, and coin.
+  // -------------------------------------------------------------------------
+  maelis: {
+    id: 'maelis',
+    name: 'Sparks of the Arcane',
+    giver: 'advisor',
+    city: 'Eldenmoor',
+    intro: 'Lady Maelis keeps the court\'s old arcane lore, and frets that magic is fading from Eldenmoor. She\'d take a willing pupil — if one can be found with a spark in them.',
+    startConfirm: {
+      prompt: 'So — shall I take you on as a pupil of the arcane?',
+      yes: 'Teach me, my lady. I\'ll learn the spellbook.',
+      no: 'Sorcery can wait. I\'ve other roads.',
+      more: 'How does one cast a spell?',
+      moreDialogue: [
+        { speaker: 'Lady Maelis', text: 'Open your spellbook — there, on the left of your sight. Arm a spell with a touch, and it glows; then loose it upon a foe with a strike, as you would a blade.' },
+        { speaker: 'Lady Maelis', text: 'Each spell drinks runes — Wind Strike needs but an air rune and a mind rune, and is the place to begin. The magic stall on the square will sell you a pouch of both. Cast, and feel the skill wake in you.' },
+      ],
+      noReply: 'A pity. Steel rusts, my dear — but a spell, once learned, is yours till your last breath. Return when you\'ve a mind to kindle one.',
+      yesReply: [
+        { speaker: 'Lady Maelis', text: 'Then we begin where every mage begins: by DOING. Arm a strike spell, find yourself a rat or a goblin, and loose it. Cast until I can feel the Art stir in you — it won\'t take long if you\'ve the spark.' },
+        { speaker: 'Lady Maelis', text: 'Mind your runes, and don\'t singe the King\'s tapestries. Off you go, apprentice.' },
+      ],
+      // Snapshot the pupil's Magic XP at the moment they enrol, so "cast spells
+      // until the skill stirs" can be checked purely by watching the XP climb —
+      // no hook into magic.js required.
+      onAccept: (ctx) => { ctx.flags.magicXpBase = (ctx.skills.state.magic && ctx.skills.state.magic.xp) || 0; },
+    },
+    startDialogue: [
+      { speaker: 'Lady Maelis', text: 'A moment, adventurer. Of all who tramp through this hall, you alone paused at my maps — and I have learned to trust a curious eye.' },
+      { speaker: 'Lady Maelis', text: 'I keep more than charts up here. I keep what little arcane lore the court remembers — and it grows littler each year. No one in Eldenmoor can light so much as a candle with a word any more. It shames us.' },
+      { speaker: 'Lady Maelis', text: 'You have a spark about you. I would teach you the spellbook — to channel the elements as the old mages did. Will you be my pupil?' },
+    ],
+    stages: [
+      {
+        name: 'Channel the spellbook',
+        journal: 'Lady Maelis has taken you on as a pupil of the arcane. Buy runes at the magic stall, arm a strike spell in your spellbook (left of your sight), and cast it on monsters until the Magic skill stirs in you. Gain roughly 50 Magic XP.',
+        objective: {
+          hint: 'Cast spells on monsters until you gain ~50 Magic XP.',
+          check: (ctx) => {
+            const xp = (ctx.skills.state.magic && ctx.skills.state.magic.xp) || 0;
+            const base = ctx.flags.magicXpBase || 0;
+            return (xp - base) >= 50;
+          },
+        },
+        progressHint: (ctx) => {
+          const xp = (ctx.skills.state.magic && ctx.skills.state.magic.xp) || 0;
+          const base = ctx.flags.magicXpBase || 0;
+          return 'Magic XP channelled (' + Math.min(Math.floor(xp - base), 50) + ' / 50).';
+        },
+        nudge: [
+          { speaker: 'Lady Maelis', text: 'I do not yet feel the Art moving in you, apprentice. Arm a strike spell and LOOSE it — on a rat, a goblin, anything that won\'t mind. The skill wakes only with the casting.' },
+        ],
+      },
+      {
+        name: 'Stock the teaching-coffer',
+        journal: 'The Art has woken in you — Lady Maelis felt it stir. Now she asks you to restock her teaching-coffer: bring her 8 mind runes, the rune every novice mage burns through first. The magic stall on the square sells them.',
+        objective: {
+          hint: 'Bring Lady Maelis 8 mind runes.',
+          check: (ctx) => ctx.inventory.count('mind_rune') >= 8,
+        },
+        progressHint: (ctx) => 'Mind runes (' + Math.min(ctx.inventory.count('mind_rune'), 8) + ' / 8).',
+        nudge: [
+          { speaker: 'Lady Maelis', text: 'The spark is lit — well done! But my coffer wants for mind runes still. Eight of them, apprentice, to teach the next who comes. The magic stall keeps them cheap.' },
+        ],
+      },
+      {
+        name: 'Return to Lady Maelis',
+        journal: 'You have the mind runes and the spark to match. Return to Lady Maelis on the royal floor to complete your first lesson — and claim a mage\'s due.',
+        objective: { hint: 'Return to Lady Maelis on the royal floor.', check: () => false },
+        nudge: [
+          { speaker: 'Lady Maelis', text: 'You have the runes and the spark both. Step up to my table and we\'ll close the lesson properly.' },
+        ],
+      },
+    ],
+    // Takes the mind runes for her coffer, then pays a fledgling mage's due: a
+    // pouch of starter runes to keep casting, a slug of Magic XP (the "lamp"),
+    // and coin. Mind runes are spent into her teaching-coffer.
+    reward: {
+      text: '200 coins, a pouch of runes (30 air, 15 mind, 10 chaos), and 250 Magic XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('mind_rune', 8); // into the teaching-coffer
+        ctx.inventory.add('coins', 200);
+        ctx.inventory.add('air_rune', 30);
+        ctx.inventory.add('mind_rune', 15);
+        ctx.inventory.add('chaos_rune', 10);
+        ctx.skills.addXp('magic', 250); // a Magic XP "lamp" for the lesson learned
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Lady Maelis', text: 'There — feel that? The runes in your hand, the spark behind your eyes. A week ago you could not have lit a candle. Now you loose Wind Strike like you were born to it.' },
+      { speaker: 'Lady Maelis', text: 'My coffer is stocked, and my heart is lighter than it\'s been in years. The Art does not die in Eldenmoor today — not while there\'s a pupil with your spark.' },
+      { speaker: 'Lady Maelis', text: 'Take these — a pouch of runes to keep your hand in, and coin besides. And here, the last of a lesson I cannot bottle: hold what I taught you close. Magic favours the diligent.' },
+      { speaker: 'Lady Maelis', text: 'Go and practise, apprentice. There are spells in the higher pages that would make the King\'s guards weep with envy — and one day, perhaps, you\'ll teach them to the next curious eye that lingers at my maps.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Lady Maelis', text: 'My finest pupil. The coffer\'s full, the Art lives on, and you\'ve a spellbook of your own now. Keep casting — a mage who rests goes rusty as any blade.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 6 — "The Quiet Pilgrimage" (PRAYER). Sister Adela of the chapel sends
+  // the player on a small rite: gather and bury the bones of the fallen so their
+  // spirits rest, then kneel at the chapel altar to receive the Light's blessing.
+  // Burying is verified by watching Prayer XP climb from a snapshot taken at the
+  // start (no hook into prayer.js); the altar-visit is folded into that same XP
+  // climb (the altar grants no XP, so the bones must do the work — and the journal
+  // points the pilgrim there to recharge for the kneeling). Rewards Prayer XP,
+  // bones to keep the rite going, and a blessing-token.
+  // -------------------------------------------------------------------------
+  adela: {
+    id: 'adela',
+    name: 'The Quiet Pilgrimage',
+    giver: 'nun',
+    city: 'Eldenmoor',
+    intro: 'Sister Adela tends the chapel and grieves for the unburied dead beyond the walls. She seeks a gentle soul to lay their bones to rest and walk a small pilgrimage of the Light.',
+    startConfirm: {
+      prompt: 'Will you walk this quiet pilgrimage for the Light, and for the fallen?',
+      yes: 'I will, Sister. I\'ll lay them to rest.',
+      no: 'My road runs elsewhere for now.',
+      more: 'How does one bury bones?',
+      moreDialogue: [
+        { speaker: 'Sister Adela', text: 'When a beast or brigand falls, it leaves its bones behind. Take them up, and from your pack choose to bury them — a moment\'s kindness that frees the spirit and lifts your own Prayer besides.' },
+        { speaker: 'Sister Adela', text: 'Rats and goblins beyond the gate leave bones aplenty. Bury them as you go, and when your Prayer feels spent, kneel at our altar by the chapel door to be made whole again. That is the whole of the rite.' },
+      ],
+      noReply: 'Go gently all the same, child. The fallen will wait — they are patient, the dead. Return when your heart is quiet enough for the work.',
+      yesReply: [
+        { speaker: 'Sister Adela', text: 'Bless you. Then go out beyond the gate, and where the fallen leave their bones, bury them with a kind word. Do it until the Light grows bright in you — your Prayer will tell you when.' },
+        { speaker: 'Sister Adela', text: 'And when you are weary of spirit, kneel at our altar to be restored. Walk softly, pilgrim. The Light goes with you.' },
+      ],
+      // Snapshot Prayer XP at enrolment, so "bury the fallen" can be measured by
+      // the Prayer XP that burying grants — no hook into prayer.js required.
+      onAccept: (ctx) => { ctx.flags.prayerXpBase = (ctx.skills.state.prayer && ctx.skills.state.prayer.xp) || 0; },
+    },
+    startDialogue: [
+      { speaker: 'Sister Adela', text: 'Peace be with you, traveller. You\'ve the muddy boots of one who walks beyond the walls — and so you\'ll have seen what grieves me most.' },
+      { speaker: 'Sister Adela', text: 'The fallen out there — rats, brigands, goblins, it matters not — lie unburied, their bones bleaching in the cold. No spirit rests easy so. The Light asks that we tend even the least of the dead.' },
+      { speaker: 'Sister Adela', text: 'These chapel knees are too old for the long walk now. Would you go in my stead — gather the bones of the fallen, bury them kindly, and walk the altar-rite of the Light? It is a quiet pilgrimage, but a holy one.' },
+    ],
+    stages: [
+      {
+        name: 'Lay the fallen to rest',
+        journal: 'Sister Adela asks you to bury the bones of the fallen. Hunt beasts beyond the gate, take up the bones they leave, and bury them from your pack until the Light grows bright in you — gain roughly 30 Prayer XP. When weary of spirit, kneel at the chapel altar to be restored.',
+        objective: {
+          hint: 'Bury bones until you gain ~30 Prayer XP.',
+          check: (ctx) => {
+            const xp = (ctx.skills.state.prayer && ctx.skills.state.prayer.xp) || 0;
+            const base = ctx.flags.prayerXpBase || 0;
+            return (xp - base) >= 30;
+          },
+        },
+        progressHint: (ctx) => {
+          const xp = (ctx.skills.state.prayer && ctx.skills.state.prayer.xp) || 0;
+          const base = ctx.flags.prayerXpBase || 0;
+          return 'Prayer earned by burial (' + Math.min(Math.floor(xp - base), 30) + ' / 30).';
+        },
+        nudge: [
+          { speaker: 'Sister Adela', text: 'The fallen still lie unburied, child — I feel it. Take up their bones and bury them, one kind act at a time. The Light grows in you with each. And rest at the altar when your spirit tires.' },
+        ],
+      },
+      {
+        name: 'Bring an offering of bones',
+        journal: 'The fallen are tended, and the Light burns bright in you. Now Sister Adela asks for a small offering for the chapel reliquary: bring her 5 bones, blessed by your own hand, to keep the rite alive for pilgrims to come.',
+        objective: {
+          hint: 'Bring Sister Adela 5 bones for the reliquary.',
+          check: (ctx) => ctx.inventory.count('bones') >= 5,
+        },
+        progressHint: (ctx) => 'Bones for the reliquary (' + Math.min(ctx.inventory.count('bones'), 5) + ' / 5).',
+        nudge: [
+          { speaker: 'Sister Adela', text: 'You\'ve done the kind work — I feel the peace of it. But the reliquary wants its offering still: five bones, blessed by your hand. Then the pilgrimage is whole.' },
+        ],
+      },
+      {
+        name: 'Return to Sister Adela',
+        journal: 'You carry the offering and the Light\'s peace both. Return to Sister Adela at the chapel to close the pilgrimage and receive her blessing.',
+        objective: { hint: 'Return to Sister Adela at the chapel.', check: () => false },
+        nudge: [
+          { speaker: 'Sister Adela', text: 'You have the offering and the peace of the work upon you. Kneel a moment, and let me give you the Light\'s thanks properly.' },
+        ],
+      },
+    ],
+    // Takes the offering of bones for the reliquary, then gives a pilgrim's due:
+    // a generous slug of Prayer XP for the rite walked, a fresh supply of big
+    // bones to keep training Prayer, coins, and a blessing-token (clay pot of
+    // holy water, represented by a clay pot — the only blessing-vessel that exists).
+    reward: {
+      text: '180 coins, 3 Big bones, a blessed Clay pot, and 200 Prayer XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('bones', 5); // laid in the reliquary
+        ctx.inventory.add('coins', 180);
+        ctx.inventory.add('big_bones', 3); // to keep the rite — and your Prayer — going
+        ctx.inventory.add('clay_pot', 1); // a vessel for holy water — her blessing-token
+        ctx.skills.addXp('prayer', 200);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Sister Adela', text: 'You return, and the Light returns with you — I can see it on you, soft as candleglow. The fallen rest easy tonight, every one, because a stranger thought them worth a kind word.' },
+      { speaker: 'Sister Adela', text: 'Your offering goes in the reliquary, where pilgrims will honour it for years. And the peace of the work — that stays in you, where no thief can reach it.' },
+      { speaker: 'Sister Adela', text: 'Take these with my blessing: coin for your road, a few good bones to keep the rite alive in you, and a vessel of holy water against the dark places. You will find dark places, pilgrim. We all do.' },
+      { speaker: 'Sister Adela', text: 'Go gently, return safely, and be kinder than you must. The Light asks little else of those it loves. ...And do wipe your boots before the altar next time.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Sister Adela', text: 'Peace be with you, pilgrim. The fallen rest, the reliquary is full, and the Light is the brighter for your hands. Kneel at the altar whenever your spirit tires — its door is always open to you.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 7 — "Hilda's Hot Commission" (MINE / SMELT / SMITH). Hilda the axe-smith
+  // has a rush order she can't meet: she's out of bronze and her old back won't
+  // bear the mine. She sends the player the full smith's loop — mine copper and tin
+  // ore, smelt them to bronze bars at the furnace, hammer a bronze dagger on the
+  // anvil, and bring it back. Every beat is verified by checking the bag when the
+  // pupil talks to Hilda (low coupling — no hook into mining/smithing). Rewards a
+  // steel pickaxe to mine on with, a smithing hammer, coin, and Smithing XP.
+  // -------------------------------------------------------------------------
+  hilda: {
+    id: 'hilda',
+    name: 'Hilda\'s Hot Commission',
+    giver: 'hilda',
+    city: 'Eldenmoor',
+    intro: 'Hilda the axe-smith has a commission she can\'t fill — out of bronze and short of back. She needs a willing pair of hands to mine, smelt, and forge in her stead.',
+    startConfirm: {
+      prompt: 'So — will you work the whole loop for me? Mine, smelt, and forge?',
+      yes: 'Aye, Hilda. Ore to bar to blade — I\'ll do the lot.',
+      no: 'That\'s a deal of hammering. Another day.',
+      more: 'Walk me through the work.',
+      moreDialogue: [
+        { speaker: 'Hilda', text: 'Three steps, love, same as any smith learns. First the MINE: take a pickaxe to the copper and tin rocks and dig out the ore. You\'ll want enough for a couple of bars.' },
+        { speaker: 'Hilda', text: 'Then the FURNACE: smelt copper and tin together — that\'s bronze. Two bronze bars is what I need. Last, the ANVIL: with a hammer, hammer a bar into a bronze dagger. Bring me that dagger and we\'re square.' },
+        { speaker: 'Hilda', text: 'Furnace and anvil are both by Garrett\'s forge. Borrow a pickaxe and a hammer if you\'ve none — Bramble or the general lot keep them. Simple as that, once your arms learn the rhythm.' },
+      ],
+      noReply: 'Ha! Fair enough — it\'s honest sweat, smithing, and not for everyone. The commission\'ll keep a while. Come back when your arms are up for it.',
+      yesReply: [
+        { speaker: 'Hilda', text: 'That\'s the spirit, love! Right — first things first: get yourself to the rocks and mine copper and tin ore. Enough for two bronze bars, so a few lumps of each.' },
+        { speaker: 'Hilda', text: 'Don\'t come back till you\'ve dirt under your nails. Off you pop — the forge waits for no one and neither does my customer.' },
+      ],
+    },
+    startDialogue: [
+      { speaker: 'Hilda', text: 'Just the arms I wanted! Come here, love — I\'m in a fix and you\'ve the look of someone who can swing a tool without losing a finger.' },
+      { speaker: 'Hilda', text: 'Got a rush commission — a blade, due yesterday — and I\'m clean out of bronze, my ore-pile\'s bare, and my back won\'t bear the mine any more. A smith with no metal\'s just a loud woman with a hammer.' },
+      { speaker: 'Hilda', text: 'I can\'t leave the shop, but you can work the whole loop for me: mine the ore, smelt the bars, forge the blade. Do it and I\'ll set you up proper — good steel and good coin. What d\'you say?' },
+    ],
+    stages: [
+      {
+        name: 'Mine copper and tin ore',
+        journal: 'Hilda needs bronze. Equip a pickaxe and mine the copper and tin rocks until you carry 2 copper ore and 2 tin ore — enough for two bronze bars.',
+        objective: {
+          hint: 'Mine 2 copper ore and 2 tin ore.',
+          check: (ctx) => ctx.inventory.count('copper_ore') >= 2 && ctx.inventory.count('tin_ore') >= 2,
+        },
+        progressHint: (ctx) => 'Copper ore (' + Math.min(ctx.inventory.count('copper_ore'), 2) + ' / 2) and Tin ore (' + Math.min(ctx.inventory.count('tin_ore'), 2) + ' / 2).',
+        nudge: [
+          { speaker: 'Hilda', text: 'No ore yet, love? The copper and tin rocks won\'t mine themselves. Equip a pickaxe and dig — two of each, that\'s the order.' },
+        ],
+      },
+      {
+        name: 'Smelt the bronze bars',
+        journal: 'You have the ore. Take it to the furnace by Garrett\'s forge and smelt copper and tin together into bronze. Carry 2 bronze bars when you\'re done.',
+        objective: {
+          hint: 'Smelt 2 bronze bars at the furnace.',
+          check: (ctx) => ctx.inventory.count('bronze_bar') >= 2,
+        },
+        progressHint: (ctx) => 'Bronze bars (' + Math.min(ctx.inventory.count('bronze_bar'), 2) + ' / 2).',
+        nudge: [
+          { speaker: 'Hilda', text: 'Ore\'s no good to me raw, love. Off to the furnace — copper AND tin together makes bronze. Two bars. You\'re halfway there.' },
+        ],
+      },
+      {
+        name: 'Forge a bronze dagger',
+        journal: 'The bars are cast. Now to the anvil by the forge: with a hammer in your pack, hammer a bronze bar into a bronze dagger — the blade Hilda\'s commission calls for. Carry the finished dagger back to her.',
+        objective: {
+          hint: 'Forge a bronze dagger at the anvil, then bring it to Hilda.',
+          check: (ctx) => ctx.inventory.count('bronze_dagger') >= 1,
+        },
+        progressHint: (ctx) => 'Bronze dagger forged (' + Math.min(ctx.inventory.count('bronze_dagger'), 1) + ' / 1).',
+        nudge: [
+          { speaker: 'Hilda', text: 'Bars in hand and no blade yet? To the anvil with you — hammer a bar into a bronze dagger. That\'s the piece my customer\'s after.' },
+        ],
+      },
+      {
+        name: 'Bring the dagger to Hilda',
+        journal: 'The bronze dagger is forged and gleaming. Carry it back to Hilda at her axe shop to fill the commission and claim your reward.',
+        objective: { hint: 'Bring the finished bronze dagger to Hilda.', check: () => false },
+        nudge: [
+          { speaker: 'Hilda', text: 'Is that a finished dagger I spy? Bring it here to the counter, love, and let\'s call this commission done.' },
+        ],
+      },
+    ],
+    // Takes the commissioned dagger, then sets the new smith up for the trade: a
+    // steel pickaxe to mine faster, a hammer for the anvil, coin, and a generous
+    // slug of Smithing XP for the whole loop walked.
+    reward: {
+      text: 'a Steel pickaxe, a Hammer, 260 coins, and 200 Smithing XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('bronze_dagger', 1); // delivered to fill the commission
+        ctx.inventory.add('steel_pickaxe', 1);
+        ctx.inventory.add('hammer', 1);
+        ctx.inventory.add('coins', 260);
+        ctx.skills.addXp('smithing', 200);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Hilda', text: 'Now THAT\'S a bronze dagger — clean edge, true point, and you forged it with your own two hands. My customer\'ll never know it wasn\'t me. (Don\'t tell \'em, eh?)' },
+      { speaker: 'Hilda', text: 'You walked the whole loop, love — pit to furnace to anvil — and came out a smith. Took me a YEAR to learn what you did in an afternoon. These arms remember.' },
+      { speaker: 'Hilda', text: 'So here\'s your due, and no haggling: a steel pickaxe to dig faster than that borrowed thing, a good hammer of your own, and coin besides. A smith should own her tools.' },
+      { speaker: 'Hilda', text: 'Keep at it. Iron next, then steel, then who knows — mithril, if you\'ve the back for the deep rocks. Any time you\'ve metal to work, the forge by Garrett\'s is yours. Off you pop, smith.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Hilda', text: 'Commission filled and the customer happy — all your doing, love. You\'ve a smith\'s arms now and the tools to match. Bring me ore any time; I do love watching a pupil work.' },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
