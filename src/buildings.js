@@ -278,14 +278,10 @@ function makeCastle() {
   // tall clerestory beam spanning the nave + hanging banners between the columns
   for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) g.add(deco(box(0.12, 3.6, 1.6, mapped(T.heraldry), sx * 8.3, HALLH - 2.0, z)));
 
-  // throne room (back)
+  // throne room (back) — the dais; the throne itself + furnishings are real glTF
+  // models placed by castleFurniture.js (the old box-throne lived here).
   g.add(deco(box(12, 0.4, 5, marble, 0, 0.32, HD - 3, false)));   // dais step 1
   g.add(deco(box(8, 0.4, 3.5, marble, 0, 0.6, HD - 3, false)));   // dais step 2
-  g.add(deco(box(2.0, 0.9, 1.6, gold, 0, 1.25, HD - 2.4)));       // throne seat
-  g.add(deco(box(2.0, 3.0, 0.4, gold, 0, 2.6, HD - 1.7)));        // throne back
-  for (const sx of [-1, 1]) g.add(deco(box(0.3, 1.6, 1.6, gold, sx * 1.05, 1.6, HD - 2.4)));
-  g.add(deco(box(1.7, 0.3, 1.3, red, 0, 1.85, HD - 2.5)));        // cushion
-  g.add(deco(box(0.5, 0.6, 0.5, gold, 0, 4.3, HD - 1.7)));        // finial
   const sgThrone = new THREE.MeshStandardMaterial({ map: T.stainedGlass, emissive: 0xffffff, emissiveMap: T.stainedGlass, emissiveIntensity: 0.55, roughness: 0.3 });
   for (let i = 0; i < 5; i++) g.add(deco(box(2.2, 3.8, 0.2, sgThrone, -8 + i * 4, 4.3, HD - 0.6)));  // stained glass
   for (const sx of [-1, 1]) g.add(deco(box(2.4, 5.0, 0.12, mapped(T.heraldry), sx * 5.5, 4.0, HD - 0.7)));  // heraldic banners
