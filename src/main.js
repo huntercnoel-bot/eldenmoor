@@ -20,6 +20,7 @@ import { createRemotePlayers } from './players.js';
 import { setupSocial } from './social.js';
 import { showDialogue } from './dialogue.js';
 import { createQuests, QUEST_DEFS } from './quests.js';
+import './worldAmbience.js';   // self-contained outdoor sky-life (cloud drift + distant flock; polls window.eldenmoor)
 import './banking.js';   // self-contained OSRS-style bank (polls window.eldenmoor)
 import './minimap.js';   // self-contained OSRS-style minimap (polls window.eldenmoor)
 import './achievements.js';   // self-contained achievements / task diary (polls window.eldenmoor)
@@ -155,7 +156,7 @@ function startGame(username) {
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // cinematic, richer contrast + highlights
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.12;   // a touch brighter for cozy golden-hour warmth
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
 
@@ -514,10 +515,10 @@ function startGame(username) {
     if (keep.basement) keep.basement.visible = (n === -1);
     for (const o of scene.userData.outdoor || []) o.visible = (n === 0);   // town/trees/water/ground
     if (scene.userData.sky) scene.userData.sky.visible = (n !== -1);        // no sky underground
-    if (scene.userData.hemi) scene.userData.hemi.intensity = (n === -1) ? 0.32 : 1.0;
-    if (scene.userData.sun) scene.userData.sun.intensity = (n === -1) ? 0.25 : 2.7;
-    scene.background = new THREE.Color(n === -1 ? 0x100c08 : 0xdde9f0);
-    scene.fog = (n === -1) ? new THREE.Fog(0x100c08, 10, 55) : new THREE.Fog(0xc6dcee, 50, 150);
+    if (scene.userData.hemi) scene.userData.hemi.intensity = (n === -1) ? 0.32 : 0.92;
+    if (scene.userData.sun) scene.userData.sun.intensity = (n === -1) ? 0.25 : 2.95;
+    scene.background = new THREE.Color(n === -1 ? 0x100c08 : 0xe9dcbe);
+    scene.fog = (n === -1) ? new THREE.Fog(0x100c08, 10, 55) : new THREE.Fog(0xe6d6b0, 62, 168);
     collision.setActiveFloor(n);
     setNpcsFloor(npcs, n);
     remotePlayers.setVisible(n === 0);

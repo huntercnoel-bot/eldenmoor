@@ -149,7 +149,7 @@ export function buildWorld(scene) {
   // Warm, slightly denser haze that starts a touch further out so the foreground
   // meadow stays crisp while distant towers melt into golden light. Far stays at
   // 150 (perf): the draw distance is NOT increased, only the near edge eased back.
-  scene.fog = new THREE.Fog(0xdfe0c8, 70, 168);   // eased a touch further so landmarks read, cooler-warm haze
+  scene.fog = new THREE.Fog(0xe6d6b0, 62, 168);   // warmer golden haze, eased in a touch so distance reads with depth (far unchanged — perf)
   scene.userData.outdoor = [];        // scenery toggled off when you go upstairs / underground
 
   // Custom gradient sky dome (deep blue zenith -> warm gold horizon glow) with a
@@ -179,15 +179,15 @@ export function buildWorld(scene) {
   // deepest cel-shade bands under the canopy never read as muddy black — the
   // realm stays sunlit, not gloomy. Driven through hemi (not a separate ambient)
   // so main.js's floor-toggle still dims it correctly when you go underground.
-  const hemi = new THREE.HemisphereLight(0xf8e8c8, 0x5f5230, 1.0);
+  const hemi = new THREE.HemisphereLight(0xfbe6bd, 0x6a5836, 0.92);
   scene.add(hemi); scene.userData.hemi = hemi;
 
   // The "sun": a warm directional key that casts the shadows. Lowered + swung
   // toward the horizon for a longer, golden-hour rake across the smooth forms.
   // Intensity stays 2.7 to match main.js's surface reset.
-  const sun = new THREE.DirectionalLight(0xffe0ad, 2.7);
+  const sun = new THREE.DirectionalLight(0xffd79a, 2.95);
   scene.userData.sun = sun;
-  sun.position.set(48, 40, 26);                 // lower + warmer raking angle
+  sun.position.set(54, 34, 22);                 // lower, more side-on golden-hour rake for longer shadows + lit stone faces
   sun.castShadow = true;
   // 1024² instead of 2048² — quarter the shadow-pass fragment work for a barely
   // perceptible softness change under the cel-shade bands.
@@ -204,7 +204,7 @@ export function buildWorld(scene) {
   // A cool, dim sky-fill from the opposite side. It does NOT cast shadows; it
   // just keeps the shaded sides from going dead-flat and adds gentle blue
   // counter-light against the warm sun — the classic warm/cool form read.
-  const skyFill = new THREE.DirectionalLight(0xaecce8, 0.55);
+  const skyFill = new THREE.DirectionalLight(0xb3d2f0, 0.6);
   skyFill.position.set(-38, 24, -30);
   scene.add(skyFill); scene.userData.skyFill = skyFill;
 
