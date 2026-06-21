@@ -5,10 +5,10 @@
 // the solid bits (cottages, fountain, fences, posts) block you automatically.
 
 import * as THREE from '../vendor/three.module.js';
-import { stoneTexture, plasterTexture, shingleTexture } from './textures.js';
+import { stoneTexture, plasterTexture, shingleTexture, pathTexture } from './textures.js';
 
 let TX = null;
-function tex() { if (!TX) TX = { road: stoneTexture(10), plaster: plasterTexture(), shingle: shingleTexture(4), wall: stoneTexture(3) }; return TX; }
+function tex() { if (!TX) TX = { road: stoneTexture(10), plaster: plasterTexture(), shingle: shingleTexture(4), wall: stoneTexture(3), path: pathTexture(7) }; return TX; }
 
 const flat = (c, r = 0.95) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: 0, flatShading: true });
 const mapped = (m, c = 0xffffff, r = 0.92) => new THREE.MeshStandardMaterial({ map: m, color: c, roughness: r, metalness: 0 });
@@ -65,6 +65,28 @@ export function buildTown(scene) {
   const g = new THREE.Group();
   const lampMat = new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.4, roughness: 0.5 });
   const dark = flat(0x2a2622), wood = flat(0x6b4a2c), stone = mapped(T.wall);
+
+  // --- worn dirt lanes: trodden earth connecting the square out to the chapel,
+  // graveyard, stable and windmill, and a soft earthen apron hugging the paving
+  // so the stone square meets the meadow through packed earth, not a hard edge.
+  // Flat decorative planes laid just above the grass (below the stone paving).
+  const laneMat = () => new THREE.MeshStandardMaterial({ map: T.path, roughness: 1, transparent: true, opacity: 0.95, depthWrite: false });
+  const lane = (x, z, w, d, rot = 0) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), laneMat());
+    m.rotation.x = -Math.PI / 2; m.rotation.z = rot;
+    m.position.set(x, 0.03, z); m.receiveShadow = true;
+    g.add(deco(m));
+  };
+  // a soft earthen apron under and just around the market square
+  lane(0, 16, 38, 20);
+  // lane west to the chapel + graveyard quarter
+  lane(-20, 12, 22, 5.5, Math.PI / 9);
+  lane(-29, 9, 5, 12);
+  // lane east to the stable + windmill quarter
+  lane(20, 8, 22, 5.5, -Math.PI / 8);
+  lane(29, -2, 5, 14, Math.PI / 16);
+  // short spur south toward the spawn approach
+  lane(0, 0, 9, 14);
 
   // --- paving: square + approach road (flat, walkable) ---
   g.add(deco(box(34, 0.16, 16, mapped(T.road, 0xc2b79a), 0, 0.04, 16, false)));

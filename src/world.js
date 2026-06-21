@@ -5,7 +5,7 @@ import * as THREE from '../vendor/three.module.js';
 import { buildStructures, STRUCTURES } from './buildings.js';
 import { buildTown, townStructures } from './town.js';
 import { buildWater, waterStructures } from './water.js';
-import { grassTexture, dirtTexture, barkTexture } from './textures.js';
+import { grassTexture, dirtTexture, barkTexture, pathTexture } from './textures.js';
 import { gameMessage } from './ui.js';
 
 // The pond sits here. We also keep trees from spawning on top of it.
@@ -18,9 +18,12 @@ export function buildWorld(scene) {
   // band so the far scenery melts into the same warm light. Fog is pulled in a
   // little and given a gentle gradient so distant towers read with airy depth
   // without crushing the foreground or blowing out the cel-shaded mid-tones.
-  const HORIZON = 0xead9bd;            // warm hazy gold at the skyline
+  const HORIZON = 0xecd9b6;            // warm hazy gold at the skyline
   scene.background = new THREE.Color(HORIZON);
-  scene.fog = new THREE.Fog(0xdcd2c4, 48, 150);   // pulled in for performance (was 205)
+  // Warm, slightly denser haze that starts a touch further out so the foreground
+  // meadow stays crisp while distant towers melt into golden light. Far stays at
+  // 150 (perf): the draw distance is NOT increased, only the near edge eased back.
+  scene.fog = new THREE.Fog(0xe2d4ba, 62, 150);   // pulled in for performance (was 205)
   scene.userData.outdoor = [];        // scenery toggled off when you go upstairs / underground
 
   // Custom gradient sky dome (deep blue zenith -> warm gold horizon glow) with a
@@ -39,7 +42,11 @@ export function buildWorld(scene) {
   // Kept gentle so the flat toon bands stay readable and shadows don't go inky.
   // NOTE: base surface intensity stays 1.0 so the floor-toggle in main.js (which
   // resets this to 1.0 above ground) matches what we set here.
-  const hemi = new THREE.HemisphereLight(0xf3e2c2, 0x4d4126, 1.0);
+  // Warmer sky tint + a slightly lifted, warmer earthy ground bounce so the
+  // deepest cel-shade bands under the canopy never read as muddy black — the
+  // realm stays sunlit, not gloomy. Driven through hemi (not a separate ambient)
+  // so main.js's floor-toggle still dims it correctly when you go underground.
+  const hemi = new THREE.HemisphereLight(0xf8e8c8, 0x5f5230, 1.0);
   scene.add(hemi); scene.userData.hemi = hemi;
 
   // The "sun": a warm directional key that casts the shadows. Lowered + swung
@@ -60,19 +67,47 @@ export function buildWorld(scene) {
   // A cool, dim sky-fill from the opposite side. It does NOT cast shadows; it
   // just keeps the shaded sides from going dead-flat and adds gentle blue
   // counter-light against the warm sun — the classic warm/cool form read.
-  const skyFill = new THREE.DirectionalLight(0x9fb8d8, 0.45);
+  const skyFill = new THREE.DirectionalLight(0xa6c0e0, 0.5);
   skyFill.position.set(-38, 24, -30);
   scene.add(skyFill); scene.userData.skyFill = skyFill;
 
   // --- Ground ---
+  const grassMap = grassTexture();
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshStandardMaterial({ map: grassTexture(), roughness: 1, metalness: 0 })
+    new THREE.MeshStandardMaterial({ map: grassMap, color: 0xeef0e0, roughness: 1, metalness: 0 })
   );
   ground.rotation.x = -Math.PI / 2;  // lay the plane flat
   ground.receiveShadow = true;
   scene.add(ground);
   scene.userData.ground = ground; // used to raycast a "walk here" point
+
+  // Soft, broad colour patches laid just over the lawn so the ground reads as a
+  // living meadow with sun-warmed and shaded ground rather than one flat sheet.
+  // They're large, very translucent, low-poly discs — cheap and purely visual.
+  // Reuse the grass map but tint each disc and fade it via opacity for a smooth
+  // blotch that blends into the turf (no hard seams).
+  const meadowPatch = (x, z, r, color, op) => {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(r, 18),
+      new THREE.MeshStandardMaterial({ map: grassMap, color, roughness: 1, transparent: true, opacity: op, depthWrite: false })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, 0.008, z);
+    m.receiveShadow = true;
+    scene.add(m);
+    scene.userData.outdoor.push(m);
+  };
+  // ring of varied-tone patches out around the town/forest edge
+  const patchTones = [0xbfd28a, 0x7f9456, 0xcabf86, 0x9ab16a];
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
+    const rad = 30 + Math.random() * 48;
+    const px = Math.cos(a) * rad, pz = Math.sin(a) * rad;
+    // skip patches that would land on the pond
+    if (Math.hypot(px - POND.x, pz - POND.z) < POND.r + 3) continue;
+    meadowPatch(px, pz, 6 + Math.random() * 9, patchTones[i % patchTones.length], 0.22 + Math.random() * 0.16);
+  }
 
   // A lighter "dirt" clearing where the hero starts.
   const clearing = new THREE.Mesh(
@@ -83,6 +118,29 @@ export function buildWorld(scene) {
   clearing.position.y = 0.01;        // just above the ground to avoid flicker
   clearing.receiveShadow = true;
   scene.add(clearing);
+
+  // Worn dirt approach road running south from the spawn clearing out into the
+  // meadow, plus a couple of branching footpaths toward the pond and the forest
+  // edge, so the world has trodden ways rather than an untouched green carpet.
+  // These are flat, decorative, walkable strips laid just over the grass.
+  const pathMap = pathTexture(8);
+  const pathStrip = (x, z, w, d, rot = 0, op = 0.92) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, d),
+      new THREE.MeshStandardMaterial({ map: pathMap, roughness: 1, transparent: true, opacity: op, depthWrite: false })
+    );
+    m.rotation.x = -Math.PI / 2; m.rotation.z = rot;
+    m.position.set(x, 0.012, z);
+    m.receiveShadow = true;
+    scene.add(m);
+    scene.userData.outdoor.push(m);
+  };
+  // southern road out of the clearing toward the forest road
+  pathStrip(0, -22, 5, 30);
+  // a path easing toward the pond shore on the east
+  pathStrip(12, -16, 4.2, 18, Math.PI / 2.6, 0.85);
+  // a path wandering off to the western tree line
+  pathStrip(-16, -20, 3.8, 16, -Math.PI / 5, 0.85);
 
   // A little pond off to the side, as a landmark. A muddy shore ring softens the
   // edge into the grass, and a gently domed water disc reads smoother than a flat
@@ -138,22 +196,57 @@ export function buildWorld(scene) {
   ];
   const trees = [];
   for (const band of FOREST) {
-    for (let i = 0; i < band.count; i++) {
-      const p = band.near ? spotNear(band.near, 7, 13) : spot(band.range);
+    let placed = 0, guard = 0;
+    while (placed < band.count && guard++ < band.count * 12) {
+      // Natural clustering: most trees of a band sprout in little groves seeded
+      // off the first member, so the forest reads as clumps with clearings
+      // between them instead of an evenly-sprinkled lattice. Willows still hug
+      // the pond. ~40% of trees seed a fresh grove; the rest nestle near it.
+      let p;
+      if (band.near) {
+        p = spotNear(band.near, 7, 13);
+      } else if (placed === 0 || Math.random() < 0.4) {
+        p = spot(band.range);
+      } else {
+        const c = trees[trees.length - 1].position;   // cluster around the last one
+        p = spotNear({ x: c.x, z: c.z }, 3.5, 8.5);
+      }
       const tree = makeTree(p.x, p.z, band.tier, bark);
       scene.add(tree);
       trees.push(tree);
+      placed++;
     }
   }
   scene.userData.trees = trees;
   scene.userData.outdoor.push(...trees);
   installWoodcuttingHook(); // tier-aware logs/XP + chop juice (vfx/audio)
 
+  // Rocks tend to gather where trees thin out — scatter most singly, but let a
+  // few cluster into little rocky outcrops for a more natural, weathered look.
   const rocks = [];
-  for (let i = 0; i < 24; i++) { const p = spot(72); const r = makeRock(p.x, p.z); scene.add(r); rocks.push(r); }
+  for (let i = 0; i < 22; i++) {
+    const p = spot(72);
+    const r = makeRock(p.x, p.z); scene.add(r); rocks.push(r);
+    if (Math.random() < 0.4) {                       // a companion boulder or two nearby
+      const near = spotNear({ x: p.x, z: p.z }, 1.0, 2.6);
+      const r2 = makeRock(near.x, near.z); r2.scale.multiplyScalar(0.6 + Math.random() * 0.4);
+      scene.add(r2); rocks.push(r2);
+    }
+  }
   scene.userData.rocks = rocks;
   scene.userData.outdoor.push(...rocks);
-  for (let i = 0; i < 70; i++) { const p = spot(74); const gr = makeGrass(p.x, p.z); scene.add(gr); scene.userData.outdoor.push(gr); }
+
+  // Grass tufts: clustered into patches and concentrated along the forest fringe
+  // and near the dirt paths so the meadow feels lush near the action and the
+  // treeline is softened, rather than tufts sprinkled uniformly everywhere.
+  for (let i = 0; i < 34; i++) {
+    const p = spot(76);
+    const n = 2 + ((Math.random() * 4) | 0);          // a little knot of tufts
+    for (let k = 0; k < n; k++) {
+      const q = k === 0 ? p : spotNear({ x: p.x, z: p.z }, 0.6, 2.4);
+      const gr = makeGrass(q.x, q.z); scene.add(gr); scene.userData.outdoor.push(gr);
+    }
+  }
 }
 
 // --- Atmosphere helpers ----------------------------------------------------
@@ -505,33 +598,57 @@ function installWoodcuttingHook() {
 
 // A rounded, water-worn boulder: a higher-poly sphere warped into a few smooth
 // lobes with smooth normals, so it lights softly instead of showing hard facets.
+// Each gets a slightly varied warm/cool grey so an outcrop reads as real stone.
 function makeRock(x, z) {
   const size = 0.6 + Math.random() * 0.9;
+  // Slightly varied warm-grey stone: a base grey nudged a touch warmer or cooler.
+  const lum = 0x76 + ((Math.random() * 0x22) | 0);
+  const warm = (Math.random() * 8) | 0;
+  const tint = ((lum + warm) << 16) | (lum << 8) | Math.max(0, lum - warm);
   const rock = new THREE.Mesh(
-    lumpify(new THREE.SphereGeometry(size, 14, 10), 0.22, Math.random() * 10),
-    new THREE.MeshStandardMaterial({ color: 0x8b8780, roughness: 0.85, metalness: 0.05 })
+    lumpify(new THREE.SphereGeometry(size, 14, 10), 0.24, Math.random() * 10),
+    new THREE.MeshStandardMaterial({ color: tint, roughness: 0.9, metalness: 0.05 })
   );
   rock.position.set(x, size * 0.32, z);
-  rock.scale.set(1, 0.55 + Math.random() * 0.45, 1);   // squat, settled into the ground
+  rock.scale.set(1, 0.5 + Math.random() * 0.5, 1);     // squat, settled into the ground
   rock.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.4);
   rock.castShadow = true; rock.receiveShadow = true;
   rock.userData = { kind: 'rock' };
   return rock;
 }
 
-// A little tuft of grass blades — rounded, slightly curved, smooth-shaded.
+// A little tuft of grass blades — rounded, slightly curved, smooth-shaded — with
+// varied scale and the occasional wildflower so the meadow feels hand-planted.
+const FLOWER_COLS = [0xd6534a, 0xe8c24a, 0x9a6cc8, 0xe6e6e6, 0xe07ab0];
 function makeGrass(x, z) {
   const g = new THREE.Group();
   const tint = 0x5f7a32 + ((Math.random() * 0x0a1006) | 0);
   const mat = new THREE.MeshStandardMaterial({ color: tint, roughness: 1 });
-  const n = 3 + ((Math.random() * 3) | 0);
+  const n = 3 + ((Math.random() * 4) | 0);
   for (let i = 0; i < n; i++) {
-    const h = 0.45 + Math.random() * 0.35;
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.06, h, 6), mat);
-    blade.position.set((Math.random() - 0.5) * 0.55, h / 2, (Math.random() - 0.5) * 0.55);
-    blade.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.5);
+    const h = 0.4 + Math.random() * 0.45;
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05 + Math.random() * 0.03, h, 6), mat);
+    blade.position.set((Math.random() - 0.5) * 0.6, h / 2, (Math.random() - 0.5) * 0.6);
+    blade.rotation.set((Math.random() - 0.5) * 0.55, Math.random() * Math.PI, (Math.random() - 0.5) * 0.55);
+    blade.castShadow = true; blade.receiveShadow = true;
     g.add(blade);
   }
+  // ~30% of tufts carry a small wildflower on a thin stem for colour in the grass.
+  if (Math.random() < 0.3) {
+    const fh = 0.5 + Math.random() * 0.3;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, fh, 5),
+      new THREE.MeshStandardMaterial({ color: 0x537032, roughness: 1 }));
+    stem.position.set((Math.random() - 0.5) * 0.3, fh / 2, (Math.random() - 0.5) * 0.3);
+    g.add(stem);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6),
+      new THREE.MeshStandardMaterial({ color: FLOWER_COLS[(Math.random() * FLOWER_COLS.length) | 0],
+        roughness: 0.7, emissive: 0x1a1408, emissiveIntensity: 0.25 }));
+    head.position.set(stem.position.x, fh, stem.position.z);
+    head.scale.set(1, 0.7, 1);
+    g.add(head);
+  }
   g.position.set(x, 0, z);
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.scale.setScalar(0.8 + Math.random() * 0.6);
   return g;
 }
