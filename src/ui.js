@@ -263,9 +263,49 @@ export function initQuestTab() {
   setInterval(refreshAlert, 1500);
 }
 
+/* ===================== Skills tab — labelled cells =====================
+   skills.js (not ours) renders each cell as just an icon + level, which makes
+   the 16-skill grid hard to read at a glance. We don't own that file, so we
+   watch #skills-tab and inject a small skill-name label into each .skill-cell
+   on every (re-)render, parsing the name from the cell's existing tooltip
+   ("Attack — level 1\n…"). Purely cosmetic, idempotent, and survives the
+   gameplay code re-rendering the grid. */
+export function initSkillLabels() {
+  const tab = document.getElementById('skills-tab');
+  if (!tab || typeof MutationObserver === 'undefined') return;
+
+  function skillName(cell) {
+    // title may already be hoisted into a data attr by initTooltips()
+    const raw = cell.getAttribute('title') || cell.dataset.emTipCache || '';
+    const m = String(raw).split(/\s+[—–-]\s+/)[0].trim();
+    return m || '';
+  }
+
+  function decorate() {
+    const cells = tab.querySelectorAll('.skill-cell');
+    cells.forEach((cell) => {
+      if (cell.querySelector('.sc-name')) return;     // already labelled
+      const name = skillName(cell);
+      if (!name) return;
+      const lvl = cell.querySelector('.sc-lv');
+      const lbl = document.createElement('span');
+      lbl.className = 'sc-name';
+      lbl.textContent = name;
+      // place the name between the icon and the level for a tidy row
+      if (lvl) cell.insertBefore(lbl, lvl);
+      else cell.appendChild(lbl);
+    });
+  }
+
+  decorate();
+  const mo = new MutationObserver(() => decorate());
+  mo.observe(tab, { childList: true, subtree: true });
+}
+
 // Convenience: start the cosmetic HUD systems.
 export function initHudExtras() {
   initTooltips();
   initMinimap();
   initQuestTab();
+  initSkillLabels();
 }
