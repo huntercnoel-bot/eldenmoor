@@ -480,23 +480,37 @@ function makeClouds() {
     emissive: 0xf3e6cf, emissiveIntensity: 0.25,
     transparent: true, opacity: 0.85, fog: false, depthWrite: false,
   });
+  // The puffs are static decorative geometry that only ever toggles .visible as a
+  // whole, so we bake every puff's cluster + local transform into its geometry and
+  // merge them into ONE mesh (one draw call, one outline hull) instead of ~36
+  // separate spheres. Visually identical — same material, same world placements.
   const clusters = 9;
+  const geos = [];
+  const clusterM = new THREE.Matrix4(), puffM = new THREE.Matrix4();
+  const q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  const noRot = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
   for (let i = 0; i < clusters; i++) {
-    const cl = new THREE.Group();
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 120 + Math.random() * 160;
+    q.setFromAxisAngle(up, Math.random() * Math.PI * 2);
+    clusterM.compose(pos.set(Math.cos(ang) * rad, 95 + Math.random() * 55, Math.sin(ang) * rad), q, scl.set(1, 1, 1));
     const puffs = 3 + ((Math.random() * 3) | 0);
     for (let p = 0; p < puffs; p++) {
       const s = 7 + Math.random() * 9;
-      const m = new THREE.Mesh(lumpify(new THREE.SphereGeometry(s, 10, 8), 0.12, Math.random() * 10), mat);
-      m.position.set((Math.random() - 0.5) * 26, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 18);
-      m.scale.set(1.5, 0.55, 1.2);
-      cl.add(m);
+      const geo = lumpify(new THREE.SphereGeometry(s, 10, 8), 0.12, Math.random() * 10);
+      puffM.compose(
+        pos.set((Math.random() - 0.5) * 26, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 18),
+        noRot,
+        scl.set(1.5, 0.55, 1.2));
+      geo.applyMatrix4(puffM);                 // bake the puff's local pos+scale
+      geo.applyMatrix4(clusterM);              // then the cluster's world transform
+      geos.push(geo);
     }
-    const ang = Math.random() * Math.PI * 2;
-    const rad = 120 + Math.random() * 160;
-    cl.position.set(Math.cos(ang) * rad, 95 + Math.random() * 55, Math.sin(ang) * rad);
-    cl.rotation.y = Math.random() * Math.PI * 2;
-    g.add(cl);
   }
+  const merged = mergeGeometries(geos, false);
+  for (const geo of geos) geo.dispose();       // free the per-puff source geometries
+  const cloud = new THREE.Mesh(merged, mat);
+  g.add(cloud);
   g.renderOrder = -1;
   return g;
 }
@@ -566,6 +580,12 @@ function lumpify(geo, amount, seed) {
 // models (oaks read as broad common trees, willows/yews/magic borrow distinct
 // silhouettes from the pine/birch/dead sets) plus a base scale so the species
 // stand at a believable, varied height. `pick` chooses a model for a placement.
+// Shared chop-stump resources: identical geometry + material across every tree,
+// never modified per-instance, so they're built once and reused (43+ fewer
+// geometry/material allocations than minting a fresh pair per tree).
+const STUMP_GEO = new THREE.CylinderGeometry(0.22, 0.3, 0.5, 9, 1);
+const STUMP_MAT = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.95 });
+
 const TREE_MODELS = {
   normal: { models: ['nat_CommonTree_1', 'nat_CommonTree_3', 'nat_BirchTree_1'], h: 5.5 },
   oak:    { models: ['nat_CommonTree_1', 'nat_CommonTree_3', 'nat_CommonTree_Autumn_2'], h: 7.0 },
@@ -587,10 +607,11 @@ function makeTree(scene, x, z, tier) {
 
   // A short stump that stays behind when the tree is chopped (the GLB foliage is
   // hidden). Tinted to read as fresh-cut wood; matches the toon look via the pass.
-  const stump = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.3, 0.5, 9, 1),
-    new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.95 })
-  );
+  // The stump geometry + material are identical for every tree and never mutated
+  // per-instance, so all 44 trees share one cached geometry + material (saving
+  // dozens of buffer/material allocations) — each stump is still its own Mesh so
+  // it stays addressable.
+  const stump = new THREE.Mesh(STUMP_GEO, STUMP_MAT);
   stump.position.y = 0.25; stump.castShadow = true; stump.receiveShadow = true;
   g.add(stump);
 
