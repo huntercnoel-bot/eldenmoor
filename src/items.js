@@ -282,6 +282,29 @@ ITEMS.ancient_shard = {
     <path d="M16 5 L18 16 L14 22" fill="none" stroke="#aef0bf" stroke-width="0.8" opacity="0.7"/></svg>`,
 };
 
+// ---- Boss uniques: the Hollow King's regalia (best-in-slot rewards) ----------
+ITEMS.crown_of_the_hollow = {
+  id: 'crown_of_the_hollow', name: 'Crown of the Hollow', stackable: false, value: 6000,
+  equipable: true, slot: 'head', bonuses: { defence: 26, attack: 4 }, metalColor: 0xcaa44a,
+  examine: 'The gilded crown of the Hollow King. It is colder than it has any right to be.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="22" r="15" fill="#caa44a" opacity="0.18"/>
+    <path d="M7 28 L7 18 L13 23 L20 13 L27 23 L33 18 L33 28 Z" fill="#e6c25a" stroke="#7a5a18" stroke-width="1.4"/>
+    <rect x="7" y="28" width="26" height="4" rx="1.5" fill="#c89a36" stroke="#7a5a18" stroke-width="1.2"/>
+    <circle cx="13" cy="20" r="1.6" fill="#6fdf8a"/><circle cx="20" cy="15" r="1.8" fill="#ff5a6a"/><circle cx="27" cy="20" r="1.6" fill="#6fdf8a"/></svg>`,
+};
+ITEMS.hollow_blade = {
+  id: 'hollow_blade', name: 'Hollow Blade', stackable: false, value: 9000,
+  equipable: true, slot: 'weapon', tool: 'sword', chopTime: 1.0, headColor: 0xbfe6c8,
+  bonuses: { attack: 74, strength: 70 }, examine: 'The Hollow King’s greatsword, wreathed in pale necrotic light.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="15" fill="#9af0c0" opacity="0.16"/>
+    <path d="M20 4 L24 26 L20 32 L16 26 Z" fill="#d8f0e0" stroke="#4a7a5a" stroke-width="1.3"/>
+    <path d="M20 6 L20 28" stroke="#bfffe0" stroke-width="1" opacity="0.9"/>
+    <rect x="12" y="27" width="16" height="2.8" rx="1.2" fill="#6b4a2f"/><rect x="18.4" y="28" width="3.2" height="7" rx="1.3" fill="#6b4a2f"/>
+    <circle cx="20" cy="31" r="1.6" fill="#6fdf8a"/></svg>`,
+};
+
 // ---- Higher-tier logs (appended by the Woodcutting extension; additive only) ----
 // Values follow OSRS log spacing scaled down: better wood is worth more. Each
 // icon is the same banded log motif tinted to its species so they read at a

@@ -57,6 +57,7 @@ const MONSTER_MODEL = {
   skeleton:         { file: 'Skeleton_Minion.glb', h: 1.70, face: 0 },
   skeleton_warrior: { file: 'Skeleton_Minion.glb', h: 1.95, face: 0 },
   zombie:           { file: 'Skeleton_Minion.glb', h: 1.65, face: 0, tint: 0x4a6b34 },
+  hollow_king:      { file: 'Skeleton_Minion.glb', h: 2.85, face: 0, tint: 0xcaa44a },   // giant gilded bone-king
 };
 
 // SkinnedMesh-safe deep clone (inlined three.js SkeletonUtils.clone). A plain
@@ -518,6 +519,24 @@ export const MONSTER_TYPES = {
       { id: 'ancient_shard', chance: 0.018, min: 1, max: 1 },    // rare themed
     ],
   },
+  // THE BOSS — the Hollow King, a giant gilded skeleton ruling the inner crypt.
+  // A real fight: heavy HP/defence and big hits, but slow. Guaranteed great loot,
+  // including a near-even chance at one of two uniques (his crown or his blade).
+  hollow_king: {
+    id: 'hollow_king', name: 'The Hollow King', build: buildGoblin, scale: 1.0,
+    maxHp: 220, dmg: [10, 24], attackSpeed: 2.6, defense: 22,
+    aggroRange: 12, leashRange: 40, speed: 2.0, hpBarY: 3.4, boss: true,
+    xp: 340, loot: [
+      { id: 'big_bones', chance: 1.0, min: 2, max: 3 },          // always, plenty
+      { id: 'coins', chance: 1.0, min: 200, max: 600 },          // a king's purse
+      { id: 'ancient_shard', chance: 1.0, min: 1, max: 2 },      // always (curio)
+      { id: 'coal', chance: 0.7, min: 3, max: 8 },
+      { id: 'mithril_ore', chance: 0.4, min: 1, max: 3 },
+      { id: 'death_rune', chance: 0.5, min: 5, max: 15 },        // arcane spoils
+      { id: 'crown_of_the_hollow', chance: 0.5, min: 1, max: 1 },// UNIQUE (head)
+      { id: 'hollow_blade', chance: 0.5, min: 1, max: 1 },       // UNIQUE (weapon)
+    ],
+  },
 };
 
 // Where monsters live, laid out as OSRS-style SPAWN ZONES that ramp in danger
@@ -559,6 +578,8 @@ const SPAWN_CLUSTERS = [
   ['zombie', -96, 80, 2],
   ['skeleton_warrior', -107, 88, 2],
   ['skeleton_warrior', -120, 96, 1],
+  // The boss holds the inner crypt — a single Hollow King.
+  ['hollow_king', -107, 100, 1],
 ];
 
 const rand = (a, b) => a + Math.random() * (b - a);
