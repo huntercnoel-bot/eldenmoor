@@ -5,61 +5,55 @@ Pages). **Multiplayer needs a running server** — `mpserver.py` — because Git
 can only host static files, not a live game server.
 
 `mpserver.py` is pure Python (standard library only — nothing to install) and serves
-**both the game files and the multiplayer WebSocket on one address**. So whoever you
-both connect to, you'll be in the same world: make accounts, log in, and you'll see
-each other move and chat.
-
-You have two ways to get your friend in. Pick one.
+**both the game files and the multiplayer WebSocket on one address**. Whoever you both
+connect to, you'll be in the same world: make accounts, log in, see each other move
+and chat.
 
 ---
 
-## Option A — Play right now (free, no signup): a Cloudflare tunnel
+## ✅ Recommended: deploy to Render (free, browser-only, always-on)
 
-Best for a quick session. The server runs on **your** PC and a tunnel gives it a
-public link you send to your friend.
+No command line, nothing to download, and the server stays up even when your PC is off.
 
-1. **Get Python** (if you don't have it): https://www.python.org/downloads/ — during
-   install tick *"Add Python to PATH"*.
-2. **Get cloudflared** (one small file, no account):
-   https://github.com/cloudflare/cloudflared/releases
-   - Windows: download `cloudflared-windows-amd64.exe`, rename it to `cloudflared.exe`,
-     and put it in this folder (next to `host-with-friend.bat`).
-   - Mac/Linux: `brew install cloudflared` (or download the binary).
-3. **Start it:**
-   - Windows: double-click **`host-with-friend.bat`**
-   - Mac/Linux: run **`./host-with-friend.sh`**
-4. A line like `https://red-sky-1234.trycloudflare.com` appears. **Send that link to
-   your friend.** You both open it, click **Create account**, then **Log in** — and
-   you're in the same world.
-5. Keep that window open while you play. Close it (or Ctrl+C) to stop.
+### One-click
 
-> The link changes every time you start it, so just resend the new one. Your friend
-> needs nothing installed — only the link.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/huntercnoel-bot/eldenmoor)
 
----
-
-## Option B — An always-on server (free): deploy to Render
-
-Best if you want a server that's up even when your PC is off. ~5 minutes once.
-
-1. Go to https://render.com and sign up (you can use your GitHub account — free).
-2. **New ➜ Web Service**, and connect this repository (`eldenmoor`).
-3. Render reads **`render.yaml`** automatically. If it asks, set:
-   - **Runtime:** Python
-   - **Start command:** `python mpserver.py`
-   - **Plan:** Free
-4. Click **Deploy**. After a minute you get a URL like
+1. Click the button above (or go to https://render.com/deploy?repo=https://github.com/huntercnoel-bot/eldenmoor).
+2. Sign in to Render — you can use your **GitHub account** (free, ~30 seconds).
+3. Render reads **`render.yaml`** and fills everything in. Click **Apply / Create**.
+4. Wait ~1–2 minutes for the first build. You'll get a URL like
    `https://eldenmoor.onrender.com`.
-5. **That URL is your game.** You and your friend both open it, make accounts, log in,
-   and play together.
+5. **That URL is your game.** You and your friend both open it, click **Create
+   account**, then **Log in** — and you're in the same world.
 
-> Notes on the free tier: the server "sleeps" after ~15 min idle, so the first visit
-> after a quiet spell takes ~30s to wake up. Accounts can reset if the service
-> restarts/redeploys — fine for messing around; tell me if you want accounts to
-> persist and I'll wire up a database.
+### If you'd rather click through manually
+**New ➜ Web Service ➜** connect the `eldenmoor` repo. Render detects `render.yaml`; if
+it asks, set **Runtime: Python**, **Build: `pip install -r requirements.txt`**,
+**Start: `python mpserver.py`**, **Plan: Free**. Deploy.
 
-(There's also a `Dockerfile` if you'd rather use Fly.io, Railway, or any Docker host —
-the start command is just `python mpserver.py`.)
+> **Free-tier notes:** the server "sleeps" after ~15 min idle, so the first visit after
+> a quiet spell takes ~30s to wake. Accounts can reset if the service restarts/redeploys.
+> Both are fine for casual play — tell me if you want accounts to persist and I'll add a
+> small database.
+
+---
+
+## ⚡ Alternative: play right now via a Cloudflare tunnel (no signup)
+
+Best for a one-off session tonight. The server runs on **your** PC; a tunnel gives it a
+public link.
+
+1. Install **Python** (tick *"Add to PATH"*): https://www.python.org/downloads/
+2. Download **cloudflared** (one file, no account) into this folder:
+   https://github.com/cloudflare/cloudflared/releases
+   (Windows: get `cloudflared-windows-amd64.exe`, rename to `cloudflared.exe`.)
+3. Run **`host-with-friend.bat`** (Windows) or **`./host-with-friend.sh`** (Mac/Linux).
+4. It prints a `https://….trycloudflare.com` link — **send it to your friend.** You both
+   open it, make accounts, log in. Keep the window open while you play.
+
+(There's also a `Dockerfile` for Fly.io / Railway / any Docker host — start command
+`python mpserver.py`.)
 
 ---
 
