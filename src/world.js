@@ -189,11 +189,15 @@ export function buildWorld(scene) {
   scene.userData.sun = sun;
   sun.position.set(48, 40, 26);                 // lower + warmer raking angle
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);          // shadow sharpness
+  // 1024² instead of 2048² — quarter the shadow-pass fragment work for a barely
+  // perceptible softness change under the cel-shade bands.
+  sun.shadow.mapSize.set(1024, 1024);          // shadow sharpness
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 130;   // shadows only near the player (perf)
-  sun.shadow.camera.left = -90;  sun.shadow.camera.right = 90;
-  sun.shadow.camera.top = 90;    sun.shadow.camera.bottom = -90;
+  // Tighter frustum (was ±90 → 180×180) so the same 1024² map covers a smaller
+  // area at higher density — keeps shadows crisp where the player actually is.
+  sun.shadow.camera.left = -70;  sun.shadow.camera.right = 70;
+  sun.shadow.camera.top = 70;    sun.shadow.camera.bottom = -70;
   sun.shadow.bias = -0.0004;                    // removes shadow "acne" specks
   scene.add(sun);
 

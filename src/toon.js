@@ -101,8 +101,20 @@ function toToon(mat) {
   return toon;
 }
 
-// Should this mesh get a black outline hull? Skip transparent, tiny, or
-// non-solid bits so outlines stay tasteful and cheap.
+// A back-face inverted-hull outline DOUBLES the draw call + vertex work of every
+// mesh it's added to. The hull's silhouette contribution is only readable on
+// foreground shapes of moderate complexity, so we gate it harder than before:
+//   * high-vertex-count meshes (dense procedural props / smooth subdivided forms)
+//     pay a large per-frame vertex cost for an outline you can barely pick out,
+//     so anything above VERT_CAP is skipped. (The big downloaded GLBs — trees,
+//     rocks, buildings — are pre-tagged __toonDone and never reach here anyway.)
+//   * truly tiny props (small world radius) read with no visible outline.
+// Hero / NPC / monster meshes are well under the cap, so the silhouettes that
+// matter keep their outline; this only trims expensive, low-value hulls.
+const OUTLINE_VERT_CAP = 3000;   // skip outlining meshes denser than this
+
+// Should this mesh get a black outline hull? Skip transparent, tiny, non-solid,
+// or very dense bits so outlines stay tasteful and cheap.
 function wantsOutline(mesh) {
   const m = mesh.material;
   const one = Array.isArray(m) ? m[0] : m;
@@ -110,13 +122,15 @@ function wantsOutline(mesh) {
   if (one.transparent && one.opacity < 0.98) return false;       // glass/ghosts
   const g = mesh.geometry;
   if (!g || !g.attributes || !g.attributes.position) return false;
-  if (g.attributes.position.count < 8) return false;             // degenerate
+  const vcount = g.attributes.position.count;
+  if (vcount < 8) return false;                                  // degenerate
+  if (vcount > OUTLINE_VERT_CAP) return false;                   // dense mesh: outline ≈ invisible, doubles its vertex cost
   // skip very small props by bounding-sphere radius
   if (!g.boundingSphere) g.computeBoundingSphere();
   const r = g.boundingSphere ? g.boundingSphere.radius : 1;
   const s = mesh.scale;
   const worldR = r * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
-  if (worldR < 0.045) return false;                              // tiny studs/gems
+  if (worldR < 0.07) return false;                               // tiny studs/gems/distant bits
   return true;
 }
 

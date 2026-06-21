@@ -164,6 +164,71 @@ function startGame(username) {
   // freely after dynamic meshes (worn gear, weapons, monsters) appear.
   toonify(scene);
 
+  // ---- NEAREST-K POINT-LIGHT CULL ------------------------------------------
+  // Three.js forward rendering evaluates EVERY enabled light for EVERY lit
+  // fragment, so the ~two-dozen decorative PointLights scattered through the
+  // town/castle (torches, braziers, lanterns) are a dominant per-fragment cost.
+  // Each ~5Hz tick we keep only the K nearest point lights to the player ENABLED
+  // and switch the rest off — a fragment now pays for K lights, not all of them.
+  //
+  // CRITICAL: the *count* of visible point lights must stay constant, or three.js
+  // recompiles every material shader (a visible stutter). So once there are more
+  // than K point lights we always leave EXACTLY K visible and only swap WHICH
+  // ones — the true-count never changes frame to frame.
+  const lightCull = (() => {
+    const K = 7;                       // visible point lights at once
+    const lights = [];                 // every PointLight found in the scene
+    const dist = [];                   // parallel distance² per light (reused)
+    const nearest = new Int32Array(K); // indices of the current K nearest (reused)
+    const _v = new THREE.Vector3();    // reused; no per-frame allocation
+    let lastCollect = -1e9, timer = 0;
+
+    function collect(now) {
+      lights.length = 0;
+      // Lights load async with the buildings/castle; re-collect periodically so
+      // late-spawned ones are folded in.
+      scene.traverse((o) => { if (o.isPointLight) lights.push(o); });
+      lastCollect = now;
+    }
+
+    return function update(dt, now) {
+      timer += dt;
+      if (timer < 0.2) return;         // ~5Hz
+      timer = 0;
+      if (now - lastCollect > 4) collect(now);   // refresh the set every ~4s
+      const n = lights.length;
+      if (n <= K) {                    // few enough — keep them all lit
+        for (let i = 0; i < n; i++) lights[i].visible = true;
+        return;
+      }
+      // Distance² (XZ only — 2D nearness reads best) to each light's WORLD
+      // position; lights are parented under props, so use the world matrix.
+      for (let i = 0; i < n; i++) {
+        _v.setFromMatrixPosition(lights[i].matrixWorld);
+        const dx = _v.x - player.position.x, dz = _v.z - player.position.z;
+        dist[i] = dx * dx + dz * dz;
+      }
+      // Running top-K (smallest distances). nearest[] holds light indices; we
+      // track the worst slot so a closer light replaces it. Allocation-free.
+      let filled = 0, worstSlot = 0, worstD = -1;
+      for (let i = 0; i < n; i++) {
+        if (filled < K) {
+          nearest[filled] = i;
+          if (dist[i] > worstD) { worstD = dist[i]; worstSlot = filled; }
+          filled++;
+        } else if (dist[i] < worstD) {
+          nearest[worstSlot] = i;
+          // recompute which of the K is now the worst
+          worstD = -1;
+          for (let s = 0; s < K; s++) { const dd = dist[nearest[s]]; if (dd > worstD) { worstD = dd; worstSlot = s; } }
+        }
+      }
+      // Disable all, then enable exactly the K nearest — true-count stays K.
+      for (let i = 0; i < n; i++) lights[i].visible = false;
+      for (let s = 0; s < K; s++) lights[nearest[s]].visible = true;
+    };
+  })();
+
   // 4) SYSTEMS.
   const controls = setupControls(player, camera, renderer.domElement);
   const skills = createSkills();
@@ -483,6 +548,11 @@ function startGame(username) {
       }
       frameAccum = 0; frameCount = 0;
     }
+
+    // Nearest-K point-light cull (throttled internally to ~5Hz). Keeps a
+    // constant number of point lights lit so per-fragment lighting cost — and
+    // three.js's shader-recompile-on-light-count — both stay bounded.
+    lightCull(dt, t);
 
     const prevX = player.position.x, prevZ = player.position.z;
     const wasd = controls.update(dt);
