@@ -230,6 +230,9 @@ function makeClouds() {
 // Don't place scenery on the spawn clearing or in the pond.
 function isClear(x, z) {
   if (Math.hypot(x, z) < 9) return false;
+  // Keep the whole town + castle grounds clear of trees (no clutter around the
+  // buildings); the forest grows out past the edges for Woodcutting.
+  if (x > -36 && x < 36 && z > -12 && z < 78) return false;
   if (Math.hypot(x - POND.x, z - POND.z) < POND.r + 1.5) return false;
   for (const s of STRUCTURES) { if (Math.hypot(x - s.x, z - s.z) < s.r) return false; }
   for (const s of EXTRA) { if (Math.hypot(x - s.x, z - s.z) < s.r) return false; }
