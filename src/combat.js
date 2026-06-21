@@ -16,6 +16,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { ITEMS } from './items.js';
+import { gameMessage } from './ui.js';
 import './monsters.js';   // monsters self-initialize; combat reads em.monsters
 
 // ----- tuning ----------------------------------------------------------------
@@ -205,26 +206,43 @@ function startCombat(em) {
     if (pstate.dead) return;
     const md = g.userData.monster;
     if (!md || !md.alive) return;
+    const fresh = pstate.target !== g;
     pstate.target = g;
     pstate.inCombat = true;
     md.state = 'chase';   // make it come at you too
-    if (em.gameMessage) em.gameMessage('You attack the ' + md.type.name + '!');
+    // Hand the walk-up to interactions.js: it owns player movement, so the hero
+    // auto-walks into melee reach (and the existing main.js loop plays the sword
+    // swing whenever interactions reports we're attacking). Clears any prior
+    // chop/walk/talk target in the process.
+    if (em.interactions && em.interactions.setAttackTarget) em.interactions.setAttackTarget(g);
+    if (fresh) gameMessage('You attack the ' + md.type.name + '!');
   }
 
   // ----- combat resolution ---------------------------------------------------
+  // Read a combat skill level off the skills system (defaults if absent so combat
+  // still works before/without skills wiring).
+  function lvl(id, dflt) {
+    try { const s = em.skills && em.skills.state && em.skills.state[id]; return (s && s.level) || dflt; }
+    catch (e) { return dflt; }
+  }
+
   function hitMonster(g) {
     const md = g.userData.monster;
     const wd = weaponDamage(em.equipment && em.equipment.getWeapon && em.equipment.getWeapon());
-    // simple accuracy vs defense
-    const hitChance = Math.max(0.35, 1 - md.type.defense * 0.06);
+    const atk = lvl('attack', 1), str = lvl('strength', 1);
+    // Accuracy: the player's Attack level pushes against the monster's defence.
+    // Starts generous and climbs with Attack, so even a level-1 hero connects often.
+    const hitChance = Math.max(0.45, Math.min(0.95, (atk + 4) / (atk + 4 + md.type.defense * 2.4)));
     const bx = g.position.x, by = g.position.y + (md.type.hpBarY || 1.2), bz = g.position.z;
     if (Math.random() > hitChance) {
       floatNumber(bx, by, bz, '0', 'miss');
       return;
     }
-    const dmg = randInt(wd.min, wd.max);
+    // Max hit scales the weapon's top end by Strength; roll 0..max like OSRS.
+    const maxHit = Math.max(wd.min, Math.round(wd.max * (1 + (str - 1) * 0.05)));
+    const dmg = randInt(0, maxHit);
     md.hp -= dmg;
-    floatNumber(bx, by, bz, String(dmg), dmg >= wd.max ? 'big' : 'dmg');
+    floatNumber(bx, by, bz, String(dmg), dmg >= maxHit && dmg > 0 ? 'big' : (dmg === 0 ? 'miss' : 'dmg'));
     if (em.vfx && em.vfx.burst) em.vfx.burst('hit', bx, by, bz);
     if (md.hp <= 0) killMonster(g);
   }
@@ -247,11 +265,26 @@ function startCombat(em) {
     md.hp = 0;
     removeBar(g);
     if (pstate.target === g) { pstate.target = null; pstate.inCombat = false; }
-    if (em.gameMessage) em.gameMessage('You have slain the ' + md.type.name + '.');
+    if (em.interactions && em.interactions.getAttackTarget && em.interactions.getAttackTarget() === g && em.interactions.stop) em.interactions.stop();
+    gameMessage('You have slain the ' + md.type.name + '.');
     floatNumber(g.position.x, g.position.y + 1.4, g.position.z, '+' + md.type.xp + ' xp', 'loot');
     dropLoot(md.type, g.position.x, g.position.z);
-    // grant a little woodcutting/combat xp if a skills system is around
-    try { if (em.skills && em.skills.addXp) em.skills.addXp('attack', md.type.xp); } catch (e) {}
+    // Award combat XP OSRS-style: the monster's xp into Attack, Strength and
+    // Defence, plus a third of it into Hitpoints. Defensive try/catch so a
+    // missing skill id never breaks the kill.
+    try {
+      if (em.skills && em.skills.addXp) {
+        const xp = md.type.xp;
+        let leveled = null;
+        for (const id of ['attack', 'strength', 'defence']) {
+          const r = em.skills.addXp(id, xp);
+          if (r && r.leveledUp) leveled = { id, level: r.level };
+        }
+        const rh = em.skills.addXp('hitpoints', Math.max(1, Math.round(xp / 3)));
+        if (rh && rh.leveledUp) leveled = { id: 'hitpoints', level: rh.level };
+        if (leveled) gameMessage('Congratulations, your ' + leveled.id + ' is now level ' + leveled.level + '!');
+      }
+    } catch (e) {}
     // fade out, then remove + schedule respawn
     md.fadeStart = performance.now() / 1000;
     md.respawnHome = md.home;
@@ -263,7 +296,7 @@ function startCombat(em) {
     pstate.dead = true;
     pstate.inCombat = false; pstate.target = null;
     pstate.hp = 0; refreshPlayerHp();
-    if (em.gameMessage) em.gameMessage('Oh dear, you are dead! You will recover shortly...');
+    gameMessage('Oh dear, you are dead! You will recover shortly...');
     const banner = document.createElement('div');
     banner.textContent = 'You died';
     banner.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;background:rgba(60,0,0,0.35);color:#ffcaca;font:700 54px Georgia,serif;text-shadow:0 3px 8px #000;transition:opacity 1s;';
@@ -272,7 +305,7 @@ function startCombat(em) {
       pstate.hp = pstate.maxHp; pstate.dead = false; refreshPlayerHp();
       banner.style.opacity = '0';
       setTimeout(() => banner.remove(), 1000);
-      if (em.gameMessage) em.gameMessage('You feel your strength return.');
+      gameMessage('You feel your strength return.');
     }, 3000);
   }
 
@@ -295,20 +328,39 @@ function startCombat(em) {
     if (dt > 0.1) dt = 0.1;
     const t = now / 1000;
 
-    // 1) player melee tick against the current target
+    // Keep our target in sync with interactions.js. If the player clicked a tree,
+    // an NPC, or the ground, interactions clears its attack target — so we drop
+    // ours too and stop fighting (no more phantom swings at a thing we walked off).
+    if (em.interactions && em.interactions.getAttackTarget) {
+      const at = em.interactions.getAttackTarget();
+      if (pstate.target && at !== pstate.target) { pstate.target = null; pstate.inCombat = false; }
+    }
+
+    // 1) player melee tick against the current target.
+    //    interactions.js walks the hero into range and plays the swing pose; here
+    //    we just time the blows once we're actually close enough to land them.
+    const setChop = player.userData && player.userData.setPlayerChop;
     const g = pstate.target;
     if (g && g.userData.monster && g.userData.monster.alive && !pstate.dead) {
       const md = g.userData.monster;
       const dx = g.position.x - player.position.x, dz = g.position.z - player.position.z;
       const dist = Math.hypot(dx, dz);
-      // face the monster
-      player.rotation.y = Math.atan2(dx, dz);
+      player.rotation.y = Math.atan2(dx, dz);   // face the monster
       if (dist <= MELEE_RANGE) {
         const wd = weaponDamage(em.equipment && em.equipment.getWeapon && em.equipment.getWeapon());
-        if (t - pstate.lastAttack >= wd.speed) { pstate.lastAttack = t; hitMonster(g); }
+        if (t - pstate.lastAttack >= wd.speed) {
+          pstate.lastAttack = t;
+          if (setChop) try { setChop(true); } catch (e) {}   // sword-swing clip (hero model API, when present)
+          hitMonster(g);
+        } else if (setChop && t - pstate.lastAttack > 0.35) {
+          try { setChop(false); } catch (e) {}               // relax between swings
+        }
+      } else if (setChop) {
+        try { setChop(false); } catch (e) {}
       }
-    } else if (g && (!g.userData.monster || !g.userData.monster.alive)) {
-      pstate.target = null; pstate.inCombat = false;
+    } else {
+      if (g && (!g.userData.monster || !g.userData.monster.alive)) { pstate.target = null; pstate.inCombat = false; }
+      if (setChop) try { setChop(false); } catch (e) {}
     }
 
     // 2) monster melee tick against the player (any aggro'd, in-range monster)

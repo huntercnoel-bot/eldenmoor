@@ -24,15 +24,26 @@ export function setupInteractions(scene, camera, player, dom, skills, inventory,
   let npcTarget = null;    // npc group we're walking to
   let npcAction = null;    // function to run on reaching the npc
   let npcDefault = null;   // default left-click action for an npc: (def) => void
+  let attackTarget = null; // monster group we're walking up to / fighting
+  let inAttackRange = false;
   let chopTimer = 0;
   let clock = 0;
   const floaters = [];
 
-  function clearTargets() { target = null; moveTarget = null; npcTarget = null; npcAction = null; chopTimer = 0; }
+  // Melee reach for closing on a monster — kept a touch under combat.js's own
+  // MELEE_RANGE so we settle just inside trade range before swinging.
+  const ATTACK_RANGE = 1.7;
+
+  function clearTargets() { target = null; moveTarget = null; npcTarget = null; npcAction = null; attackTarget = null; inAttackRange = false; chopTimer = 0; }
   function setChopTarget(tree) { clearTargets(); target = tree; }
   function setWalkTarget(point) { clearTargets(); moveTarget = point.clone(); }
   function setNpcTarget(group, action) { clearTargets(); npcTarget = group; npcAction = action; }
   function setNpcDefault(fn) { npcDefault = fn; }
+  // Combat (combat.js) hands us the monster to close on; we own the walk + the
+  // facing, and report back whether we're in range so combat can time its swings.
+  function setAttackTarget(group) { clearTargets(); attackTarget = group; }
+  function getAttackTarget() { return attackTarget; }
+  function isInAttackRange() { return inAttackRange; }
 
   // --- Raycasting helpers (shared with the right-click menu) ---
   function aim(x, y) {
@@ -55,6 +66,17 @@ export function setupInteractions(scene, camera, player, dom, skills, inventory,
     const hits = raycaster.intersectObjects(scene.userData.rocks || [], false);
     return hits.length ? hits[0].object : null;
   }
+  // Monsters are spawned by monsters.js and registered on window.eldenmoor.monsters.
+  // Each child carries userData.monsterRoot pointing back to its group, so a hit on
+  // any limb resolves to the whole creature (matches combat.js's own picker).
+  function pickMonster() {
+    const em = window.eldenmoor;
+    const list = ((em && em.monsters && em.monsters.list) || [])
+      .filter((g) => g.visible && g.userData.monster && g.userData.monster.alive);
+    const hits = raycaster.intersectObjects(list, true);
+    for (const h of hits) { let o = h.object; while (o && !o.userData.monsterRoot) o = o.parent; if (o && o.userData.monsterRoot) return o.userData.monsterRoot; }
+    return null;
+  }
   // Walk target = where the camera ray meets the y=0 plane. Using a math plane
   // (not the ground mesh) means click-to-move still works on the upper/basement
   // floors, where the outdoor ground is hidden.
@@ -63,7 +85,7 @@ export function setupInteractions(scene, camera, player, dom, skills, inventory,
   function pickGround() {
     return raycaster.ray.intersectPlane(groundPlane, groundPt) ? groundPt.clone() : null;
   }
-  function raycastWorld(x, y) { aim(x, y); return { npc: pickNpc(), tree: pickTree(), rock: pickRock(), point: pickGround() }; }
+  function raycastWorld(x, y) { aim(x, y); return { monster: pickMonster(), npc: pickNpc(), tree: pickTree(), rock: pickRock(), point: pickGround() }; }
 
   // --- Left-click: default action ---
   let downX = 0, downY = 0;
@@ -129,6 +151,21 @@ export function setupInteractions(scene, camera, player, dom, skills, inventory,
 
     if (wasdMoving) { clearTargets(); return { walking: false, chopping: false }; }
 
+    // 0) Attack a monster: walk into melee reach, then hold position and face it.
+    //    combat.js owns the damage/HP/death; we own the approach + the swing pose
+    //    (reported as `chopping` so main.js plays the sword animation). The target
+    //    is cleared automatically once the monster dies or despawns.
+    if (attackTarget) {
+      const md = attackTarget.userData && attackTarget.userData.monster;
+      if (!md || !md.alive) { attackTarget = null; inAttackRange = false; }
+      else {
+        const d = faceToward(attackTarget.position.x, attackTarget.position.z);
+        if (d > ATTACK_RANGE) { inAttackRange = false; step(dt); return { walking: true, chopping: false, attacking: false }; }
+        inAttackRange = true;
+        return { walking: false, chopping: true, attacking: true };
+      }
+    }
+
     // 1) Chop a tree.
     if (target && !target.userData.depleted) {
       const d = faceToward(target.position.x, target.position.z);
@@ -186,5 +223,5 @@ export function setupInteractions(scene, camera, player, dom, skills, inventory,
     return { walking: false, chopping: false };
   }
 
-  return { update, setChopTarget, setWalkTarget, setNpcTarget, setNpcDefault, raycastWorld, stop: clearTargets };
+  return { update, setChopTarget, setWalkTarget, setNpcTarget, setNpcDefault, setAttackTarget, getAttackTarget, isInAttackRange, raycastWorld, stop: clearTargets };
 }

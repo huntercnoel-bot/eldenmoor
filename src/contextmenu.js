@@ -42,6 +42,13 @@ export function setupContextMenu({ dom, interactions, inventory, equipment, onTa
     e.preventDefault();
     const w = interactions.raycastWorld(e.clientX, e.clientY);
     const options = [];
+    if (w.monster) {
+      const md = w.monster.userData.monster;
+      const mname = (md && md.type && md.type.name) || 'Monster';
+      const lvlTxt = md && md.type && md.type.combatLevel ? ' <span class="ctx-lvl">(level ' + md.type.combatLevel + ')</span>' : '';
+      options.push({ label: 'Attack <span class="ctx-yellow">' + mname + '</span>' + lvlTxt, action: () => { const c = window.eldenmoor && window.eldenmoor.combat; if (c && c.attack) c.attack(w.monster); } });
+      options.push({ label: 'Examine <span class="ctx-yellow">' + mname + '</span>', action: () => gameMessage('A ' + mname.toLowerCase() + '. It looks hostile.') });
+    }
     if (w.npc) {
       const def = w.npc.userData.def;
       options.push({ label: 'Talk-to <span class="ctx-yellow">' + def.name + '</span>', action: () => interactions.setNpcTarget(w.npc, () => onTalk && onTalk(def)) });
