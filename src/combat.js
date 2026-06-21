@@ -278,7 +278,13 @@ function startCombat(em) {
     canvas.addEventListener('mouseup', (e) => {
       if (e.button !== 0) return;
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;   // a camera drag, not a click
-      const g = pickMonster(e.clientX, e.clientY);
+      // Defer to Ranged/Magic when those styles are active: an armed spell or an
+      // equipped bow owns the monster-click (otherwise a single click would both
+      // melee-engage AND fire a bolt/arrow, since each runs its own capture handler).
+      const spellArmed = !!(em.magic && em.magic.armed);
+      let bowEquipped = false;
+      try { const w = em.equipment && em.equipment.getWeapon && em.equipment.getWeapon(); bowEquipped = !!(w && w.tool === 'bow'); } catch (err) {}
+      const g = (spellArmed || bowEquipped) ? null : pickMonster(e.clientX, e.clientY);
       if (g) { engage(g); e.stopPropagation(); return; }
       // Clicking a dropped item picks it straight up (OSRS-style "Take").
       const di = pickDropIndex(e.clientX, e.clientY);
