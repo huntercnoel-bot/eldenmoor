@@ -254,6 +254,8 @@ export function createSkills() {
     // Cooking XP is awarded by the fishing.js cook routine which knows the food;
     // this just grants the XP and reports a level-up. (Burnt food grants nothing.)
     return addXp('cooking', 0);
+  }
+
   // --- Mining (mirrors the Woodcutting helpers above) ---------------------
   // Can the player attempt this ore tier yet?
   function canMineTier(tierId) {
