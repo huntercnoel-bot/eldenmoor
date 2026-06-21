@@ -3,6 +3,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { buildStructures, STRUCTURES } from './buildings.js';
 import { buildTown, townStructures } from './town.js';
 import { buildWater, waterStructures } from './water.js';
@@ -35,20 +36,32 @@ function loadProto(name) {
   if (!protoCache[name]) {
     protoCache[name] = new Promise((resolve, reject) => {
       gltfLoader.load(ENV + name + '.glb', (gltf) => {
-        let mesh = null;
+        // These low-poly models are one glTF mesh but often SEVERAL primitives
+        // (e.g. a tree's trunk + its leaf canopy), which GLTFLoader splits into
+        // separate child meshes each with its own coloured material. Collect ALL
+        // of them and merge into a single grouped geometry + material array, so
+        // the canopy isn't dropped (the old "first mesh only" lost the leaves).
         gltf.scene.updateWorldMatrix(true, true);
-        gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
-        if (!mesh) { reject(new Error('no mesh in ' + name)); return; }
-        const geometry = mesh.geometry.clone();
-        geometry.applyMatrix4(mesh.matrixWorld);      // bake node transforms in
+        const geos = [], mats = [];
+        gltf.scene.traverse((o) => {
+          if (!o.isMesh) return;
+          let g = o.geometry.clone();
+          g.applyMatrix4(o.matrixWorld);                 // bake node transforms in
+          for (const a of Object.keys(g.attributes)) { if (a !== 'position' && a !== 'normal') g.deleteAttribute(a); }
+          if (g.index) g = g.toNonIndexed();             // uniform for a clean merge
+          geos.push(g);
+          const m = o.material.isMaterial ? o.material : o.material[0];
+          m.userData.__toonDone = true;
+          mats.push(m);
+        });
+        if (!geos.length) { reject(new Error('no mesh in ' + name)); return; }
+        const geometry = geos.length === 1 ? geos[0] : mergeGeometries(geos, true); // useGroups -> per-material groups
+        const material = geos.length === 1 ? mats[0] : mats;
         geometry.computeBoundingBox();
         const bb = geometry.boundingBox;
         const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
         geometry.translate(-cx, -bb.min.y, -cz);       // centre XZ, base at y=0
         geometry.computeBoundingBox();
-        geometry.computeVertexNormals();
-        const material = mesh.material.isMaterial ? mesh.material : mesh.material[0];
-        material.userData.__toonDone = true;
         resolve({ geometry, material, size: geometry.boundingBox.getSize(new THREE.Vector3()) });
       }, undefined, reject);
     });
@@ -543,10 +556,14 @@ function makeTree(scene, x, z, tier) {
   attachClone(g, modelName, { shadow: true, targetH, onMesh: (mesh) => {
     foliage.push(mesh);
     if (g.userData.depleted) mesh.visible = false;   // loaded after an early chop
-    if (tier === 'magic' && mesh.material && !mesh.material.userData.__glow) {
-      mesh.material.emissive = new THREE.Color(0x2a4a86);
-      mesh.material.emissiveIntensity = 0.4;
-      mesh.material.userData.__glow = true;
+    if (tier === 'magic' && mesh.material) {
+      const mm = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of mm) {
+        if (mat.userData.__glow) continue;
+        mat.emissive = new THREE.Color(0x2a4a86);
+        mat.emissiveIntensity = 0.4;
+        mat.userData.__glow = true;
+      }
     }
   } });
 
