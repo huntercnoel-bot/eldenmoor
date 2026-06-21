@@ -1018,6 +1018,305 @@ export const QUEST_DEFS = {
       { speaker: 'Bram', text: 'Pot\'s full, room\'s fed, and the ale\'s flowing again — all thanks to you. There\'s always a stool and a stew for you at the Stag, friend. Bring me fish any time the nets run dry.' },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // QUEST 11 — "Blood and Bounty" (SLAYER INITIATION). A grizzled Royal Guard on
+  // the keep watch has fought the same monsters for thirty years and learned to
+  // read a hunter. He sends the player to earn their first Slayer bounty: take
+  // tasks from a master and grind out raw Slayer experience until the skill stirs
+  // (we snapshot the player's Slayer XP on accept and watch it climb — the same
+  // low-coupling trick the Magic/Prayer/Ranged tutor quests use, no hook into
+  // slayer.js needed), then prove the trophy by carrying back a clutch of bones
+  // off the things they've culled. Rewards coins, a Slayer XP bounty, and an iron
+  // scimitar to hunt on with.
+  // -------------------------------------------------------------------------
+  watchman: {
+    id: 'watchman',
+    name: 'Blood and Bounty',
+    giver: 'guard_il',
+    city: 'Eldenmoor',
+    intro: 'A grizzled Royal Guard on the keep watch has buried more monsters than he can count. He measures every passing adventurer for the work — and reckons you might have the stomach for a Slayer\'s bounty.',
+    startConfirm: {
+      prompt: 'So — will you cut your teeth as a Slayer, and earn your first bounty?',
+      yes: 'Aye. Point me at a task and I\'ll start culling.',
+      no: 'I\'ve no taste for the hunt today.',
+      more: 'What is a Slayer, exactly?',
+      moreDialogue: [
+        { speaker: 'Royal Guard', text: 'A Slayer takes a contract — kill so many of such-and-such a beast, no swapping, no whining. There\'s a task master keeps the bounties; open your Slayer panel and take one off him. Every kill on contract sharpens the skill.' },
+        { speaker: 'Royal Guard', text: 'Grind a few tasks and you\'ll feel it harden in you — the Slayer\'s eye, the knowing of where a thing\'s weak. Earn me about sixty Slayer experience and I\'ll call you blooded. Bring back five bones off the cull, too, for the bounty-ledger.' },
+      ],
+      noReply: 'Hah. No shame in it — the hunt\'s not for soft hands. But the beasts breed faster than the watch can swing, so come back when your blood\'s up.',
+      yesReply: [
+        { speaker: 'Royal Guard', text: 'Good. Then go take a task off the Slayer master — your panel\'ll show him — and start culling. Rats, goblins, skeletons, whatever he hands you. The contract\'s what counts.' },
+        { speaker: 'Royal Guard', text: 'Earn yourself about sixty Slayer experience on the bounties, and keep five bones off the kills for the ledger. Off you go, recruit. Mind their teeth.' },
+      ],
+      // Snapshot Slayer XP at enrolment, so "earn ~60 Slayer XP on tasks" is
+      // measured purely by the XP that slaying grants — no hook into slayer.js.
+      onAccept: (ctx) => { ctx.flags.slayerXpBase = (ctx.skills.state.slayer && ctx.skills.state.slayer.xp) || 0; },
+    },
+    startDialogue: [
+      { speaker: 'Royal Guard', text: 'Hold there, recruit. Thirty years I\'ve watched this keep, and I\'ve buried more monsters than you\'ve had hot suppers. I know a hunter\'s walk when I see one — and you\'ve got it, half-formed.' },
+      { speaker: 'Royal Guard', text: 'The watch can\'t be everywhere. The hills crawl, the crypts stir, and good steel\'s wasted standing at a gate. What this realm wants is Slayers — folk who take a bounty and see it through.' },
+      { speaker: 'Royal Guard', text: 'There\'s a task master keeps the contracts. Take one, cull what he names, and earn your first bounty. Do that, and I\'ll vouch you blooded. What say you — ready to hunt?' },
+    ],
+    stages: [
+      {
+        name: 'Earn your first bounty',
+        journal: 'The old watchman set you on the Slayer\'s path. Open your Slayer panel, take a task from the master, and cull the monsters he names until the skill hardens in you — earn roughly 60 Slayer XP on contract.',
+        objective: {
+          hint: 'Take Slayer tasks and slay on contract until you gain ~60 Slayer XP.',
+          check: (ctx) => {
+            const xp = (ctx.skills.state.slayer && ctx.skills.state.slayer.xp) || 0;
+            const base = ctx.flags.slayerXpBase || 0;
+            return (xp - base) >= 60;
+          },
+        },
+        progressHint: (ctx) => {
+          const xp = (ctx.skills.state.slayer && ctx.skills.state.slayer.xp) || 0;
+          const base = ctx.flags.slayerXpBase || 0;
+          return 'Slayer XP earned on contract (' + Math.min(Math.floor(xp - base), 60) + ' / 60).';
+        },
+        nudge: [
+          { speaker: 'Royal Guard', text: 'Not blooded yet, recruit — I\'d feel it. Take a task off the Slayer master and CULL. Sixty Slayer experience on contract, that\'s the mark. The bounties won\'t fill themselves.' },
+        ],
+      },
+      {
+        name: 'Bring trophies for the ledger',
+        journal: 'The Slayer\'s eye has hardened in you. The old watchman wants proof of the cull for the bounty-ledger: bring him 5 bones off the things you slew.',
+        objective: {
+          hint: 'Bring the watchman 5 bones from your kills.',
+          check: (ctx) => ctx.inventory.count('bones') >= 5,
+        },
+        progressHint: (ctx) => 'Bones for the ledger (' + Math.min(ctx.inventory.count('bones'), 5) + ' / 5).',
+        nudge: [
+          { speaker: 'Royal Guard', text: 'You\'ve the blooding — I can see it on you. But the ledger wants its proof: five bones off the cull. No bones, no bounty, recruit. Those are the rules, and I didn\'t write \'em.' },
+        ],
+      },
+      {
+        name: 'Claim your bounty',
+        journal: 'You carry the trophies and the Slayer\'s eye both. Return to the old Royal Guard on the keep watch to be vouched blooded — and claim your first bounty.',
+        objective: { hint: 'Return to the Royal Guard on the keep watch.', check: () => false },
+        nudge: [
+          { speaker: 'Royal Guard', text: 'Bones in hand and the hunt in your blood — step up, recruit, and let me sign you blooded proper.' },
+        ],
+      },
+    ],
+    // Takes the trophy bones for the ledger, then pays a blooded Slayer's first
+    // bounty: coin, a slug of Slayer XP for the contracts walked, and an iron
+    // scimitar to hunt on with.
+    reward: {
+      text: '300 coins, an Iron scimitar, and 220 Slayer XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('bones', 5); // logged in the bounty-ledger
+        ctx.inventory.add('coins', 300);
+        ctx.inventory.add('iron_scimitar', 1);
+        ctx.skills.addXp('slayer', 220);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Royal Guard', text: 'Five bones, and the Slayer\'s eye behind \'em — aye. That\'s a hunter, recruit. A week ago you\'d have flinched at a giant rat. Now you take a contract and see it through.' },
+      { speaker: 'Royal Guard', text: 'I\'ll sign you blooded in the ledger, and that signature\'s worth more than coin in the right company. Speaking of coin — here\'s your bounty, earned to the copper.' },
+      { speaker: 'Royal Guard', text: 'And take this iron scimitar off the rack — a proper hunting blade, not that twig you came in with. Keep taking tasks off the master; the deeper bounties pay deeper, and Eldenmoor\'s never short of things wants culling.' },
+      { speaker: 'Royal Guard', text: 'Off you go, Slayer. Mind their teeth — every one of \'em. The day you forget is the day they bury YOU. Watch taught me that. Don\'t make it teach you.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Royal Guard', text: 'Blooded and bountied, and the ledger\'s richer for it. Keep at the contracts, Slayer — the hunt\'s a long road and the watch is always grateful. Mind their teeth.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 12 — "Light Fingers" (THIEVING CAPER). Grix the dungeon keeper turned
+  // a sticky-fingered eye long before he turned a key, and he misses the old
+  // trade something fierce. He sets the player a roguish caper: pickpocket your
+  // way to a tidy purse (we snapshot the player's coin on accept and watch it
+  // climb — low coupling, no hook into thieving.js needed), then lift a proper
+  // prize — a flawless emerald — off some unwitting mark's belt. Rewards coin, a
+  // slug of Thieving XP, and a leather body to dip in quietly.
+  // -------------------------------------------------------------------------
+  grix: {
+    id: 'grix',
+    name: 'Light Fingers',
+    giver: 'jailer',
+    city: 'Eldenmoor',
+    intro: 'Grix keeps the dungeon keys now, but he kept lighter company once — and he misses it. He\'d set a quick-handed sort a little caper, for old times\' sake and a cut of the take.',
+    startConfirm: {
+      prompt: 'So — fancy a little caper? Dip a few purses, lift me a shiny, and we split the take?',
+      yes: 'Quiet hands and a quick exit. I\'m in, Grix.',
+      no: 'I keep my hands to myself, thanks.',
+      more: 'How does a body pick a pocket?',
+      moreDialogue: [
+        { speaker: 'Grix', text: 'Easy as breathing, if you\'ve the nerve. Sidle up to a townsperson, right-click \'em, and choose to pickpocket. A good dip\'s a fat purse; a clumsy one\'s a clip round the ear and a stunned minute. Practice on the soft marks first.' },
+        { speaker: 'Grix', text: 'Dip enough purses and you\'ll be a hundred coin richer before they miss it — that\'s your warm-up. Then the real prize: someone in this town carries an emerald, flawless and green. Lift it off \'em clean and bring it to old Grix. We\'ll split it fair... ish.' },
+      ],
+      noReply: 'Suit yourself, Saint. But the purses don\'t empty themselves and these keys don\'t pay what they ought. Door\'s open if your principles ever loosen.',
+      yesReply: [
+        { speaker: 'Grix', text: 'HA — knew it. Got the look of a dipper, you have. Right: go warm those fingers up. Pickpocket folk round the square till you\'re a good hundred coin the richer. Right-click a mark and dip \'em — soft ones first, mind.' },
+        { speaker: 'Grix', text: 'Once your hands are quick, find the emerald and lift it clean. Then back here to old Grix, quiet-like. And if a guard so much as looks at you — you don\'t know me. Off you slink.' },
+      ],
+      // Snapshot the player's coin purse at enrolment, so "pickpocket your way to
+      // +100 coins" is measured purely by the coin that dipping nets — no hook
+      // into thieving.js. (Spending in shops only makes the player work harder.)
+      onAccept: (ctx) => { ctx.flags.coinBase = ctx.inventory.count('coins'); },
+    },
+    startDialogue: [
+      { speaker: 'Grix', text: 'Pssst. You. Aye, you with the wandering eyes. Don\'t mind the keys — I weren\'t always a jailer. There was a time these hands knew every purse-string in the square.' },
+      { speaker: 'Grix', text: 'Cushy enough work, minding a dungeon, but DULL — and the pay\'s a joke. A body misses the old trade. The thrill of the dip. The weight of another man\'s coin landing soft in your palm.' },
+      { speaker: 'Grix', text: 'You\'ve quick eyes and a quiet step. What say we run a little caper, you and I? Dip a few purses, lift me one proper shiny, and we split the take. No one the wiser. What\'s your answer?' },
+    ],
+    stages: [
+      {
+        name: 'Warm up your fingers',
+        journal: 'Grix set you a thieving caper. Pickpocket the townsfolk of Eldenmoor (right-click a person and choose Pickpocket) until your dipping has earned you 100 coins. Mind you don\'t get caught — clumsy hands get clipped.',
+        objective: {
+          hint: 'Pickpocket townsfolk until you have earned +100 coins.',
+          check: (ctx) => (ctx.inventory.count('coins') - (ctx.flags.coinBase || 0)) >= 100,
+        },
+        progressHint: (ctx) => 'Coin lifted (' + Math.max(0, Math.min(ctx.inventory.count('coins') - (ctx.flags.coinBase || 0), 100)) + ' / 100). Keep your purse heavy — spending sets you back!',
+        nudge: [
+          { speaker: 'Grix', text: 'Purse still light, eh? A hundred coin off the marks, that was the warm-up. Right-click a townsperson and DIP \'em — soft ones first. And don\'t go spending it, you\'ll be at it all week.' },
+        ],
+      },
+      {
+        name: 'Lift the emerald',
+        journal: 'Your fingers are quick now. Grix wants the real prize: a flawless emerald, carried by some unwitting mark about town. Keep pickpocketing the townsfolk — a rare dip turns up an emerald — until you\'ve lifted one for old Grix.',
+        objective: {
+          hint: 'Pickpocket townsfolk until you lift an emerald.',
+          check: (ctx) => ctx.inventory.count('emerald') >= 1,
+        },
+        progressHint: (ctx) => 'Emerald lifted (' + Math.min(ctx.inventory.count('emerald'), 1) + ' / 1). Keep dipping — the green stone comes up rare.',
+        nudge: [
+          { speaker: 'Grix', text: 'Hundred coin richer and not a guard the wiser — that\'s my dipper. Now the prize: the emerald. Keep working the marks, it turns up on a lucky dip. Bring it to me and we\'re golden. Or green, rather. Heh.' },
+        ],
+      },
+      {
+        name: 'Bring the take to Grix',
+        journal: 'The emerald is yours — lifted clean. Slip back to Grix at the dungeon, quiet as you came, to split the take and claim your cut of the caper.',
+        objective: { hint: 'Bring the emerald back to Grix at the dungeon.', check: () => false },
+        nudge: [
+          { speaker: 'Grix', text: 'Is that green I spy in your palm? Bring it here, quick and quiet, and we\'ll square up the take. Mind the guards on your way down.' },
+        ],
+      },
+    ],
+    // Takes the emerald (Grix fences it and splits the coin), then pays a roguish
+    // cut: a fat purse, a slug of Thieving XP for the caper pulled, and a leather
+    // body to dip in quietly — soft, dark, and easy on the conscience.
+    reward: {
+      text: '350 coins, a Leather body, and 240 Thieving XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('emerald', 1); // Grix fences it and splits the coin
+        ctx.inventory.add('coins', 350);
+        ctx.inventory.add('leather_body', 1);
+        ctx.skills.addXp('thieving', 240);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Grix', text: 'Ohh, would you LOOK at that. Flawless, green as a summer hill, and lifted clean off some fat merchant who\'ll not miss it till market day. You\'ve got the touch, friend. The genuine touch.' },
+      { speaker: 'Grix', text: 'I\'ll fence the stone through a fellow I know — don\'t ask — and here\'s your cut of the take, fair and square. Well. Fair-ish. A finder\'s fee for old Grix, you understand. Trade\'s a trade.' },
+      { speaker: 'Grix', text: 'Take this leather body, too — soft, dark, no jingle, no shine. Perfect for the work. A dipper in plate mail\'s just a noisy thief waiting for the stocks.' },
+      { speaker: 'Grix', text: 'Keep those fingers warm, eh? There\'s always a purse wants lightening in this town, and old Grix always knows a buyer. You don\'t know me — but you know where to find me. Now slink off before a guard wanders by.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Grix', text: 'Quiet hands, quick exit, and a tidy cut — a caper done proper. Keep dipping, friend. And remember: you don\'t know me, and I\'ve never seen you before in my life. (Wink.)' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 13 — "The Fletcher's Order" (FLETCHING CRAFT). Bramble keeps the general
+  // store, and the castle watch has put in a standing order for arrows the shelves
+  // can't fill. Out of fletchers and short on stock, Bramble sets the player the
+  // whole fletching loop: with a knife, whittle logs to shafts, feather them into
+  // bronze arrows, and carve & string a shortbow besides — then deliver the order.
+  // Every beat is verified by checking the bag when the player talks to Bramble
+  // (low coupling — no hook into fletching.js). Rewards a better bow, a fresh
+  // knife, Fletching XP, and coin.
+  // -------------------------------------------------------------------------
+  bramble: {
+    id: 'bramble',
+    name: 'The Fletcher\'s Order',
+    giver: 'bramble',
+    city: 'Eldenmoor',
+    intro: 'Bramble\'s general store has a standing order for arrows from the castle watch and not a fletcher in sight to fill it. A quick pair of hands with a knife could clear the backlog — and earn a fine bow doing it.',
+    startConfirm: {
+      prompt: 'So — will you fletch the watch their order? Arrows and a bow, the lot?',
+      yes: 'Hand me a knife and some logs. I\'ll fletch the order.',
+      no: 'Fletching\'s not my trade today.',
+      more: 'How does one fletch, exactly?',
+      moreDialogue: [
+        { speaker: 'Bramble', text: 'With a knife and a steady hand! Whittle logs into arrow shafts, then bind a feather to each — there\'s your bronze arrow. The watch wants twenty of them. I\'ll lend you a knife if you\'ve none; feathers I keep on the shelf.' },
+        { speaker: 'Bramble', text: 'For the bow: carve a log into a shortbow stave, then string it with a length of bow string. One good shortbow finishes the order. Knife, feathers, string — all here on the counter. The logs you\'ll cut yourself, or buy off Hilda.' },
+      ],
+      noReply: 'Ah well. The watch can wait, I suppose — though they\'ll grumble. Come back if your hands fancy honest fletching work; the order\'s not going anywhere.',
+      yesReply: [
+        { speaker: 'Bramble', text: 'Bless you! Here — take this knife, it\'s the tool for the whole job. Now: twenty bronze arrows and one strung shortbow, that\'s the watch\'s order. Whittle logs to shafts, feather \'em, carve and string a bow.' },
+        { speaker: 'Bramble', text: 'Feathers and bow string are here on my shelf; the logs you\'ll want fresh. Right-click a thing in your bag with the knife on you and you\'ll see the fletching options. Off you go — the watch is waiting!' },
+      ],
+      // Lend the player a knife on accept (the one tool the whole fletching loop
+      // needs), so a brand-new fletcher can start the order at once.
+      onAccept: (ctx) => { if (ctx.inventory.count('knife') < 1) ctx.inventory.add('knife', 1); },
+    },
+    startDialogue: [
+      { speaker: 'Bramble', text: 'Welcome to the general store! Mind the clutter — and mind my mood, if you would, for I\'m in a proper bind this morning.' },
+      { speaker: 'Bramble', text: 'The castle watch put in a standing order for arrows — twenty good bronze, and a fresh shortbow besides — and my last fletcher upped and married a turnip farmer three towns over. I\'ve the feathers, the string, the knife... and not a soul to wield \'em.' },
+      { speaker: 'Bramble', text: 'You\'ve nimble-looking hands. Would you fletch the order for me? Whittle the shafts, feather the arrows, carve and string the bow — I\'ll set you up with the tools and pay you well in coin and craft.' },
+    ],
+    stages: [
+      {
+        name: 'Fletch twenty bronze arrows',
+        journal: 'Bramble lent you a knife for the watch\'s order. With the knife in your bag, whittle logs into arrow shafts, then fletch each shaft with a feather into a bronze arrow. Carry 20 bronze arrows. Feathers are on Bramble\'s shelf; cut logs in the woods or buy them.',
+        objective: {
+          hint: 'Fletch and carry 20 bronze arrows.',
+          check: (ctx) => ctx.inventory.count('bronze_arrow') >= 20,
+        },
+        progressHint: (ctx) => 'Bronze arrows fletched (' + Math.min(ctx.inventory.count('bronze_arrow'), 20) + ' / 20).',
+        nudge: [
+          { speaker: 'Bramble', text: 'The watch is still short of arrows, dear. Twenty bronze — whittle logs to shafts with the knife, then bind a feather to each. Feathers are here on my shelf. Off you whittle!' },
+        ],
+      },
+      {
+        name: 'Carve and string a shortbow',
+        journal: 'The arrows are fletched. Now the bow: with the knife, carve a log into a shortbow stave, then string it with a bow string (Bramble keeps string on the shelf). Carry one finished shortbow to complete the order.',
+        objective: {
+          hint: 'Carve and string a shortbow.',
+          check: (ctx) => ctx.inventory.count('shortbow') >= 1,
+        },
+        progressHint: (ctx) => 'Strung shortbow (' + Math.min(ctx.inventory.count('shortbow'), 1) + ' / 1).',
+        nudge: [
+          { speaker: 'Bramble', text: 'Fine arrows — but the order wants a bow, too. Carve a log into a shortbow stave with the knife, then string it with a bow string off my shelf. One good shortbow and the watch is happy.' },
+        ],
+      },
+      {
+        name: 'Deliver the order to Bramble',
+        journal: 'Twenty bronze arrows and a strung shortbow — the watch\'s order, complete. Carry it all back to Bramble at the general store on the square to fill the order and claim your pay.',
+        objective: { hint: 'Bring the arrows and shortbow to Bramble at the store.', check: () => false },
+        nudge: [
+          { speaker: 'Bramble', text: 'Is that the order I see — arrows AND a bow? Bring it to the counter, dear, and let\'s get the watch off my back at last!' },
+        ],
+      },
+    ],
+    // Takes the fletched order (it goes to the watch), then pays a fletcher's due:
+    // an oak shortbow (a step up from the shortbow you made), a fresh knife of your
+    // own to keep fletching, coin, and a generous slug of Fletching XP for the loop.
+    reward: {
+      text: 'an Oak shortbow, a Knife, 240 coins, and 260 Fletching XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('bronze_arrow', 20); // delivered to the watch
+        ctx.inventory.removeN('shortbow', 1);       // the watch's new bow
+        ctx.inventory.add('oak_shortbow', 1);       // a finer bow, for your trouble
+        if (ctx.inventory.count('knife') < 1) ctx.inventory.add('knife', 1);
+        ctx.inventory.add('coins', 240);
+        ctx.skills.addXp('fletching', 260);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Bramble', text: 'Twenty bronze arrows, true-fletched and straight, and a shortbow strung tight as a drum! Oh, the watch will be thrilled — and I\'ll not have a sergeant glowering over my counter come morning. Bless your nimble hands.' },
+      { speaker: 'Bramble', text: 'You\'ve a real fletcher\'s knack, you know — half the folk I\'ve hired couldn\'t feather an arrow without losing a thumb. The trade could use more like you.' },
+      { speaker: 'Bramble', text: 'Here\'s your pay, and then some: an oak shortbow, a cut above the one you carved — call it a sample of finer work. Keep the knife, too; a fletcher should own her own. And coin besides, earned to the copper.' },
+      { speaker: 'Bramble', text: 'Come fletch for me any time the shelves run bare, dear — the watch always wants arrows, and I\'d sooner pay a craftsman than chase a turnip farmer\'s widow. Off you go, and mind the clutter!' },
+    ],
+    doneDialogue: [
+      { speaker: 'Bramble', text: 'Order\'s filled and the watch is quiet — bless your nimble hands. Bring me your fletching any time the shelves run bare; a craftsman\'s always welcome at my counter.' },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
