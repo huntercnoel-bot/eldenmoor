@@ -13,7 +13,8 @@
 // Markers carry clear classes so the UI agent can theme them; we set just enough
 // inline style to make them visible/positioned out of the box. The 'ready' marker
 // also gets a gentle bob to catch the eye, and every marker carries a title
-// tooltip naming the quest's current stage so it reads at a glance.
+// tooltip naming the quest's current stage so it reads at a glance — so the
+// over-head marker tracks each new stage of the quest as it advances.
 
 import * as THREE from '../vendor/three.module.js';
 
@@ -43,7 +44,6 @@ function tooltipFor(quests, npcId) {
 export function createQuestMarkers(npcs, quests) {
   // One marker DOM node per quest-giver NPC, created lazily.
   const markers = new Map(); // npcId -> { el, npc, state, stage }
-  let clock = 0;
 
   // Which NPCs are quest-givers? Anything the quest system recognises as a giver.
   const givers = npcs.filter((n) => n.def && quests.questIdForGiver(n.def.id));
@@ -62,8 +62,11 @@ export function createQuestMarkers(npcs, quests) {
   }
 
   // Call every frame from the game loop. Mirrors updateNpcLabels' projection.
-  function update(camera, dt = 0) {
-    clock += dt;
+  // `dt` is optional; the 'ready' bob falls back to a real-time clock so it still
+  // animates even when the caller passes no delta.
+  function update(camera, dt) {
+    const clock = (typeof dt === 'number') ? (update._clock = (update._clock || 0) + dt)
+      : performance.now() / 1000;
     for (const n of givers) {
       const state = quests.markerFor(n.def.id); // 'available' | 'in-progress' | 'ready' | null
       let m = markers.get(n.def.id);

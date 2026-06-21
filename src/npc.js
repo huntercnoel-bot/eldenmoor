@@ -29,9 +29,13 @@ const NPC_DEFS = [
         'Booming, booming! Or it would be, if folk bought things instead of just "having a look".',
         'Don\'t get me wrong — I love a good look. I just love a good coin a bit more.',
       ] },
+      { q: 'I need a bucket and a tinderbox.', a: [
+        'For the King\'s draughty old hearth, is it? Word travels fast in a cold castle. Aye — a bucket to scour that fouled flue, a tinderbox to spark it fresh. Both right here on the shelf.',
+        'Right-click me to trade and they\'re yours, cheap as you like. Carry \'em down to Bessa and tell her Bramble says hello — and that she STILL owes me for the last three buckets.',
+      ] },
       { q: 'Any local gossip?', a: [
-        'Word is the King\'s after able hands. And the tavern\'s after a new cellar — Saul reckons it\'s haunted.',
-        'Between you and me, half of what Saul says is ale talking. The other half is the OTHER ale.',
+        'Word is the King\'s hearth went cold — and not for want of wood, they say, but a chimney left to clog. A bucket and a tinderbox\'ll sort it, if some brave soul fetches them.',
+        'And the tavern\'s after a new cellar — Saul reckons it\'s haunted. Between you and me, half of what Saul says is ale talking. The other half is the OTHER ale.',
       ] },
     ],
     dialogue: [
@@ -66,8 +70,8 @@ const NPC_DEFS = [
   // --- castle court ---
   { id: 'king', name: 'King Aldric', role: 'the Crown', x: 0, z: 62, robe: 0x5e2a8a, crown: true, hair: 0xcfc4b0,
     type: 'royal', quest: 'king',
-    examine: 'King Aldric, benevolent sovereign of Eldenmoor — draped in royal purple, weary of crown but warm of heart.',
-    flavor: 'Welcome to my hall, adventurer. Eldenmoor has need of brave souls — and, just now, of a little firewood.' },
+    examine: 'King Aldric, benevolent sovereign of Eldenmoor — draped in royal purple, weary of crown but warm of heart, when his hearth allows.',
+    flavor: 'Welcome to my hall, adventurer. Eldenmoor has need of brave souls — and, just now, of a fire that will not die.' },
   { id: 'duke', name: 'Duke Veylin', role: 'Royal Steward', x: 4, z: 61, robe: 0x274a7a,
     type: 'plain', examine: "The king's steward, keeper of the realm's affairs.",
     flavor: 'Seek the King if you crave purpose — and mind your manners in his hall.',
@@ -150,18 +154,27 @@ const NPC_DEFS = [
       'No, I can\'t hold your logs for you yet. Soon, as the scribes say.',
     ] },
   { id: 'cook', name: 'Bessa', role: 'Castle Cook', x: -18, z: 37, robe: 0xb08a5a, apron: true,
-    type: 'plain', examine: 'The castle cook, flour to her elbows.', flavor: 'Mind the oven, dear — hot bread for the King’s table!',
+    type: 'plain', examine: 'The castle cook, flour to her elbows — and these days, soot to them as well.',
+    flavor: 'Mind the oven, dear — hot bread for the King’s table. If only the great hearth would behave the same!',
     greeting: 'Mind the oven, dear — that\'s hot bread for the King\'s own table, fresh as the dawn.',
     prompt: 'What is it, love? Mind the flour.',
     topics: [
       { q: 'What are you baking?', a: ['Bread, pies, and a great pot of something brown for the court. His Majesty does love a fresh loaf — keeps the whole hall sweet-smelling.'] },
-      { q: 'Do you tend the hearth?', a: ['That I do — the great hall\'s hearth is mine to keep lit. When there\'s wood for it, mind. Cold wood warms no one, as I\'m forever telling His Majesty.'] },
+      { q: 'Do you tend the great hearth?', a: [
+        'That I do — the great hall\'s hearth has been mine to keep lit since the old King\'s day. And it\'s shamed me proper this winter, I don\'t mind telling you.',
+        'I lay the wood, I strike a light, and what do I get? Smoke. The fire catches, gutters, and dies, every blessed time. It\'s not the wood — it\'s the chimney.',
+        'That flue\'s gone a whole season without a scour. Packed black with damp soot, it is, choking the draw. No fire breathes through a clogged throat. THAT\'S why the hall went cold — not for want of logs at all.',
+      ] },
+      { q: 'How do we put the hearth right?', a: [
+        'Two things, love, and no shortcuts. A good stout bucket to scour all that damp soot out of the flue — and a tinderbox to strike the kindling fresh once she draws clean again.',
+        'Bramble at the general store on the square keeps both, cheap as you like. Fetch \'em down to me and I\'ll have a proper roaring fire by nightfall, you mark old Bessa.',
+      ] },
       { q: 'How\'s the cooking going?', a: ['Flour to my elbows from dawn to dusk! Burnt one batch last week, I\'ll confess. Told the King it was "rustic". He believed me, bless his crowned little head.'] },
     ],
     dialogue: [
       'Mind the oven, dear — that\'s hot bread for the King\'s own table.',
-      'Flour to my elbows from dawn to dusk. His Majesty does love a fresh loaf.',
-      'Burnt one batch last week. Told the King it was "rustic". He believed me, bless him.',
+      'The great hearth? Smokes and dies, every time. It\'s the flue, choked with a season\'s soot — not the wood.',
+      'Bring me a bucket to scour it and a tinderbox to relight, and I\'ll have her roaring by nightfall.',
     ] },
 
   // --- townsfolk (the square) ---

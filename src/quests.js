@@ -18,21 +18,32 @@ export const STATUS = { NOT_STARTED: 'not_started', IN_PROGRESS: 'in_progress', 
 // ---------------------------------------------------------------------------
 // QUEST DEFINITIONS
 // ---------------------------------------------------------------------------
-// The King's first quest: a classic OSRS-style starter and the player's first
+// The King's first quest: a classic OSRS-style starter, and the player's first
 // real taste of Eldenmoor. King Aldric's three-hundred-year-old great-hall hearth
-// has gone cold as an early winter bites. The quest walks the player through the
-// whole Woodcutting loop, then escalates into a small "lay and light the fire"
-// payoff:
+// has gone cold as an early winter bites. What begins as a simple firewood errand
+// turns, halfway through, into a small mystery: the fresh wood Bessa lays keeps
+// guttering out, because the chimney flue is choked with damp, season-old soot.
+// No firewood in the realm will hold a flame until the flue is scoured clean and
+// the kindling struck anew. So the quest grows from a plain fetch into a little
+// story, with a reveal at the kitchen hearth and a shopping run to put it right:
 //   0) Gather firewood from the woods (reuses Woodcutting + an equipped axe).
-//   1) Carry the firewood down to Bessa the cook, who keeps the hearth.
-//   2) Return to the King — the fire is laid and lit, the hall is warm again.
-// The reward is tuned for a brand-new adventurer: starter coins, a healthy slice
-// of Woodcutting XP for the work, a steel axe to grow into, and a tinderbox for
-// the road.
+//   1) Carry the firewood down to Bessa the cook, who keeps the hearth — and there
+//      learn the wood alone won't do it: the flue is fouled and won't draw.
+//   2) Fetch what's needed to set it right — a Bucket to scour the damp soot from
+//      the flue and a Tinderbox to strike a fresh flame (both sold by Bramble at
+//      the general store on the square). A real little shopping beat for variety.
+//   3) Return to the King — the flue is cleared, the fire is lit, the hall is warm.
+// The reward is tuned for a brand-new adventurer and stays usable at low level:
+// starter coins, a Steel Axe to grow into, a healthy slice of Woodcutting XP for
+// the work, a first taste of Firemaking XP for the relighting, and a fresh
+// Tinderbox for the road.
 //
-// NOTE: the stage layout (logs at stage 0, cook at stage 1, King at the last
-// stage) is what the talk flow in main.js keys off, so it is kept stable — the
-// craft here is in making every beat feel alive without changing that shape.
+// NOTE: the stage layout is what the talk flow in main.js keys off and is kept
+// stable: firewood at stage 0, Bessa the cook at stage 1 (her delivery sets the
+// `toldCook` flag), and the King at the LAST stage (he hands in the reward when
+// `readyToComplete` is true). The new soot/relight beat slots in as a poll-checked
+// fetch stage BETWEEN the cook and the King, so the existing talk plumbing never
+// has to change — the craft is in making every beat feel alive within that shape.
 const LOGS_NEEDED = 5;
 
 export const QUEST_DEFS = {
@@ -78,8 +89,30 @@ export const QUEST_DEFS = {
         ],
       },
       {
+        // THE REVEAL. Bessa has laid the wood but the fire smokes and dies: the
+        // flue is choked with damp, season-old soot and won't draw a flame. The
+        // fix is a small shopping run to Bramble on the square — a Bucket to scour
+        // the soot and a Tinderbox to strike a fresh light. Poll-checked, so it
+        // advances the moment the player carries both, with no talk-flow changes.
+        name: 'Clear and relight the hearth',
+        journal: 'Bessa laid the wood — but the fire smokes and dies. The chimney flue is choked with damp, season-old soot and won\'t draw a flame. She needs a Bucket to scour the flue clean and a Tinderbox to strike the kindling fresh. Bramble at the general store on the square sells both.',
+        objective: {
+          hint: 'Buy a Bucket and a Tinderbox from Bramble\'s general store on the square.',
+          check: (ctx) => ctx.inventory.count('bucket') >= 1 && ctx.inventory.count('tinderbox') >= 1,
+        },
+        // Re-talking the King between Bessa's discovery and your return. He has
+        // had her word, and now lets the player in on the twist — turning the
+        // fetch-quest into a small mystery to put right.
+        nudge: [
+          { speaker: 'King Aldric', text: 'Ah, you\'re back — but Bessa reached me first, by the kitchen boy. Grim news from the hearth, I\'m afraid.' },
+          { speaker: 'King Aldric', text: 'Your wood is dry and sound, she says — but the fire will not hold. It catches, smokes, gutters, and dies. The flue itself is fouled: a season\'s damp soot, packed black and choking the draw.' },
+          { speaker: 'King Aldric', text: 'So THAT is why my hearth went cold — not for want of wood at all, but a chimney left too long untended. Three hundred years it drew clean, and we let it clog in a single careless autumn. For shame.' },
+          { speaker: 'King Aldric', text: 'Bessa needs a stout bucket to scour the flue clean, and a tinderbox to strike the kindling anew. Bramble keeps both at the general store on the square — fetch them, carry them down to her, and we\'ll have a true fire by nightfall.' },
+        ],
+      },
+      {
         name: 'Return to the King',
-        journal: 'Bessa has laid the fire and the kindling has caught. Return to King Aldric in the great hall to see the hearth roar — and to claim his thanks.',
+        journal: 'The flue is scoured clean, the kindling has caught, and the great hall breathes warm once more. Return to King Aldric in the throne room to share in the fire you saved — and to claim his thanks.',
         objective: {
           hint: 'Return to King Aldric in the great hall.',
           check: () => false, // completed by talking to the King (handled in the talk flow)
@@ -87,34 +120,38 @@ export const QUEST_DEFS = {
         // Shown if the player re-opens the King on the final stage before the talk
         // flow hands in (kept for completeness — the talk flow normally turns in).
         nudge: [
-          { speaker: 'King Aldric', text: 'The fire is laid below and the kindling has caught — I can smell the woodsmoke on the air. Stand a moment, and watch an old hearth wake.' },
+          { speaker: 'King Aldric', text: 'The flue draws clean, the kindling has caught, and I can smell true woodsmoke on the air at last. Stand a moment by the throne, and watch an old hearth wake.' },
         ],
       },
     ],
-    // Reward handed out on completion. Takes the firewood the player carried up
-    // (so the delivery feels real) and pays out something an early adventurer can
-    // genuinely use: starter coins, a healthy slice of Woodcutting XP, and a steel
-    // axe with a tinderbox for the road.
+    // Reward handed out on completion. Takes the bucket and tinderbox the player
+    // carried up (they go into clearing and lighting the hearth, so the fix feels
+    // real), then pays out something a brand-new adventurer can genuinely use:
+    // starter coins, a slice of Woodcutting XP for the cutting, a first taste of
+    // Firemaking XP for the relighting, a Steel Axe to grow into, and a fresh
+    // tinderbox for the road ahead.
     reward: {
-      text: '300 coins, 250 Woodcutting XP, a Steel Axe, and a Tinderbox',
+      text: '300 coins, a Steel Axe, 250 Woodcutting XP, 120 Firemaking XP, and a Tinderbox',
       grant: (ctx) => {
-        // Consume the firewood you brought — the hearth devours it gladly.
-        ctx.inventory.removeN('logs', LOGS_NEEDED);
+        // The bucket and tinderbox you brought are spent setting the hearth right.
+        ctx.inventory.removeN('bucket', 1);
+        ctx.inventory.removeN('tinderbox', 1);
         ctx.inventory.add('coins', 300);
         ctx.inventory.add('steel_axe', 1);
-        ctx.inventory.add('tinderbox', 1);
+        ctx.inventory.add('tinderbox', 1); // a fresh one for your own campfires
         ctx.skills.addXp('woodcutting', 250);
+        ctx.skills.addXp('firemaking', 120);
       },
     },
     completeDialogue: [
-      { speaker: 'King Aldric', text: 'You return! And — ah, do you hear it? The crackle, the snap of dry wood catching. Bessa has worked her quiet magic, and the great hall breathes warm once more.' },
-      { speaker: 'King Aldric', text: 'Three hundred years that fire has burned, and tonight it owes its life to you. The whole court can feel it — even my steward managed something close to a smile. A rare omen indeed.' },
-      { speaker: 'King Aldric', text: 'A friend of the Crown does not go unthanked. Here — a purse to set you on your way, and a steel axe; sturdier than whatever you swung in my woods today. Take a tinderbox, too, so you need never be cold on the road.' },
-      { speaker: 'King Aldric', text: 'Go now, and warm yourself by the fire you saved. There will be greater trials than cold toes ahead — and when they come, brave soul, I shall know whose name to call.' },
+      { speaker: 'King Aldric', text: 'You return! And — ah, do you hear it? The crackle, the snap of dry wood catching, the long clean breath of a chimney that draws at last. Bessa has worked her quiet magic, and the great hall is warm once more.' },
+      { speaker: 'King Aldric', text: 'A scoured flue and a struck flame — who would have thought it? Three hundred years that fire has burned, and tonight it owes its life to your two willing hands. Even my steward managed something close to a smile. A rare omen indeed.' },
+      { speaker: 'King Aldric', text: 'A friend of the Crown does not go unthanked. Here — a purse to set you on your way, and a steel axe; sturdier than whatever you swung in my woods today. Take a fresh tinderbox, too, so you need never sit cold on the road.' },
+      { speaker: 'King Aldric', text: 'Go now, and warm yourself by the fire you saved. There will be greater trials than cold toes ahead, brave soul — goblins in the hills, whispers from the cellar, roads that want walking — and when they come, I shall know whose name to call.' },
     ],
     doneDialogue: [
-      { speaker: 'King Aldric', text: 'The hearth roars, the hall is warm, and my toes — bless them — have feeling once more. You have the lasting thanks of the Crown, friend.' },
-      { speaker: 'King Aldric', text: 'Sit by the fire whenever you pass. You, of all who walk these halls, have earned a place beside it.' },
+      { speaker: 'King Aldric', text: 'The hearth roars, the flue draws clean, and my toes — bless them — have feeling once more. You have the lasting thanks of the Crown, friend.' },
+      { speaker: 'King Aldric', text: 'Sit by the fire whenever you pass. You, of all who walk these halls, have earned a place beside it. And keep that axe sharp — adventure has a way of finding the warm and the willing.' },
     ],
   },
 };
