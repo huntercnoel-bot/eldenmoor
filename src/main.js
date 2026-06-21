@@ -53,12 +53,42 @@ net.on('logged_in', (d) => {
   startGame(d.user);
 });
 
+// "Remember me" — saves username + password in this browser's localStorage and
+// pre-fills them next time. (Local game account only — the login note warns not
+// to reuse a real password.)
+const rememberEl = document.getElementById('login-remember');
+const REMEMBER_KEY = 'eldenmoor_login';
+function loadRemembered() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null');
+    if (saved && saved.u) {
+      userEl.value = saved.u;
+      passEl.value = saved.p || '';
+      if (rememberEl) rememberEl.checked = true;
+    }
+  } catch (e) { /* ignore */ }
+}
+function applyRemember() {
+  try {
+    if (rememberEl && rememberEl.checked) {
+      localStorage.setItem(REMEMBER_KEY, JSON.stringify({ u: userEl.value, p: passEl.value }));
+    } else {
+      localStorage.removeItem(REMEMBER_KEY);
+    }
+  } catch (e) { /* ignore */ }
+}
+// Unchecking it forgets immediately.
+if (rememberEl) rememberEl.addEventListener('change', () => { if (!rememberEl.checked) applyRemember(); });
+loadRemembered();
+
 function doRegister() {
+  applyRemember();
   if (!net.ready()) { setMsg('Not connected to the server.', false); return; }
   setMsg('Creating account…', true);
   net.send({ t: 'register', u: userEl.value, p: passEl.value });
 }
 function doLogin() {
+  applyRemember();
   if (!net.ready()) { setMsg('Not connected to the server.', false); return; }
   setMsg('Logging in…', true);
   net.send({ t: 'login', u: userEl.value, p: passEl.value });
