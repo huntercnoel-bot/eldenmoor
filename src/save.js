@@ -9,11 +9,15 @@ export function createSave(skills, inventory, equipment, user, quests) {
 
   function save() {
     try {
+      // Bank lives on window.eldenmoor.bank (banking.js, self-contained); read
+      // it additively if present so the vault persists alongside the inventory.
+      const bank = (typeof window !== 'undefined' && window.eldenmoor && window.eldenmoor.bank) || null;
       const json = JSON.stringify({
         skills: skills.serialize(),
         slots: inventory.slots,
         equip: equipment.serialize(),
         quests: quests ? quests.serialize() : undefined,
+        bank: bank ? bank.serialize() : undefined,
       });
       if (json === lastJson) return;
       lastJson = json;
@@ -37,6 +41,14 @@ export function createSave(skills, inventory, equipment, user, quests) {
       if (Array.isArray(data.slots)) inventory.load(data.slots);
       if (data.equip) equipment.load(data.equip);
       if (quests && data.quests) quests.load(data.quests);
+      // Bank: hand it to banking.js if it's attached yet, otherwise stash the
+      // raw data on a global so banking.js can pick it up once it boots. (load()
+      // runs before window.eldenmoor is assigned, so we use a standalone global.)
+      if (data.bank !== undefined && typeof window !== 'undefined') {
+        const bank = window.eldenmoor && window.eldenmoor.bank;
+        if (bank && bank.load) bank.load(data.bank);
+        else window.__eldenmoorPendingBank = data.bank;
+      }
       return true;
     } catch (e) { return false; }
   }
