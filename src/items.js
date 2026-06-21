@@ -287,6 +287,71 @@ ITEMS.magic_logs = {
   icon: logIcon('#5a6aa8', '#33407a', '#a8b8ff', true),
 };
 
+// ---- Fishing & Cooking (appended by the Fishing/Cooking extension; additive) ----
+// Each fish has three forms: raw (from Fishing), cooked (from Cooking on a fire/
+// range) and burnt (a low-level Cooking mishap). Cooked fish carry a `heal` value
+// (HP restored when eaten) and an `eat` flag the inventory/right-click "Eat" uses.
+// Values follow OSRS food spacing, scaled to this game. Icons are inline SVG fish
+// tinted per species (cooked = warmer/golden, burnt = charred black).
+function fishIcon(body, belly, fin) {
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-8 20 20)">
+    <path d="M7 20 Q16 9 27 13 Q34 16 33 20 Q34 24 27 27 Q16 31 7 20 Z" fill="${body}" stroke="#2a2a2a" stroke-width="1.2"/>
+    <path d="M7 20 Q3 15 1 13 Q4 20 1 27 Q3 25 7 20 Z" fill="${fin}" stroke="#2a2a2a" stroke-width="1"/>
+    <path d="M12 22 Q19 28 27 25" fill="none" stroke="${belly}" stroke-width="1.4" opacity="0.7"/>
+    <circle cx="29" cy="18" r="1.6" fill="#15110c"/></g></svg>`;
+}
+// Raw fish — cool, fishy tones.
+ITEMS.raw_shrimp = {
+  id: 'raw_shrimp', name: 'Raw shrimps', stackable: true, value: 3, examine: 'I should try cooking these.',
+  icon: fishIcon('#d98f7a', '#f0bfae', '#c97a64'),
+};
+ITEMS.raw_sardine = {
+  id: 'raw_sardine', name: 'Raw sardine', stackable: true, value: 5, examine: 'A small, oily fish. Best cooked.',
+  icon: fishIcon('#8fa6b8', '#c7d6e0', '#6f8696'),
+};
+ITEMS.raw_trout = {
+  id: 'raw_trout', name: 'Raw trout', stackable: true, value: 12, examine: 'A fine river trout. Needs cooking.',
+  icon: fishIcon('#9bb07f', '#cdd9b8', '#7d9263'),
+};
+ITEMS.raw_salmon = {
+  id: 'raw_salmon', name: 'Raw salmon', stackable: true, value: 20, examine: 'A plump salmon. Cook it for a hearty meal.',
+  icon: fishIcon('#e0997a', '#f3c4ab', '#c47a5c'),
+};
+ITEMS.raw_lobster = {
+  id: 'raw_lobster', name: 'Raw lobster', stackable: true, value: 40, examine: 'A live lobster. Cook it before it pinches you.',
+  icon: fishIcon('#7d4a9c', '#b88fcf', '#5e3578'),
+};
+// Cooked fish — golden/warm tones; edible with a heal value.
+ITEMS.cooked_shrimp = {
+  id: 'cooked_shrimp', name: 'Shrimps', stackable: true, value: 5, heal: 3, eat: true, examine: 'Some nicely cooked shrimps. Heals 3.',
+  icon: fishIcon('#f0a05a', '#ffd2a0', '#d8843e'),
+};
+ITEMS.cooked_sardine = {
+  id: 'cooked_sardine', name: 'Sardine', stackable: true, value: 8, heal: 4, eat: true, examine: 'A cooked sardine. Heals 4.',
+  icon: fishIcon('#e8b46a', '#ffe2b0', '#c8923f'),
+};
+ITEMS.cooked_trout = {
+  id: 'cooked_trout', name: 'Trout', stackable: true, value: 18, heal: 7, eat: true, examine: 'A well-cooked trout. Heals 7.',
+  icon: fishIcon('#e7b878', '#ffe6bc', '#c79850'),
+};
+ITEMS.cooked_salmon = {
+  id: 'cooked_salmon', name: 'Salmon', stackable: true, value: 28, heal: 9, eat: true, examine: 'A hearty cooked salmon. Heals 9.',
+  icon: fishIcon('#f0a86a', '#ffd6ad', '#d4894a'),
+};
+ITEMS.cooked_lobster = {
+  id: 'cooked_lobster', name: 'Lobster', stackable: true, value: 55, heal: 12, eat: true, examine: 'A bright red cooked lobster. Heals 12.',
+  icon: fishIcon('#e0503a', '#ff9a7a', '#c03828'),
+};
+// Burnt fish — charred and worthless. A low-level Cooking mishap.
+ITEMS.burnt_fish = {
+  id: 'burnt_fish', name: 'Burnt fish', stackable: true, value: 1, examine: 'Oops. Charred beyond saving.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-8 20 20)">
+    <path d="M7 20 Q16 9 27 13 Q34 16 33 20 Q34 24 27 27 Q16 31 7 20 Z" fill="#3a3330" stroke="#15110c" stroke-width="1.2"/>
+    <path d="M7 20 Q3 15 1 13 Q4 20 1 27 Q3 25 7 20 Z" fill="#2a2422" stroke="#15110c" stroke-width="1"/>
+    <path d="M12 16 q3 4 0 8 M18 15 q3 5 0 10 M24 16 q2 4 0 8" stroke="#6a5a48" stroke-width="0.8" fill="none" opacity="0.6"/>
+    <circle cx="29" cy="18" r="1.4" fill="#0a0806"/></g></svg>`,
+};
+
 // Helper: a banded bundle-of-logs icon in the given wood colours. `glow` adds a
 // soft aura behind the bundle (used by magic logs).
 function logIcon(fill, stroke, ring, glow) {
