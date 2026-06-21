@@ -17,6 +17,18 @@ function mat(color) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0 });
 }
 
+// Derive a metal tint from a smithed item id when the def carries no explicit
+// colour. Palette matches the icon fills in items.js so the 3D gear reads as the
+// same metal as its inventory icon. Unknown ids fall back to steel-grey.
+function metalTint(id) {
+  if (!id) return null;
+  if (id.includes('bronze')) return 0xc8842f;   // warm copper
+  if (id.includes('mithril')) return 0x6f9bd6;   // steely blue
+  if (id.includes('steel')) return 0xc2c7ce;     // bright steel
+  if (id.includes('iron')) return 0xb8b0a8;      // dull grey iron
+  return null;
+}
+
 // A smooth lathe-of-revolution solid from a list of [radius, height] profile
 // points (bottom→top). Great for tapered organic limbs/torsos with soft caps.
 function lathe(profile, m, seg = 24) {
@@ -108,21 +120,71 @@ export function createPlayer() {
 export function setHeldWeapon(player, def) {
   const hand = player.userData.armR.userData.lower;
   if (player.userData.held) { hand.remove(player.userData.held); player.userData.held = null; }
-  if (!def || def.tool !== 'axe') return;
+  if (!def) return;
 
-  const g = new THREE.Group();
+  // Blade colour: an explicit headColor wins (axes); otherwise derive a metal
+  // tint from the smithed item id so bronze/iron/steel/mithril blades show in
+  // their own colour. Falls back to steel-grey when unknown.
+  const bladeColor = def.headColor ?? metalTint(def.id) ?? 0xbfc4cc;
+  const blade = new THREE.MeshStandardMaterial({ color: bladeColor, roughness: 0.4, metalness: 0.5 });
   const wood = new THREE.MeshStandardMaterial({ color: 0x5b3d22, roughness: 0.9 });
-  const blade = new THREE.MeshStandardMaterial({ color: def.headColor || 0xbfc4cc, roughness: 0.4, metalness: 0.5 });
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.9, 14), wood); handle.castShadow = true; g.add(handle);
-  // smooth crescent axe head from a lathe-swept blade + rounded poll
-  const head = new THREE.Mesh(new THREE.LatheGeometry(
-    [new THREE.Vector2(0.02, -0.15), new THREE.Vector2(0.22, -0.05), new THREE.Vector2(0.26, 0.05),
-     new THREE.Vector2(0.2, 0.13), new THREE.Vector2(0.02, 0.16)], 18), blade);
-  head.scale.set(0.5, 1, 1); head.rotation.z = Math.PI / 2; head.position.set(0, 0.4, 0.14); head.castShadow = true; g.add(head);
-  const poll = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 12), blade); poll.position.set(0, 0.4, -0.02); poll.castShadow = true; g.add(poll);
-  g.position.set(0, -0.4, 0.12); g.rotation.x = 0.3;
-  hand.add(g);
-  player.userData.held = g;
+
+  if (def.tool === 'axe') {
+    const g = new THREE.Group();
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.9, 14), wood); handle.castShadow = true; g.add(handle);
+    // smooth crescent axe head from a lathe-swept blade + rounded poll
+    const head = new THREE.Mesh(new THREE.LatheGeometry(
+      [new THREE.Vector2(0.02, -0.15), new THREE.Vector2(0.22, -0.05), new THREE.Vector2(0.26, 0.05),
+       new THREE.Vector2(0.2, 0.13), new THREE.Vector2(0.02, 0.16)], 18), blade);
+    head.scale.set(0.5, 1, 1); head.rotation.z = Math.PI / 2; head.position.set(0, 0.4, 0.14); head.castShadow = true; g.add(head);
+    const poll = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 12), blade); poll.position.set(0, 0.4, -0.02); poll.castShadow = true; g.add(poll);
+    g.position.set(0, -0.4, 0.12); g.rotation.x = 0.3;
+    hand.add(g);
+    player.userData.held = g;
+    return;
+  }
+
+  if (def.tool === 'sword') {
+    // Smithed melee arm: smooth pommel + grip + crossguard, then a blade whose
+    // shape varies by kind (read from the id): dagger short & straight, sword
+    // longer & straight, scimitar long with a swept curve.
+    const id = def.id || '';
+    const kind = id.includes('scimitar') ? 'scim' : id.includes('dagger') ? 'dagger' : 'sword';
+    const len = kind === 'dagger' ? 0.34 : kind === 'scim' ? 0.66 : 0.6;
+    const halfW = kind === 'dagger' ? 0.032 : 0.04;
+    const steelGuard = new THREE.MeshStandardMaterial({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.6 });
+
+    const g = new THREE.Group();
+    // rounded pommel + leather grip
+    const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), steelGuard); pommel.position.set(0, -0.04, 0); pommel.castShadow = true; g.add(pommel);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.17, 14), wood); grip.position.set(0, 0.06, 0); grip.castShadow = true; g.add(grip);
+    // crossguard as a smooth capsule
+    const guard = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.18, 6, 14), steelGuard);
+    guard.rotation.z = Math.PI / 2; guard.position.set(0, 0.15, 0); guard.castShadow = true; g.add(guard);
+
+    // blade: a smooth tapered lathe (diamond cross-section flattened) from guard
+    // to a rounded point.
+    const blProfile = [
+      [0.01, 0.0], [halfW, 0.04], [halfW, len * 0.55], [halfW * 0.7, len * 0.82], [0.005, len],
+    ].map(([r, y]) => new THREE.Vector2(Math.max(r, 0.0001), y));
+    const bl = new THREE.Mesh(new THREE.LatheGeometry(blProfile, 16), blade);
+    bl.scale.set(1, 1, 0.32);   // flatten into an edged blade
+    bl.position.set(0, 0.18, 0); bl.castShadow = true;
+    if (kind === 'scim') {
+      // bend the scimitar: tilt the blade so it sweeps forward like a curved sabre
+      const curve = new THREE.Group();
+      curve.add(bl);
+      bl.rotation.x = -0.32; bl.position.set(0, 0.16, 0.02);
+      curve.position.set(0, 0, 0);
+      g.add(curve);
+    } else {
+      g.add(bl);
+    }
+    g.position.set(0, -0.34, 0.12); g.rotation.x = 0.4;
+    hand.add(g);
+    player.userData.held = g;
+    return;
+  }
 }
 
 // Put on / take off a piece of armour. `slot` is an equipment slot id (head,
@@ -143,7 +205,11 @@ export function setWornGear(player, slot, def) {
 
   const { body, legL, legR, armL, armR } = ud;
   const PS = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
-  const plate = PS(def.plate ?? 0xccd2da, 0.28, 0.7);      // bright steel
+  // Plate colour: an explicit `plate` field wins; otherwise derive a metal tint
+  // from the smithed item id (bronze/iron/steel/mithril) so the armour reads as
+  // its forged metal. Steel's tint matches the previous default, so the existing
+  // steel set looks unchanged.
+  const plate = PS(def.plate ?? metalTint(def.id) ?? 0xccd2da, 0.28, 0.7);
   const dark = PS(0x5c6068, 0.45, 0.6);                    // shadowed steel
   const gold = PS(def.trim ?? 0xe8c24a, 0.22, 0.9);        // bright gold filigree
   const gemC = def.gem ?? 0x38a8ff;
