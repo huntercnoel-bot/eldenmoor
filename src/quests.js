@@ -154,6 +154,281 @@ export const QUEST_DEFS = {
       { speaker: 'King Aldric', text: 'Sit by the fire whenever you pass. You, of all who walk these halls, have earned a place beside it. And keep that axe sharp — adventure has a way of finding the warm and the willing.' },
     ],
   },
+
+  // -------------------------------------------------------------------------
+  // QUEST 2 — "Vermin and Vandals" (COMBAT). Pell the farmer's harvest is under
+  // siege: giant rats in the grain stores, then goblins bold enough to raid the
+  // field itself. A two-stage cull that teaches the player to fight, tracked live
+  // through window.eldenmoor.quests.onMonsterKill(typeId) (combat.js calls it on
+  // every kill). Rewards lean martial: a shield, coins, real combat XP, and a
+  // loaf for the road.
+  // -------------------------------------------------------------------------
+  pell: {
+    id: 'pell',
+    name: 'Vermin and Vandals',
+    giver: 'farmer',
+    city: 'Eldenmoor',
+    intro: 'Pell the farmer\'s harvest is besieged — rats in the grain and goblins in the field. He could use a willing hand and a sharp blade.',
+    // Data-driven offer (read by the generic quest-giver flow in main.js).
+    startConfirm: {
+      prompt: 'So — will you take up a blade and clear old Pell\'s land?',
+      yes: 'Aye, Pell. I\'ll thin out the vermin for you.',
+      no: 'I\'ve other roads to walk first.',
+      more: 'Tell me about these pests.',
+      moreDialogue: [
+        { speaker: 'Pell', text: 'Giant rats, first — big as terriers and twice as bold, gorging in my grain store till there\'ll be nowt left for the castle ovens.' },
+        { speaker: 'Pell', text: 'And then the goblins. Little green devils crept down from the hills, trampling my wheat and pinching my turnips. A scarecrow won\'t scare THAT lot. But a blade might.' },
+      ],
+      noReply: 'Fair enough. But the rats won\'t wait, and nor will the goblins. Come back when your courage\'s up, eh?',
+      yesReply: [
+        { speaker: 'Pell', text: 'Ha! Knew you had iron in you. Right — start with the grain store. Four of those great rats at least, or it\'s no good.' },
+        { speaker: 'Pell', text: 'You\'ll find \'em skulking about the fields and the castle approach. Off you pop, and mind their teeth!' },
+      ],
+    },
+    startDialogue: [
+      { speaker: 'Pell', text: 'Oh — thank the King, a face with some fight in it! You there, adventurer — got a moment for a farmer in a fix?' },
+      { speaker: 'Pell', text: 'Good harvest this year, I\'ll not lie — but I\'ll lose the lot if these pests have their way. Giant rats in my grain, and now GOBLINS, bold as you like, stamping through my wheat.' },
+      { speaker: 'Pell', text: 'I\'m too old to swing a blade and too stubborn to watch it all spoil. You\'ve an axe and a strong arm — would you clear \'em out for me? I\'ll see you well paid.' },
+    ],
+    stages: [
+      {
+        name: 'Cull the giant rats',
+        journal: 'Pell\'s grain store is overrun with giant rats. Hunt down and slay 4 giant rats around the fields and the castle approach.',
+        objective: {
+          hint: 'Slay giant rats (0 / 4). Track: kill them anywhere in Eldenmoor.',
+          check: (ctx) => (ctx.flags.ratKills || 0) >= 4,
+        },
+        // The hint updates live as you cull, so the journal counts up with you.
+        progressHint: (ctx) => 'Slay giant rats (' + Math.min(ctx.flags.ratKills || 0, 4) + ' / 4).',
+        nudge: [
+          { speaker: 'Pell', text: 'Still rats in the grain, by the squeaking of it. Four of the great brutes, mind — fewer won\'t do. Get after \'em!' },
+        ],
+      },
+      {
+        name: 'Drive off the goblins',
+        journal: 'The grain store is clearing — but goblins are trampling the wheat. Slay 3 goblins to drive the green devils off Pell\'s land.',
+        objective: {
+          hint: 'Slay goblins (0 / 3).',
+          check: (ctx) => (ctx.flags.goblinKills || 0) >= 3,
+        },
+        progressHint: (ctx) => 'Slay goblins (' + Math.min(ctx.flags.goblinKills || 0, 3) + ' / 3).',
+        nudge: [
+          { speaker: 'Pell', text: 'The rats are seen to — bless you! — but those goblins are still at my turnips. Three of \'em down ought to send the rest scurrying back to their hills.' },
+        ],
+      },
+      {
+        name: 'Return to Pell',
+        journal: 'The rats are culled and the goblins driven off. Return to Pell at his field, south of the square, to claim your reward.',
+        objective: { hint: 'Return to Pell at his field.', check: () => false },
+        nudge: [
+          { speaker: 'Pell', text: 'Quiet at last! Not a rat squeaking nor a goblin stamping. Come here and let me thank you proper.' },
+        ],
+      },
+    ],
+    // Combat-flavoured reward: a shield, a fair purse, a slice of real combat XP
+    // across the melee skills, and a loaf for the long walk home.
+    reward: {
+      text: '250 coins, a Wooden shield, combat XP (Attack/Strength/Defence/Hitpoints), and a Loaf of bread',
+      grant: (ctx) => {
+        ctx.inventory.add('coins', 250);
+        ctx.inventory.add('wooden_shield', 1);
+        ctx.inventory.add('bread', 1);
+        ctx.skills.addXp('attack', 160);
+        ctx.skills.addXp('strength', 160);
+        ctx.skills.addXp('defence', 120);
+        ctx.skills.addXp('hitpoints', 90);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Pell', text: 'There she is — my hero in muddy boots! Not a rat squeaking, not a goblin stamping. You\'ve saved this whole harvest, and the castle\'s winter bread with it.' },
+      { speaker: 'Pell', text: 'Take this purse — earned every copper. And a shield off my late brother\'s wall; he\'d want a fighter to carry it, not a nail. Here\'s a fresh loaf too, for the road.' },
+      { speaker: 'Pell', text: 'You\'ve the makings of a proper warrior, that\'s plain. Keep that arm strong — Eldenmoor\'s got worse things than rats in its hills, mark old Pell.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Pell', text: 'Grain\'s safe, wheat\'s standing tall, and the turnips are mine again — all thanks to you. Off you pop now, and mind the scarecrow!' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 3 — "Forge and Firewood" (GATHER / CRAFT). Garrett the blacksmith has
+  // run his charcoal dry and cracked his quenching bucket. He needs the player to
+  // gather raw materials — logs to burn down for charcoal and a stout bucket to
+  // hold the quench — then deliver them so he can fire the forge anew. A simple,
+  // satisfying gather-and-deliver loop using items that already exist.
+  // -------------------------------------------------------------------------
+  garrett: {
+    id: 'garrett',
+    name: 'Forge and Firewood',
+    giver: 'smith',
+    city: 'Eldenmoor',
+    intro: 'Garrett\'s forge has gone cold — out of charcoal and short a bucket. He needs firewood and a fresh bucket to get the coals glowing again.',
+    startConfirm: {
+      prompt: 'What do you say — will you stock my forge for me?',
+      yes: 'Consider it done. Wood and a bucket, coming up.',
+      no: 'Not just now, smith.',
+      more: 'Why do you need logs, exactly?',
+      moreDialogue: [
+        { speaker: 'Garrett', text: 'Charcoal, friend. You burn good dry logs down slow in the pit and they char to charcoal — hotter and cleaner than raw wood. No charcoal, no forge.' },
+        { speaker: 'Garrett', text: 'And the bucket\'s for the quench — plunging hot steel to harden it. Mine cracked clean through last week. Bring me 6 logs and a sound bucket and I\'m back in business.' },
+      ],
+      noReply: 'No matter. But a cold forge helps no one — no fresh armour for the road, eh? Come back when you\'ve a mind to.',
+      yesReply: [
+        { speaker: 'Garrett', text: 'Good lad. Six logs for the charcoal pit, and one stout bucket for the quench. Hilda or the woods\'ll sort you for wood; Bramble on the square keeps buckets.' },
+        { speaker: 'Garrett', text: 'Bring \'em back here to the anvil and we\'ll have this forge roaring by supper.' },
+      ],
+    },
+    startDialogue: [
+      { speaker: 'Garrett', text: 'Step up to the anvil, friend — though I\'ll warn you, the forge is stone cold and I\'m in a foul mood about it.' },
+      { speaker: 'Garrett', text: 'Run clean out of charcoal, I have, and to top it my quenching bucket cracked through. A smith with no fire and no quench is just a fellow with a heavy hammer and nothing to hit.' },
+      { speaker: 'Garrett', text: 'I\'d fetch it myself, but I can\'t leave the shop. Would you gather what I need? Good logs to char, and a sound bucket. I\'ll pay you in coin and good steel.' },
+    ],
+    stages: [
+      {
+        name: 'Gather logs and a bucket',
+        journal: 'Garrett needs raw materials for his forge: 6 logs to burn down for charcoal, and 1 sturdy bucket for the quench. Chop trees in the woods (or buy logs) and pick up a bucket from Bramble\'s general store on the square.',
+        objective: {
+          hint: 'Gather 6 logs and 1 bucket.',
+          check: (ctx) => ctx.inventory.count('logs') >= 6 && ctx.inventory.count('bucket') >= 1,
+        },
+        progressHint: (ctx) => 'Logs (' + Math.min(ctx.inventory.count('logs'), 6) + ' / 6) and a Bucket (' + Math.min(ctx.inventory.count('bucket'), 1) + ' / 1).',
+        nudge: [
+          { speaker: 'Garrett', text: 'Forge\'s still cold, friend. Six logs and a bucket — that\'s the order. The woods are thick and Bramble\'s shop is right on the square.' },
+        ],
+      },
+      {
+        name: 'Deliver the materials to Garrett',
+        journal: 'You have the logs and the bucket. Carry them back to Garrett at his anvil so he can char his charcoal and ready the quench.',
+        objective: { hint: 'Bring the logs and bucket to Garrett at the anvil.', check: () => false },
+        nudge: [
+          { speaker: 'Garrett', text: 'You\'ve got the wood and the bucket — bring \'em here to the anvil and I\'ll get to work!' },
+        ],
+      },
+    ],
+    // Takes the gathered materials (they go into the forge) and pays out gear a
+    // low-level smith-customer can use, plus a little Woodcutting/Firemaking XP
+    // for the wood-work and a fair purse.
+    reward: {
+      text: 'Steel boots, 180 coins, 120 Woodcutting XP, and 80 Firemaking XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('logs', 6);
+        ctx.inventory.removeN('bucket', 1);
+        ctx.inventory.add('steel_boots', 1);
+        ctx.inventory.add('coins', 180);
+        ctx.skills.addXp('woodcutting', 120);
+        ctx.skills.addXp('firemaking', 80);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Garrett', text: 'Ahh — there it is! Six good logs and a bucket that\'ll hold water. You\'ve no idea what a sight that is to a forge-bound smith.' },
+      { speaker: 'Garrett', text: 'Listen — the coals are catching already. (clang, clang) Hear that? That\'s a working forge again, and it\'s your doing.' },
+      { speaker: 'Garrett', text: 'Here — a pair of steel boots, fresh off the bench, and your coin. Keep your feet shod and your fire stoked, friend. A smith never forgets who warmed his forge.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Garrett', text: 'Forge is roaring, charcoal\'s charring sweet, and the quench is full. Step up any time you need good steel — your coin\'s as welcome as your help was.' },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // QUEST 4 — "The Prisoner's Supper" (DELIVERY / MYSTERY). Kindly Old Tomas asks
+  // the player to carry a humble loaf down to Old Hagen, the wretch in the castle
+  // cellar — "an old friend, wrongly jailed." But when the player delivers it,
+  // Hagen lets slip the twist: the loaf is a SIGNAL between two old thieves, and
+  // there's buried coin behind it. Carry the countersign back to Tomas and the
+  // sweet old man drops his act. A talk-to delivery with a small reveal — no new
+  // systems, all dialogue beats.
+  // -------------------------------------------------------------------------
+  tomas: {
+    id: 'tomas',
+    name: 'The Prisoner\'s Supper',
+    giver: 'tomas',
+    city: 'Eldenmoor',
+    intro: 'Old Tomas keeps a soft spot for a prisoner in the castle cellar, and a loaf he\'d dearly love delivered. A simple kindness... isn\'t it?',
+    startConfirm: {
+      prompt: 'Would you carry a poor old prisoner his supper? It would mean the world.',
+      yes: 'Of course. I\'ll take the loaf down to him.',
+      no: 'I\'d rather not get tangled in cellar business.',
+      more: 'Who is this prisoner to you?',
+      moreDialogue: [
+        { speaker: 'Old Tomas', text: 'An old, old friend — Hagen\'s his name. We were boys together in this very square, sixty year gone. He fell on hard times and worse company, and now he rots in the cellar over some nonsense with a goat.' },
+        { speaker: 'Old Tomas', text: 'The jailer Grix won\'t let ME down there — old grudge, long story. But a sprightly adventurer like you? You\'ll walk right past him. Just slip Hagen the loaf, there\'s a good soul.' },
+      ],
+      noReply: 'Ah. Well. No matter, no matter. An old man\'s sentiment, is all. Forget I asked, young\'un.',
+      yesReply: [
+        { speaker: 'Old Tomas', text: 'Bless your heart! Here — take this loaf. Fresh baked, still warm. Carry it down to the cellar, find Hagen behind the bars, and put it straight in his hands. His OWN hands, mind — that\'s important.' },
+        { speaker: 'Old Tomas', text: 'Down the stairs in the keep, past the jailer. And — er — no need to mention to Grix where it came from, eh? Off you go.' },
+      ],
+      // Items handed to the player when they accept (delivered later).
+      onAccept: (ctx) => { ctx.inventory.add('bread', 1); },
+    },
+    startDialogue: [
+      { speaker: 'Old Tomas', text: 'Pssst. You — the adventurer. Sixty year I\'ve watched this square, and I\'ve a fair eye for a trustworthy face. You\'ve got one. Come closer.' },
+      { speaker: 'Old Tomas', text: 'I\'ve a small kindness wants doing, and these old legs won\'t manage the cellar stairs. There\'s a prisoner down there — poor Hagen — and not a soul brings him a decent crust.' },
+      { speaker: 'Old Tomas', text: 'I\'ve a fresh loaf with his name on it, near enough. Would you carry it down to him? A small thing, to warm an old wretch\'s belly... and an old man\'s conscience.' },
+    ],
+    stages: [
+      {
+        name: 'Deliver the loaf to Hagen',
+        journal: 'Old Tomas gave you a loaf of bread for Old Hagen, the prisoner in the castle cellar. Take the stairs down in the keep, find Hagen behind the bars, and hand him the loaf yourself.',
+        objective: {
+          hint: 'Carry the loaf to Old Hagen, the prisoner in the cellar.',
+          check: (ctx) => !!ctx.flags.gaveBread,
+        },
+        nudge: [
+          { speaker: 'Old Tomas', text: 'Still got the loaf, I see. The cellar\'s down the keep stairs, past Grix. Put it in Hagen\'s own hands — he\'ll know what to do with it.' },
+        ],
+      },
+      {
+        name: 'Carry the countersign back to Tomas',
+        journal: 'Hagen wasn\'t the helpless wretch you were told. He gave you a strange message for Tomas — "the crow flies at dusk" — and a knowing wink. Carry his words back to Old Tomas in the square and see what the old man has to say for himself.',
+        objective: { hint: 'Take Hagen\'s message back to Old Tomas in the square.', check: () => false },
+        nudge: [
+          { speaker: 'Old Tomas', text: 'Well? Did you see him? Did he... say anything? Anything to pass along to old Tomas, hm?' },
+        ],
+      },
+    ],
+    // A roguish little payout — coins, a clay pot and a coil of rope from Hagen
+    // and Tomas's old "trade," plus a pinch of Firemaking XP for keeping secrets warm.
+    reward: {
+      text: '150 coins, a Coil of rope, a Clay pot, and 40 Firemaking XP',
+      grant: (ctx) => {
+        ctx.inventory.removeN('bread', 1); // the loaf, long since delivered
+        ctx.inventory.add('coins', 150);
+        ctx.inventory.add('rope', 1);
+        ctx.inventory.add('clay_pot', 1);
+        ctx.skills.addXp('firemaking', 40);
+      },
+    },
+    completeDialogue: [
+      { speaker: 'Old Tomas', text: '"The crow flies at dusk," you say? ...Ha. HA! After all these years, the old dog remembered the words. Bless him.' },
+      { speaker: 'Old Tomas', text: 'All right, all right — I\'ll come clean, you\'ve earned it. Hagen and I weren\'t just boyhood friends. We were the slipperiest pair of cutpurses this square ever saw. That loaf? Our old signal. "The crow flies at dusk" means the coin\'s still safe where we buried it.' },
+      { speaker: 'Old Tomas', text: 'The goat business that got him jailed — that was a cover, and a poor one. But the stash is real, and a share of it\'s yours for keeping an old man\'s secret. Here — coin, a length of good rope, and a pot to keep your finds in.' },
+      { speaker: 'Old Tomas', text: 'Not a word to Grix, eh? Sixty year I\'ve watched this square, and I\'ll watch it sixty more — a reformed man, mostly. Off you pop, young\'un. And thank you.' },
+    ],
+    doneDialogue: [
+      { speaker: 'Old Tomas', text: 'The crow flies at dusk, friend — and our little secret\'s safe with you. Watch the square with me sometime. It\'s mostly pigeons, but every now and then... it\'s interesting.' },
+    ],
+    // Delivery beats handled generically by main.js: when the player talks to the
+    // listed NPC while the quest is at `stage`, show `dialogue` then run `onDone`.
+    delivers: [
+      {
+        npc: 'prisoner',
+        stage: 0,
+        requires: (ctx) => ctx.inventory.count('bread') >= 1,
+        dialogue: [
+          { speaker: 'Old Hagen', text: 'Psst — a loaf? For ME? Bless you, friend, I\'m fair starved. Hand it here, hand it...' },
+          { speaker: 'Old Hagen', text: '...Hold on. Where\'d you come by this? This particular loaf? ...You\'ve been talking to Tomas. HA! The old crook sent it, didn\'t he. After all this time.' },
+          { speaker: 'Old Hagen', text: 'Listen close, friend, and never mind the goat — that\'s a long story and a poor one. You go back to Tomas and you tell him five words, exact: "the crow flies at dusk." He\'ll know. He\'ll KNOW.' },
+          { speaker: 'Old Hagen', text: 'And here — take my thanks now, for there\'s a share in this for a clever messenger. Off you go before Grix gets nosy. The crow, mind. At dusk.' },
+        ],
+        // Sets the flag the stage-0 objective checks, which advances the quest.
+        onDone: (quests) => quests.setFlag('tomas', 'gaveBread', true),
+        // Missing the item: a gentle reminder rather than the delivery.
+        missing: [
+          { speaker: 'Old Hagen', text: 'Empty-handed, eh? A pity. They DID say there might be a loaf coming my way... go on, fetch it, and we\'ll talk proper.' },
+        ],
+      },
+    ],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -213,6 +488,26 @@ export function createQuests({ skills, inventory, equipment }) {
     p.flags[key] = value;
     tryAdvance(id);
     renderLog();
+  }
+
+  // ADDITIVE combat hook. combat.js's killMonster should call this once per kill:
+  //     if (em.quests && em.quests.onMonsterKill) em.quests.onMonsterKill(md.typeId);
+  // We tally kills per monster type into the flags of every active quest, then
+  // re-evaluate objectives. Quests that don't care simply never read the tally.
+  // The mapping below routes a monster typeId to the flag a quest objective reads.
+  const KILL_FLAG = { giant_rat: 'ratKills', goblin: 'goblinKills' };
+  function onMonsterKill(typeId) {
+    const flag = KILL_FLAG[typeId];
+    if (!flag) return;
+    let changed = false;
+    for (const id of Object.keys(QUEST_DEFS)) {
+      const p = progress[id];
+      if (p.status !== STATUS.IN_PROGRESS) continue;
+      p.flags[flag] = (p.flags[flag] || 0) + 1;
+      changed = true;
+      tryAdvance(id);
+    }
+    if (changed) renderLog();
   }
 
   function complete(id) {
@@ -349,8 +644,11 @@ export function createQuests({ skills, inventory, equipment }) {
       ` <span class="quest-status" style="font-weight:400;font-size:12px;opacity:0.85;">(${statusWord})</span></div>`;
     if (started) {
       const st = def.stages[Math.min(p.stage, def.stages.length - 1)];
+      // A live progress hint (e.g. "Slay goblins (2 / 3)") wins over the static
+      // objective hint when the stage provides one — so counters tick in the log.
+      const hint = (typeof st.progressHint === 'function') ? st.progressHint(ctxFor(id)) : st.objective.hint;
       html += `<div class="quest-journal" style="color:#e7dcc0;margin-top:3px;">${st.journal}</div>`;
-      html += `<div class="quest-hint" style="color:#b9892f;font-style:italic;margin-top:3px;">› ${st.objective.hint}</div>`;
+      html += `<div class="quest-hint" style="color:#b9892f;font-style:italic;margin-top:3px;">› ${hint}</div>`;
       html += '<div class="quest-stages" style="margin-top:5px;font-size:12px;color:#9a8e72;">';
       def.stages.forEach((s, i) => {
         const mark = i < p.stage ? '☑' : (i === p.stage ? '☐' : '·');
@@ -418,12 +716,15 @@ export function createQuests({ skills, inventory, equipment }) {
   ensureLog();
   renderLog();
 
+  // Expose the live ctx for a quest (read-only use: deliver beats check items).
+  function ctx(id) { return ctxFor(id); }
+
   return {
     QUEST_DEFS, STATUS,
-    start, complete, tryAdvance, setFlag, poll,
+    start, complete, tryAdvance, setFlag, poll, onMonsterKill,
     status, stage, isComplete, isActive, readyToComplete,
     canStart, anyAvailable, markerFor, questIdForGiver,
     toggleLog, renderLog, serialize, load, setChangeHandler,
-    progress,
+    progress, ctx,
   };
 }
