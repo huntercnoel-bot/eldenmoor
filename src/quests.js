@@ -18,9 +18,23 @@ export const STATUS = { NOT_STARTED: 'not_started', IN_PROGRESS: 'in_progress', 
 // ---------------------------------------------------------------------------
 // QUEST DEFINITIONS
 // ---------------------------------------------------------------------------
-// The King's first quest: a classic OSRS-style starter. Talk to the King, gather
-// firewood for the castle hearth (chop logs — reuses Woodcutting), deliver word
-// to Bessa the cook, then return to the King for a reward.
+// The King's first quest: a classic OSRS-style starter and the player's first
+// real taste of Eldenmoor. King Aldric's three-hundred-year-old great-hall hearth
+// has gone cold as an early winter bites. The quest walks the player through the
+// whole Woodcutting loop, then escalates into a small "lay and light the fire"
+// payoff:
+//   0) Gather firewood from the woods (reuses Woodcutting + an equipped axe).
+//   1) Carry the firewood down to Bessa the cook, who keeps the hearth.
+//   2) Return to the King — the fire is laid and lit, the hall is warm again.
+// The reward is tuned for a brand-new adventurer: starter coins, a healthy slice
+// of Woodcutting XP for the work, a steel axe to grow into, and a tinderbox for
+// the road.
+//
+// NOTE: the stage layout (logs at stage 0, cook at stage 1, King at the last
+// stage) is what the talk flow in main.js keys off, so it is kept stable — the
+// craft here is in making every beat feel alive without changing that shape.
+const LOGS_NEEDED = 5;
+
 export const QUEST_DEFS = {
   king: {
     id: 'king',
@@ -30,62 +44,77 @@ export const QUEST_DEFS = {
     // future city's quests slot into the same panel automatically just by setting
     // this field. Unset quests fall back to 'Eldenmoor'.
     city: 'Eldenmoor',
-    intro: 'King Aldric has asked you to help warm the great hall before winter.',
+    intro: 'The great hall\'s ancient hearth has gone cold, and King Aldric seeks a willing soul to warm it before winter truly sets in.',
     startDialogue: [
-      { speaker: 'King Aldric', text: 'Ah, an adventurer! Splendid. You arrive at a fortunate hour — Eldenmoor has need of willing hands.' },
-      { speaker: 'King Aldric', text: 'Winter creeps in early this year, and the great hall\'s hearth lies cold. My court shivers in their furs — most undignified.' },
-      { speaker: 'King Aldric', text: 'Take an axe to the woods beyond the square and bring me 5 logs for the fire. Do this, and you\'ll have proven yourself a friend of the Crown.' },
+      { speaker: 'King Aldric', text: 'Ah — a new face, and an able-looking one. Come closer, adventurer; the throne is draughty and my voice is not what it was.' },
+      { speaker: 'King Aldric', text: 'Winter has come early and unkind to Eldenmoor. Worse still, the great hall\'s hearth lies cold — the first time in three hundred years its fire has died.' },
+      { speaker: 'King Aldric', text: 'My court shivers in their furs, my steward grumbles over his ledgers, and I — sovereign of this realm — can no longer feel my royal toes. It simply will not do.' },
+      { speaker: 'King Aldric', text: 'Take an axe to the woods beyond the square and cut me ' + LOGS_NEEDED + ' good logs for the fire. A small thing — but do it well, and you\'ll have proven yourself a true friend of the Crown.' },
     ],
     stages: [
       {
         name: 'Gather firewood',
-        journal: 'King Aldric needs 5 logs to warm the great hall. Equip an axe and chop trees near the town square until your bag holds 5 logs.',
+        journal: 'King Aldric\'s great hall has gone cold. Equip an axe and chop trees in the woods beyond the square until you carry ' + LOGS_NEEDED + ' logs for the hearth.',
         objective: {
-          hint: 'Chop trees until you carry 5 logs.',
-          check: (ctx) => ctx.inventory.count('logs') >= 5,
+          hint: 'Chop trees until you carry ' + LOGS_NEEDED + ' logs.',
+          check: (ctx) => ctx.inventory.count('logs') >= LOGS_NEEDED,
         },
-        // Re-talking the King while you still owe logs gives a nudge.
+        // Re-talking the King while you still owe logs gives a gentle nudge.
         nudge: [
-          { speaker: 'King Aldric', text: 'Back so soon? I count fewer than 5 logs about your person. The hearth will not light itself, brave soul.' },
+          { speaker: 'King Aldric', text: 'Back already? Let me see... no, no — your bag wants for firewood yet. I count fewer than ' + LOGS_NEEDED + ' logs upon you.' },
+          { speaker: 'King Aldric', text: 'Hilda by the square sells a fine axe if you\'ve none, and the woods are thick beyond the gate. The hearth will not light itself, brave soul — though heaven knows I\'ve sat here willing it to.' },
         ],
       },
       {
-        name: 'Tell the cook',
-        journal: 'You have the firewood. Bessa the castle cook tends the hearth — find her in the keep kitchen and let her know the wood has arrived.',
+        name: 'Take the wood to Bessa',
+        journal: 'You have the firewood. Bessa the castle cook keeps the great-hall hearth — carry the logs down to the keep kitchen and tell her the wood has come at last.',
         objective: {
-          hint: 'Speak to Bessa the cook in the castle kitchen.',
+          hint: 'Carry the logs to Bessa the cook in the castle kitchen.',
           check: (ctx) => !!ctx.flags.toldCook,
         },
         nudge: [
-          { speaker: 'King Aldric', text: 'Splendid, the logs are gathered! But cold wood warms no one, brave soul.' },
-          { speaker: 'King Aldric', text: 'Take word to Bessa down in the kitchen — she keeps the hearth, and she\'ll know just what to do with your firewood.' },
+          { speaker: 'King Aldric', text: 'Splendid — fresh-cut logs, and good ones too! I can almost feel the warmth already. Almost.' },
+          { speaker: 'King Aldric', text: 'But cold wood warms no one, eh? Take it down to Bessa in the kitchen — she has kept that hearth since my father\'s day and will lay the fire properly. Then return, and we\'ll see it lit together.' },
         ],
       },
       {
         name: 'Return to the King',
-        journal: 'The hearth is laid. Return to King Aldric in the great hall to claim your reward.',
+        journal: 'Bessa has laid the fire and the kindling has caught. Return to King Aldric in the great hall to see the hearth roar — and to claim his thanks.',
         objective: {
-          hint: 'Return to King Aldric to claim your reward.',
-          check: () => false, // completed by talking to the King (handled in talk flow)
+          hint: 'Return to King Aldric in the great hall.',
+          check: () => false, // completed by talking to the King (handled in the talk flow)
         },
+        // Shown if the player re-opens the King on the final stage before the talk
+        // flow hands in (kept for completeness — the talk flow normally turns in).
+        nudge: [
+          { speaker: 'King Aldric', text: 'The fire is laid below and the kindling has caught — I can smell the woodsmoke on the air. Stand a moment, and watch an old hearth wake.' },
+        ],
       },
     ],
-    // Reward handed out on completion.
+    // Reward handed out on completion. Takes the firewood the player carried up
+    // (so the delivery feels real) and pays out something an early adventurer can
+    // genuinely use: starter coins, a healthy slice of Woodcutting XP, and a steel
+    // axe with a tinderbox for the road.
     reward: {
-      text: '200 coins, a Stormforged axe, and 100 Woodcutting XP',
+      text: '300 coins, 250 Woodcutting XP, a Steel Axe, and a Tinderbox',
       grant: (ctx) => {
-        ctx.inventory.add('coins', 200);
-        ctx.inventory.add('stormforged_axe', 1);
-        ctx.skills.addXp('woodcutting', 100);
+        // Consume the firewood you brought — the hearth devours it gladly.
+        ctx.inventory.removeN('logs', LOGS_NEEDED);
+        ctx.inventory.add('coins', 300);
+        ctx.inventory.add('steel_axe', 1);
+        ctx.inventory.add('tinderbox', 1);
+        ctx.skills.addXp('woodcutting', 250);
       },
     },
     completeDialogue: [
-      { speaker: 'King Aldric', text: 'You return! And the hall already grows warm — I can feel it from the throne. Marvellous work.' },
-      { speaker: 'King Aldric', text: 'Eldenmoor thanks you. Take this purse, and this axe — Stormforged, fit for a friend of the Crown. May it never dull.' },
-      { speaker: 'King Aldric', text: 'You\'ve a hero\'s spirit. Go forth — there will be greater tasks for you yet.' },
+      { speaker: 'King Aldric', text: 'You return! And — ah, do you hear it? The crackle, the snap of dry wood catching. Bessa has worked her quiet magic, and the great hall breathes warm once more.' },
+      { speaker: 'King Aldric', text: 'Three hundred years that fire has burned, and tonight it owes its life to you. The whole court can feel it — even my steward managed something close to a smile. A rare omen indeed.' },
+      { speaker: 'King Aldric', text: 'A friend of the Crown does not go unthanked. Here — a purse to set you on your way, and a steel axe; sturdier than whatever you swung in my woods today. Take a tinderbox, too, so you need never be cold on the road.' },
+      { speaker: 'King Aldric', text: 'Go now, and warm yourself by the fire you saved. There will be greater trials than cold toes ahead — and when they come, brave soul, I shall know whose name to call.' },
     ],
     doneDialogue: [
-      { speaker: 'King Aldric', text: 'The hearth roars and my court is warm once more. You have my thanks, ever and always.' },
+      { speaker: 'King Aldric', text: 'The hearth roars, the hall is warm, and my toes — bless them — have feeling once more. You have the lasting thanks of the Crown, friend.' },
+      { speaker: 'King Aldric', text: 'Sit by the fire whenever you pass. You, of all who walk these halls, have earned a place beside it.' },
     ],
   },
 };
@@ -186,8 +215,9 @@ export function createQuests({ skills, inventory, equipment }) {
   }
 
   // WoW-style marker state for a given giver NPC id:
-  //   'available'   → a "!" (a quest you can start)
-  //   'in-progress' → a "?" (a quest you're on / ready to hand in)
+  //   'available'   → a "!"  (a quest you can start)
+  //   'in-progress' → a grey "?" (the quest is on, objectives still underway)
+  //   'ready'       → a bright "?" (objectives done — return to hand it in)
   //   null          → no marker
   // `def.quest` (or a quest's `giver`) maps an NPC to its quest.
   function questIdForGiver(npcId) {
@@ -200,6 +230,7 @@ export function createQuests({ skills, inventory, equipment }) {
     const id = questIdForGiver(npcId);
     if (!id) return null;
     if (canStart(id)) return 'available';
+    if (readyToComplete(id)) return 'ready';     // objectives cleared, awaiting turn-in
     if (isActive(id)) return 'in-progress';
     return null; // complete or otherwise → no marker
   }

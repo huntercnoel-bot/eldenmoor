@@ -65,8 +65,9 @@ const NPC_DEFS = [
 
   // --- castle court ---
   { id: 'king', name: 'King Aldric', role: 'the Crown', x: 0, z: 62, robe: 0x5e2a8a, crown: true, hair: 0xcfc4b0,
-    type: 'royal', quest: 'king', examine: 'The sovereign of Eldenmoor, draped in royal purple.',
-    flavor: 'Welcome to my hall, adventurer. Eldenmoor has need of brave souls like you.' },
+    type: 'royal', quest: 'king',
+    examine: 'King Aldric, benevolent sovereign of Eldenmoor — draped in royal purple, weary of crown but warm of heart.',
+    flavor: 'Welcome to my hall, adventurer. Eldenmoor has need of brave souls — and, just now, of a little firewood.' },
   { id: 'duke', name: 'Duke Veylin', role: 'Royal Steward', x: 4, z: 61, robe: 0x274a7a,
     type: 'plain', examine: "The king's steward, keeper of the realm's affairs.",
     flavor: 'Seek the King if you crave purpose — and mind your manners in his hall.',
