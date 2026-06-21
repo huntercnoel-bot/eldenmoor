@@ -116,24 +116,44 @@ function startCombat(em) {
   }
 
   // floating number: dmg (red), miss (grey), heal/loot (gold)
+  //
+  // PERF: combat spews these constantly (every swing, miss, heal, loot pickup),
+  // and creating + removing a DOM node each time thrashes layout/GC. We pool the
+  // nodes instead: a node parks (hidden, still attached) when its animation ends
+  // and is reused on the next call, so steady-state combat allocates no DOM.
+  const FLOAT_COLORS = { dmg: '#ff5a4a', big: '#ffd24a', miss: '#cfcfcf', loot: '#ffe07a', self: '#ff8080' };
+  const floatPool = [];     // idle reusable nodes
   function floatNumber(x, y, z, text, kind) {
     const s = toScreen(x, y, z);
     if (s.behind) return;
-    const el = document.createElement('div');
-    const colors = { dmg: '#ff5a4a', big: '#ffd24a', miss: '#cfcfcf', loot: '#ffe07a', self: '#ff8080' };
+    let el = floatPool.pop();
+    if (!el) {
+      el = document.createElement('div');
+      el.style.cssText = 'position:absolute;will-change:transform,opacity;pointer-events:none;' +
+        'font-family:Georgia,serif;font-weight:700;text-shadow:0 2px 3px #000,0 0 4px #000;';
+      layer.appendChild(el);
+    }
+    el.style.display = 'block';
     el.textContent = text;
-    el.style.cssText = `position:absolute;left:${s.x}px;top:${s.y}px;transform:translate(-50%,-50%);` +
-      `font:700 ${kind === 'big' ? 22 : 17}px Georgia,serif;color:${colors[kind] || '#fff'};` +
-      `text-shadow:0 2px 3px #000,0 0 4px #000;will-change:transform,opacity;pointer-events:none;`;
-    layer.appendChild(el);
+    el.style.left = s.x + 'px';
+    el.style.top = s.y + 'px';
+    el.style.fontSize = (kind === 'big' ? 22 : 17) + 'px';
+    el.style.color = FLOAT_COLORS[kind] || '#fff';
+    const node = el;
     const driftX = rand(-14, 14);
     const start = performance.now();
     const dur = 900;
     (function anim(now) {
       const k = Math.min(1, (now - start) / dur);
-      el.style.transform = `translate(calc(-50% + ${driftX * k}px), calc(-50% - ${42 * k}px)) scale(${1 + 0.2 * (1 - k)})`;
-      el.style.opacity = String(1 - k * k);
-      if (k < 1) requestAnimationFrame(anim); else el.remove();
+      node.style.transform = `translate(calc(-50% + ${driftX * k}px), calc(-50% - ${42 * k}px)) scale(${1 + 0.2 * (1 - k)})`;
+      node.style.opacity = String(1 - k * k);
+      if (k < 1) requestAnimationFrame(anim);
+      else {
+        // park (hidden, still in DOM) and recycle. Cap the pool so a burst can't
+        // grow it unbounded; any extra node is dropped from the DOM.
+        node.style.display = 'none';
+        if (floatPool.length < 48) floatPool.push(node); else node.remove();
+      }
     })(start);
   }
 
@@ -546,22 +566,26 @@ function startCombat(em) {
       if (setChop) try { setChop(false); } catch (e) {}
     }
 
-    // 2) monster melee tick against the player (any aggro'd, in-range monster)
-    if (!pstate.dead) {
-      for (const mg of monstersList()) {
-        const md = mg.userData.monster;
-        if (!md || !md.alive || md.state !== 'chase' || !mg.visible) continue;
-        const dx = mg.position.x - player.position.x, dz = mg.position.z - player.position.z;
+    // 2+3) single pass over the live monster list: monster melee tick against
+    //      the player AND per-monster HP bars. (Merged from two separate loops
+    //      to halve the per-frame iteration over the 50+ monster list. Each kept
+    //      its original behaviour; only the iteration is shared.)
+    const list = monstersList();
+    const ppx = player.position.x, ppz = player.position.z;
+    for (let i = 0; i < list.length; i++) {
+      const mg = list[i];
+      const md = mg.userData.monster;
+      if (!md) continue;
+
+      // monster melee against the player (any aggro'd, in-range monster)
+      if (!pstate.dead && md.alive && md.state === 'chase' && mg.visible) {
+        const dx = mg.position.x - ppx, dz = mg.position.z - ppz;
         if (Math.hypot(dx, dz) <= MELEE_RANGE + 0.3) {
           if (t - md.lastAttack >= md.type.attackSpeed) { md.lastAttack = t; hitPlayer(mg); }
         }
       }
-    }
 
-    // 3) per-monster HP bars (only for damaged / engaged monsters)
-    for (const mg of monstersList()) {
-      const md = mg.userData.monster;
-      if (!md) continue;
+      // per-monster HP bar (only for damaged / engaged, visible monsters)
       const engaged = md.alive && mg.visible && (md.hp < md.maxHp || md.state === 'chase');
       if (engaged) {
         const b = ensureBar(mg);
@@ -578,8 +602,11 @@ function startCombat(em) {
       }
     }
 
-    // 4) dead monster fade + remove + respawn
-    for (const mg of monstersList().slice()) {
+    // 4) dead monster fade + remove + respawn. Iterate backwards over the live
+    //    list so a remove() (which splices the list) is safe without allocating
+    //    a defensive .slice() copy every frame.
+    for (let i = list.length - 1; i >= 0; i--) {
+      const mg = list[i];
       const md = mg.userData.monster;
       if (!md || md.state !== 'dead' || md.fadeStart == null) continue;
       const k = (t - md.fadeStart) / FADE_TIME;
