@@ -28,6 +28,7 @@ import './audio.js';
 import './combat.js';
 import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; reads window.eldenmoor)
 import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
+import './prayer.js';   // Prayer skill: bury bones, activatable prayers, chapel altar
 import './ambient.js';
 import './assets.js';
 import './showcase.js';

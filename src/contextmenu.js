@@ -80,6 +80,7 @@ export function setupContextMenu({ dom, interactions, inventory, equipment, onTa
     const def = ITEMS[s.id];
     const options = [];
     if (def.equipable) options.push({ label: 'Equip <span class="ctx-yellow">' + def.name + '</span>', action: () => equipment.equip(s.id) });
+    if (def.buryXp) options.push({ label: 'Bury <span class="ctx-yellow">' + def.name + '</span>', action: () => { try { window.eldenmoor.prayer && window.eldenmoor.prayer.bury(s.id); } catch (e) {} } });
     options.push({ label: 'Examine', action: () => gameMessage(def.examine) });
     options.push({ label: 'Drop <span class="ctx-yellow">' + def.name + '</span>', action: () => { inventory.removeOne(s.id); gameMessage('You drop the ' + def.name + '.'); } });
     options.push({ label: 'Cancel', action: hide });

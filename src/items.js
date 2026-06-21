@@ -186,14 +186,14 @@ ITEMS.goblin_charm = {
 
 // --- Always drops --------------------------------------------------------
 ITEMS.bones = {
-  id: 'bones', name: 'Bones', stackable: true, value: 1, examine: 'A pile of bones. Buryable, in theory.',
+  id: 'bones', name: 'Bones', stackable: true, value: 1, buryXp: 4.5, examine: 'A pile of bones. Bury them for Prayer experience.',
   icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#7a6a4a" stroke-width="1.4" fill="#ece3cf">
     <path d="M11 27 l16 -14"/><circle cx="11" cy="27" r="3.4"/><circle cx="8.4" cy="29.4" r="3.2"/>
     <circle cx="27" cy="13" r="3.4"/><circle cx="29.6" cy="10.6" r="3.2"/></g></svg>`,
 };
 ITEMS.big_bones = {
-  id: 'big_bones', name: 'Big bones', stackable: true, value: 3, examine: 'A heavy, thick set of bones from a large beast.',
+  id: 'big_bones', name: 'Big bones', stackable: true, value: 3, buryXp: 15, examine: 'A heavy, thick set of bones from a large beast. Bury them for Prayer experience.',
   icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#7a6a4a" stroke-width="2" fill="#ece3cf">
     <path d="M10 28 l18 -16"/><circle cx="10" cy="28" r="4.2"/><circle cx="6.8" cy="31" r="3.8"/>

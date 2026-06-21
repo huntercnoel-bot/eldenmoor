@@ -287,24 +287,30 @@ function startCombat(em) {
     try { return (em.equipment && em.equipment.getBonuses && em.equipment.getBonuses()) || { attack: 0, strength: 0, defence: 0 }; }
     catch (e) { return { attack: 0, strength: 0, defence: 0 }; }
   }
+  function prayerBoosts() {
+    try { return (em.prayer && em.prayer.getBoosts && em.prayer.getBoosts()) || { attack: 1, strength: 1, defence: 1 }; }
+    catch (e) { return { attack: 1, strength: 1, defence: 1 }; }
+  }
 
   function hitMonster(g) {
     const md = g.userData.monster;
     const wd = weaponDamage(em.equipment && em.equipment.getWeapon && em.equipment.getWeapon());
     const eb = gearBonuses();
+    const pb = prayerBoosts();
     const atk = lvl('attack', 1), str = lvl('strength', 1);
-    // Accuracy: the player's Attack level + worn Attack bonus push against the
-    // monster's defence. Starts generous and climbs, so even a fresh hero connects.
-    const effAtk = atk + 4 + eb.attack * 0.6;
+    // Accuracy: the player's Attack level + worn Attack bonus (scaled by any
+    // active Attack prayer) push against the monster's defence. Starts generous
+    // and climbs, so even a fresh hero connects.
+    const effAtk = (atk + 4 + eb.attack * 0.6) * pb.attack;
     const hitChance = Math.max(0.45, Math.min(0.97, effAtk / (effAtk + md.type.defense * 2.4)));
     const bx = g.position.x, by = g.position.y + (md.type.hpBarY || 1.2), bz = g.position.z;
     if (Math.random() > hitChance) {
       floatNumber(bx, by, bz, '0', 'miss');
       return;
     }
-    // Max hit scales the weapon's top end by Strength + worn Strength bonus; roll
-    // 0..max like OSRS.
-    const maxHit = Math.max(wd.min, Math.round((wd.max + eb.strength * 0.35) * (1 + (str - 1) * 0.05)));
+    // Max hit scales the weapon's top end by Strength + worn Strength bonus +
+    // any active Strength prayer; roll 0..max like OSRS.
+    const maxHit = Math.max(wd.min, Math.round((wd.max + eb.strength * 0.35) * (1 + (str - 1) * 0.05) * pb.strength));
     const dmg = randInt(0, maxHit);
     md.hp -= dmg;
     floatNumber(bx, by, bz, String(dmg), dmg >= maxHit && dmg > 0 ? 'big' : (dmg === 0 ? 'miss' : 'dmg'));
@@ -320,7 +326,7 @@ function startCombat(em) {
     // so armour you smith/buy visibly keeps you alive longer.
     const eb = gearBonuses();
     const defLvl = lvl('defence', 1);
-    const soak = (eb.defence + defLvl * 0.5);
+    const soak = (eb.defence + defLvl * 0.5) * prayerBoosts().defence;
     if (dmg > 0 && Math.random() < soak / (soak + 30)) dmg = Math.max(0, dmg - 1 - Math.floor(eb.defence / 12));
     pstate.hp -= dmg;
     refreshPlayerHp();
