@@ -47,6 +47,7 @@ import './castleModel.js';
 import './castleFurniture.js';
 import './castleRoom_library.js';   // self-contained: furnishes the castle Library side room
 import './castleRoom_kitchen.js';   // furnishes the castle's KITCHEN room
+import './castleRoom_bedchamber.js';
 import './kingModel.js';
 import './npcModels.js';
 import './playerModel.js';
