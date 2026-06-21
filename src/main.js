@@ -30,6 +30,7 @@ import './assets.js';
 import './showcase.js';
 import './villageModels.js';
 import './storeModels.js';
+import './castleModel.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
