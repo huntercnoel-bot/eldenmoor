@@ -111,7 +111,7 @@ function toToon(mat) {
 //   * truly tiny props (small world radius) read with no visible outline.
 // Hero / NPC / monster meshes are well under the cap, so the silhouettes that
 // matter keep their outline; this only trims expensive, low-value hulls.
-const OUTLINE_VERT_CAP = 3000;   // skip outlining meshes denser than this
+const OUTLINE_VERT_CAP = 1600;   // skip outlining meshes denser than this (was 3000)
 
 // Should this mesh get a black outline hull? Skip transparent, tiny, non-solid,
 // or very dense bits so outlines stay tasteful and cheap.
@@ -130,7 +130,7 @@ function wantsOutline(mesh) {
   const r = g.boundingSphere ? g.boundingSphere.radius : 1;
   const s = mesh.scale;
   const worldR = r * Math.max(Math.abs(s.x), Math.abs(s.y), Math.abs(s.z));
-  if (worldR < 0.07) return false;                               // tiny studs/gems/distant bits
+  if (worldR < 0.16) return false;                               // small props/studs/gems — outline barely visible, not worth the doubled draw call
   return true;
 }
 

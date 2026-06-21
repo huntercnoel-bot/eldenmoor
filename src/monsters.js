@@ -628,13 +628,23 @@ function startMonsters(em) {
   const monsters = [];
 
   function spawnAll() {
-    for (const [typeId, cx, cz, count] of SPAWN_CLUSTERS) {
-      for (let i = 0; i < count; i++) {
+    // Build the full spawn list, then spawn a FEW per tick instead of all at
+    // once. Each spawn clones a skinned GLB + builds an AnimationMixer, so doing
+    // all ~50 synchronously on login caused a big CPU spike (the "super laggy on
+    // login" stutter). Staggering spreads it over ~2s for a smooth entrance.
+    const queue = [];
+    for (const [typeId, cx, cz, count] of SPAWN_CLUSTERS)
+      for (let i = 0; i < count; i++) queue.push([typeId, cx, cz]);
+    let qi = 0;
+    (function pump() {
+      for (let n = 0; n < 3 && qi < queue.length; n++, qi++) {
+        const [typeId, cx, cz] = queue[qi];
         const a = Math.random() * Math.PI * 2, r = rand(2, 9);
         const m = spawnMonster(typeId, cx + Math.cos(a) * r, cz + Math.sin(a) * r);
         if (m) { scene.add(m); monsters.push(m); }
       }
-    }
+      if (qi < queue.length) setTimeout(pump, 110);
+    })();
   }
   spawnAll();
 

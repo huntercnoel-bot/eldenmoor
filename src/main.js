@@ -141,7 +141,7 @@ function startGame(username) {
   let appliedPR = PR_CEIL;
   renderer.setPixelRatio(appliedPR);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;   // cheaper per-fragment than PCFSoft, still soft enough
   // The sun never moves, so re-rendering the (expensive) shadow map every frame
   // is wasted work. Drive it manually and refresh only ~20×/s — moving shadows
   // (player/NPCs) still update smoothly, but the shadow pass runs a third as often.
