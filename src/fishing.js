@@ -20,8 +20,18 @@
 // else is wired here at runtime against window.eldenmoor. Exposed as em.fishing.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { ITEMS } from './items.js';
 import { gameMessage } from './ui.js';
+
+// --- static GLB prop loader (for the cooking range model) --------------------
+const PROPS = './assets/models/props/';
+const _gltf = new GLTFLoader();
+const _propCache = {};
+function loadProp(name) {
+  if (!_propCache[name]) _propCache[name] = new Promise((ok, err) => _gltf.load(PROPS + name + '.glb', (g) => ok(g.scene), undefined, err));
+  return _propCache[name];
+}
 
 // ----- tuning ---------------------------------------------------------------
 const FISH_RANGE = 2.8;       // how close to the spot you must stand to fish
@@ -146,21 +156,39 @@ function startFishing(em) {
   function buildRange(x, z) {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
+    // Procedural stone range kept as a fallback (and so the vfx fire always has a
+    // body to anchor to) — HIDDEN once the real Kitchen_Oven GLB loads on top.
+    const fallback = [];
     const stone = new THREE.MeshStandardMaterial({ color: 0x8a847a, roughness: 0.95 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 1.0), stone);
     body.position.y = 0.45; body.castShadow = true; body.receiveShadow = true;
-    g.add(body);
-    // a glowing fire mouth on the front
+    g.add(body); fallback.push(body);
     const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.45, 0.06),
       new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0xff6a1a, emissiveIntensity: 1.2 }));
-    mouth.position.set(0, 0.4, 0.52); g.add(mouth);
+    mouth.position.set(0, 0.4, 0.52); g.add(mouth); fallback.push(mouth);
     const top = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 1.1), stone);
-    top.position.y = 0.96; g.add(top);
+    top.position.y = 0.96; g.add(top); fallback.push(top);
     scene.add(g);
     (scene.userData.outdoor = scene.userData.outdoor || []).push(g);
     if (em.vfx && em.vfx.attachFire) em.vfx.attachFire(x, 0.5, z + 0.5, { rate: 16, emberRate: 2, scale: 0.7, intensity: 0.9, src: g });
     // keep it tagged so a right-click could examine it later
     g.userData = { kind: 'range' };
+
+    // Real cooking oven GLB on top (Quaternius house_interior_pack, ~1 m authored).
+    loadProp('Kitchen_Oven').then((src) => {
+      const model = src.clone(true);
+      const bb = new THREE.Box3().setFromObject(model);
+      const size = bb.getSize(new THREE.Vector3());
+      const s = 1.4 / (Math.max(size.x, size.z) || 1);   // ~1.4 m footprint, like the old range
+      model.scale.setScalar(s);
+      // recentre x/z, feet on y=0, then face the player (mouth toward +z where the fire sits)
+      model.position.set(-(bb.min.x + bb.max.x) / 2 * s, -bb.min.y * s, -(bb.min.z + bb.max.z) / 2 * s);
+      model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.__toonDone = true; } });
+      for (const m of fallback) m.visible = false;
+      g.add(model);
+      if (em.applyToonTo) em.applyToonTo(g);
+    }).catch((e) => console.error('[fishing] range model load failed', e));
+    if (em.applyToonTo) em.applyToonTo(g);
   }
 
   // ---- the FIRES we've lit (temporary cooking sources) --------------------

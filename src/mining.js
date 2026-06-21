@@ -28,6 +28,7 @@ import { gameMessage } from './ui.js';
 import { ITEMS } from './items.js';
 
 const ENV = './assets/models/env/';
+const PROPS = './assets/models/props/';
 const ROCK_MODELS = ['nat_Rock_1', 'nat_Rock_2', 'nat_Rock_3'];
 const MINE_RANGE = 2.8;        // how close you must stand to swing
 const WALK_SPEED = 6.5;        // matches interactions.js
@@ -38,10 +39,14 @@ const GEM_CHANCE = 0.02;       // rare uncut-gem-style bonus (a bird's-nest anal
 // --- GLB proto loader (same merge approach world.js uses for one-mesh GLBs) ----
 const gltfLoader = new GLTFLoader();
 const protoCache = {};
-function loadProto(name) {
-  if (!protoCache[name]) {
-    protoCache[name] = new Promise((resolve, reject) => {
-      gltfLoader.load(ENV + name + '.glb', (gltf) => {
+// Load a one-mesh-ish GLB, merge its primitives into a single recentred proto
+// (recentred to x/z centre, y=0 floor). `dir` defaults to the env rock folder;
+// pass PROPS for the furnace/anvil props committed under assets/models/props/.
+function loadProto(name, dir = ENV) {
+  const key = dir + name;
+  if (!protoCache[key]) {
+    protoCache[key] = new Promise((resolve, reject) => {
+      gltfLoader.load(dir + name + '.glb', (gltf) => {
         gltf.scene.updateWorldMatrix(true, true);
         const geos = [], mats = [];
         gltf.scene.traverse((o) => {
@@ -67,7 +72,7 @@ function loadProto(name) {
       }, undefined, reject);
     });
   }
-  return protoCache[name];
+  return protoCache[key];
 }
 
 // One ore node: a host Group (positioned + scaled synchronously) with a cloned
@@ -161,8 +166,10 @@ function start(em) {
   const anvil = buildAnvil(); anvil.position.set(11, 0, 3);
   scene.add(furnace); scene.add(anvil);
   (scene.userData.outdoor = scene.userData.outdoor || []).push(furnace, anvil);
-  furnace.userData = { kind: 'furnace' };
-  anvil.userData = { kind: 'anvil' };
+  // tag for the raycast/interaction WITHOUT clobbering userData.__fallback (which
+  // attachProp reads asynchronously to hide the procedural body once the GLB lands)
+  furnace.userData.kind = 'furnace';
+  anvil.userData.kind = 'anvil';
   if (em.applyToonTo) { em.applyToonTo(furnace); em.applyToonTo(anvil); }
 
   // --- Click handling (capture phase, claims ore/furnace/anvil clicks) -------
@@ -490,36 +497,61 @@ function cyl(rt, rb, h, seg, m, x, y, z) {
   o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o;
 }
 
+// Drop a merged-GLB proto into an existing host group, scaled so its tallest
+// axis hits `targetH` (metres), feet on the group's y=0. The proto geometry is
+// already recentred (x/z centre, y floor) by loadProto. Falls back silently —
+// the synchronous procedural body stays visible until (or unless) the GLB loads.
+function attachProp(group, name, targetH, onReady) {
+  loadProto(name, PROPS).then(({ geometry, material, size }) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.userData.__toonDone = true;
+    const native = Math.max(size.x, size.y, size.z) || 1;
+    mesh.scale.setScalar(targetH / native);
+    group.add(mesh);
+    // hide the procedural fallback now the real model is in
+    for (const o of group.userData.__fallback || []) o.visible = false;
+    const em = window.eldenmoor; if (em && em.applyToonTo) em.applyToonTo(group);
+    if (onReady) onReady(mesh);
+  }).catch((e) => console.error('[mining] prop load failed', name, e));
+}
+
 function buildFurnace() {
   const g = new THREE.Group();
+  const fb = [];   // procedural fallback meshes (hidden once the GLB loads)
   const stone = mat(0x6b6258), dark = mat(0x3a352f), ember = mat(0xff7a2a);
   ember.emissive = new THREE.Color(0xff5a16); ember.emissiveIntensity = 0.9;
-  // squat stone furnace body
-  g.add(box(2.4, 2.0, 2.0, stone, 0, 1.0, 0));
-  // mouth with glowing embers
-  g.add(box(1.1, 1.0, 0.3, dark, 0, 0.8, 1.0));
-  g.add(box(0.9, 0.7, 0.25, ember, 0, 0.75, 1.08));
-  // chimney
-  g.add(cyl(0.45, 0.55, 1.6, 8, stone, 0, 2.8, -0.3));
-  g.add(cyl(0.5, 0.45, 0.3, 8, dark, 0, 3.7, -0.3));
-  // a warm glow light at the mouth so vfx.js anchors a flame here too
+  // squat stone furnace body (fallback)
+  fb.push(box(2.4, 2.0, 2.0, stone, 0, 1.0, 0));
+  fb.push(box(1.1, 1.0, 0.3, dark, 0, 0.8, 1.0));
+  fb.push(box(0.9, 0.7, 0.25, ember, 0, 0.75, 1.08));
+  fb.push(cyl(0.45, 0.55, 1.6, 8, stone, 0, 2.8, -0.3));
+  fb.push(cyl(0.5, 0.45, 0.3, 8, dark, 0, 3.7, -0.3));
+  for (const o of fb) g.add(o);
+  g.userData.__fallback = fb;
+  // a warm glow light at the mouth (kept regardless of model) so it reads as lit
   const pl = new THREE.PointLight(0xff7a2a, 3.5, 9, 2); pl.position.set(0, 0.9, 1.1); g.add(pl);
+  // real smelter/furnace GLB on top, sized to the old ~2.6 m body height
+  attachProp(g, 'smelter_furnace', 2.6);
   return g;
 }
 
 function buildAnvil() {
   const g = new THREE.Group();
+  const fb = [];
   const iron = mat(0x3a3a40, 0.6, 0.3), wood = mat(0x6b4a2f);
-  // wooden stump base
-  g.add(cyl(0.42, 0.5, 0.7, 10, wood, 0, 0.35, 0));
-  // anvil body: a block with a horn
-  g.add(box(0.55, 0.28, 1.0, iron, 0, 0.86, 0));      // face
-  g.add(box(0.34, 0.30, 0.55, iron, 0, 0.58, 0));     // waist
-  g.add(box(0.55, 0.16, 0.7, iron, 0, 0.44, 0));      // base flare
-  // horn
+  // wooden stump base + anvil body (fallback)
+  fb.push(cyl(0.42, 0.5, 0.7, 10, wood, 0, 0.35, 0));
+  fb.push(box(0.55, 0.28, 1.0, iron, 0, 0.86, 0));      // face
+  fb.push(box(0.34, 0.30, 0.55, iron, 0, 0.58, 0));     // waist
+  fb.push(box(0.55, 0.16, 0.7, iron, 0, 0.44, 0));      // base flare
   const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 8), iron);
   horn.rotation.z = -Math.PI / 2; horn.position.set(0, 0.86, 0.62); horn.castShadow = true;
-  g.add(horn);
+  fb.push(horn);
+  for (const o of fb) g.add(o);
+  g.userData.__fallback = fb;
+  // real Kenney anvil GLB on top (~1.0 m tall incl. stump)
+  attachProp(g, 'kenney_anvil', 1.05);
   return g;
 }
 

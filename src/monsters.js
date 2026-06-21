@@ -46,18 +46,22 @@ const MONSTER_MODEL = {
   frog:      { file: 'enemy_Frog.glb',   h: 0.70, face: 0 },
   snake:     { file: 'enemy_Snake.glb',  h: 0.55, face: 0 },
   wasp:      { file: 'enemy_Wasp.glb',   h: 0.60, face: 0 },
-  // Trainer mobs reuse existing creature GLBs at a smaller scale (easy XP, like
-  // OSRS chickens & cows) — chicken=tiny rat, marsh hopper=tiny frog.
-  chicken:   { file: 'enemy_Rat.glb',    h: 0.45, face: 0 },
+  // Trainer mobs. The chicken now has its OWN model (Kenney cube chick) — a
+  // static mesh (no clips) that sits in Idle pose, fine for a fowl. Marsh hopper
+  // still reuses the frog at a smaller scale (easy XP, like OSRS chickens & cows).
+  chicken:   { file: 'chicken.glb',      h: 0.55, face: 0 },
   marsh_hopper: { file: 'enemy_Frog.glb', h: 0.40, face: 0 },
-  // --- Undead dungeon mobs (KayKit Skeleton Minion GLB, ~95 own clips). The
-  //     skeleton ships its own Idle/Walk/Attack/Death; the warrior reuses it at a
-  //     larger scale, and the zombie reuses it tinted darker/green (tint applied
-  //     in attachModel via MONSTER_MODEL.tint) — all sharing one committed GLB.
-  skeleton:         { file: 'Skeleton_Minion.glb', h: 1.70, face: 0 },
-  skeleton_warrior: { file: 'Skeleton_Minion.glb', h: 1.95, face: 0 },
-  zombie:           { file: 'Skeleton_Minion.glb', h: 1.65, face: 0, tint: 0x4a6b34 },
-  hollow_king:      { file: 'Skeleton_Minion.glb', h: 2.85, face: 0, tint: 0xcaa44a },   // giant gilded bone-king
+  // --- Undead dungeon mobs. Each undead now has its OWN KayKit Skeleton GLB so
+  //     they read as distinct silhouettes (all share the same clip family —
+  //     Idle/Walk/Attack/Death — so the existing mixer wiring is a drop-in):
+  //       skeleton          -> Skeleton_Minion (base bones)
+  //       skeleton_warrior  -> Skeleton_Warrior (armoured, larger)
+  //       zombie            -> Skeleton_Rogue, tinted rotten green
+  //       hollow_king       -> Skeleton_Mage, gilded + giant (distinct boss)
+  skeleton:         { file: 'Skeleton_Minion.glb',  h: 1.70, face: 0 },
+  skeleton_warrior: { file: 'Skeleton_Warrior.glb', h: 1.95, face: 0 },
+  zombie:           { file: 'Skeleton_Rogue.glb',   h: 1.65, face: 0, tint: 0x4a6b34 },
+  hollow_king:      { file: 'Skeleton_Mage.glb',    h: 2.85, face: 0, tint: 0xcaa44a },   // giant gilded bone-king
 };
 
 // SkinnedMesh-safe deep clone (inlined three.js SkeletonUtils.clone). A plain
