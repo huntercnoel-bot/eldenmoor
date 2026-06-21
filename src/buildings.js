@@ -374,11 +374,12 @@ function makeCastle() {
 
   // curtain walls — modular GLB stone, with invisible colliders matching the old
   // procedural footprint (gate gap at front, local x[-2.5..2.5]).
-  buildGLBWall(g, -HW, -HD, -2.5, -HD, WH); wallCollider(g, -HW, -HD, -2.5, -HD, WH, TH);
-  buildGLBWall(g, 2.5, -HD, HW, -HD, WH);   wallCollider(g, 2.5, -HD, HW, -HD, WH, TH);
-  buildGLBWall(g, -HW, HD, HW, HD, WH);     wallCollider(g, -HW, HD, HW, HD, WH, TH);
-  buildGLBWall(g, -HW, -HD, -HW, HD, WH);   wallCollider(g, -HW, -HD, -HW, HD, WH, TH);
-  buildGLBWall(g, HW, -HD, HW, HD, WH);     wallCollider(g, HW, -HD, HW, HD, WH, TH);
+  const VWH = WH + 4.5;   // visual walls rise to the great-hall ceiling (HALLH≈WH+3.2); colliders stay at WH
+  buildGLBWall(g, -HW, -HD, -2.5, -HD, VWH); wallCollider(g, -HW, -HD, -2.5, -HD, WH, TH);
+  buildGLBWall(g, 2.5, -HD, HW, -HD, VWH);   wallCollider(g, 2.5, -HD, HW, -HD, WH, TH);
+  buildGLBWall(g, -HW, HD, HW, HD, VWH);     wallCollider(g, -HW, HD, HW, HD, WH, TH);
+  buildGLBWall(g, -HW, -HD, -HW, HD, VWH);   wallCollider(g, -HW, -HD, -HW, HD, WH, TH);
+  buildGLBWall(g, HW, -HD, HW, HD, VWH);     wallCollider(g, HW, -HD, HW, HD, WH, TH);
   // keep a sculpted chamfered parapet on top of the GLB curtain so the silhouette
   // still reads as crenellated battlements above the modular wall.
   const crenRun = (x0, z0, x1, z1) => {
@@ -871,27 +872,20 @@ function makeTavern() {
   roof.add(deco(cyl(0.05, 0.05, 0.6, 8, flat(0x3a2418), 0, H + 3.5, 0)));
   { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); fin.position.set(0, H + 3.9, 0); deco(fin); roof.add(fin); }
   g.add(roof);
-  // bar + back shelf with bottles + stools
-  g.add(box(6, 1.1, 0.9, woodMat, 0, 0.55, -HD + 1.4));
-  g.add(deco(box(6.2, 0.14, 1.1, flat(0x5a3a22), 0, 1.16, -HD + 1.4)));
-  g.add(box(5.5, H - 1.0, 0.4, woodMat, 0, (H - 1.0) / 2, -HD + 0.3));
-  for (let i = 0; i < 10; i++) g.add(deco(box(0.16, 0.4, 0.16, flat([0x3a6e3a, 0x8a3a2a, 0x6a4a8a][i % 3]), -2.4 + i * 0.55, 0.7 + (i % 2) * 0.7, -HD + 0.35)));
-  for (const x of [-2, 0, 2]) g.add(deco(cyl(0.22, 0.24, 0.55, 8, woodMat, x, 0.27, -HD + 2.6)));
-  // hearth (right wall) + light
-  g.add(deco(box(0.5, 3.4, 3, stoneMat, HW - 0.2, 1.7, -HD + 3)));
-  g.add(deco(box(0.6, 1.4, 2, ember, HW - 0.5, 0.85, -HD + 3)));
+  // bar, hearth, chandelier, barrels — real GLB furniture
+  placeFurn(g, 'house_Shelf_1', 0, -HD + 1.4, 0, 1.1);                       // bar counter
+  placeFurn(g, 'house_Bookshelf', 0, -HD + 0.35, 0, 2.4);                    // back-bar shelving (bottles)
+  placeFurn(g, 'house_Fireplace', HW - 0.8, -HD + 3, -Math.PI / 2, 2.6);     // hearth on the right wall
   { const pl = new THREE.PointLight(0xffa53a, 4, 14, 2); pl.position.set(HW - 2, 1.4, -HD + 3); g.add(pl); }
-  // tables + stools + mugs
+  placeFurn(g, 'house_Light_Chandelier', 0, 1, 0, 1.0, 2.5);                 // hanging chandelier
+  for (const p of [[-HW + 1, HD - 1.5], [HW - 1, HD - 2]]) placeFurn(g, 'med_Barrel', p[0], p[1], Math.random() * 6, 1.1);
+  // tables + chairs — wooden table tops with real GLB chairs around them
   const table = (x, z) => {
     g.add(box(1.5, 0.85, 1.5, woodMat, x, 0.42, z)); g.add(deco(box(1.7, 0.12, 1.7, flat(0x5a3a22), x, 0.9, z)));
-    for (let a = 0; a < 4; a++) { const an = a / 4 * Math.PI * 2; g.add(deco(cyl(0.2, 0.22, 0.45, 8, woodMat, x + Math.cos(an) * 1.15, 0.22, z + Math.sin(an) * 1.15))); }
+    for (let a = 0; a < 4; a++) { const an = a / 4 * Math.PI * 2; placeFurn(g, 'house_Chair_1', x + Math.cos(an) * 1.25, z + Math.sin(an) * 1.25, -an + Math.PI / 2, 0.95); }
     g.add(deco(cyl(0.12, 0.14, 0.22, 8, flat(0xb8a06a), x + 0.3, 1.05, z)));
   };
   table(2.8, 2.6); table(-2.8, 2.6); table(2.8, -1); table(-3, -1.5);
-  // chandelier + barrels
-  g.add(deco(box(0.05, 1.3, 0.05, beam, 0, 3.5, 1))); g.add(deco(cyl(0.8, 0.8, 0.1, 10, beam, 0, 2.9, 1)));
-  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; g.add(deco(box(0.1, 0.26, 0.1, candle, Math.cos(a) * 0.7, 3.1, 1 + Math.sin(a) * 0.7))); }
-  for (const p of [[-HW + 1, HD - 1.5], [HW - 1, HD - 2]]) g.add(cyl(0.4, 0.46, 0.95, 10, woodMat, p[0], 0.47, p[1]));
 
   g.userData.roof = roof; g.userData.hw = HW + 0.8; g.userData.hd = HD + 0.8;
   return g;

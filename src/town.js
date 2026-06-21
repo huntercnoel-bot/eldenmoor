@@ -251,7 +251,19 @@ export function buildTown(scene) {
     for (const sz of [-2.5, 0, 2.5]) c.add(archedOpening(1.0, 1.8, flat(0x9a6cff), gold, -3.56, 2.0, sz, -Math.PI / 2)); // west windows
     c.position.set(x, 0, z); g.add(c);
   };
-  propClone(g, 'chapel', CHAPEL[0], CHAPEL[1], 0, { targetH: 8.5 });   // real GLB chapel
+  // chapel — the GLB ships near-black materials, so recolour them to warm stone
+  // / slate / oak / gilt as we place it (preserves the per-part variety, visible).
+  loadProp('chapel').then(({ geometry, material, size }) => {
+    const mats = Array.isArray(material) ? material : [material];
+    const palette = [0xc9c2af, 0x6b5a73, 0x6b4a2c, 0xd8b24a];   // walls, roof, timber, gilt
+    mats.forEach((m, i) => { m.color = new THREE.Color(palette[i % palette.length]); m.metalness = 0; m.roughness = 0.85; });
+    const mesh = new THREE.Mesh(geometry, material);
+    const s = 8.5 / (size.y || 1); mesh.scale.setScalar(s);
+    mesh.position.set(CHAPEL[0], 0, CHAPEL[1]);
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.__toonDone = true; mesh.userData.noCollide = true;
+    g.add(mesh);
+  }).catch((e) => console.error('[town] chapel', e));
+  { const cl = new THREE.PointLight(0xfff0d0, 6, 28, 2); cl.position.set(CHAPEL[0], 6, CHAPEL[1] + 2); g.add(cl); }
 
   // --- fences along the road (low-poly GLB rails, instanced) ---
   // Visible rails are GLB fence segments (one InstancedMesh); each run keeps a
