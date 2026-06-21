@@ -737,10 +737,29 @@ function startMonsters(em) {
   }
 
   // Per-frame update. Only runs on the ground floor (monsters live outdoors).
+  //
+  // PERF: with 50+ monsters across the map + dungeon, blindly ticking every one
+  // (movement math + an AnimationMixer skeleton update) every frame is the main
+  // cost. We cull by squared distance to the player:
+  //   * beyond ACTIVE_RADIUS:  throttle the idle wander AI to ~4x/second (aggro
+  //                            stays correct — a player approaching is always
+  //                            inside the radius long before they're in range).
+  //   * beyond ANIM_RADIUS:    skip the mixer entirely (was already done at 60).
+  //   * mixer updates are also capped per-frame (ANIM_BUDGET) so a big pack near
+  //     the player can't blow the frame; skipped ones simply animate next frame.
+  // All thresholds are generous (well past any aggro/leash range) so gameplay is
+  // identical — only the *animation smoothness* of far, idle, out-of-sight
+  // monsters degrades, which is never observed. Throttled wander accumulates the
+  // skipped dt so movement speed is unchanged when it does run.
+  const ACTIVE_RADIUS2 = 70 * 70;    // beyond this, throttle the idle wander AI
+  const ANIM_RADIUS2 = 55 * 55;      // beyond this, skip the mixer (was 60)
+  const ANIM_BUDGET = 24;            // max GLB mixers updated per frame
   function update(dt, t) {
     const player = window.eldenmoor.player;
     const floor = (window.eldenmoor.getFloor ? window.eldenmoor.getFloor() : 0);
     const onGround = floor === 0;
+    const px = player.position.x, pz = player.position.z;
+    let animCount = 0;
     for (const g of monsters) {
       const md = g.userData.monster;
       if (!md.alive || md.state === 'dead') {
@@ -752,10 +771,24 @@ function startMonsters(em) {
       g.visible = onGround;
       if (!onGround) continue;
 
-      const px = player.position.x, pz = player.position.z;
       const dpx = px - g.position.x, dpz = pz - g.position.z;
-      const pdist = Math.hypot(dpx, dpz);
+      const pdist2 = dpx * dpx + dpz * dpz;     // squared (cheap; sqrt only when needed)
       const type = md.type;
+
+      // Far + idle: throttle the wander AI. Accumulate the skipped dt so wander
+      // speed is unchanged when the step does run. A cheap squared-distance aggro
+      // pre-check still flips an approaching idler to 'chase' immediately, so the
+      // throttle never makes a monster "miss" a player walking up to it.
+      let stepDt = dt;
+      if (md.state === 'wander' && pdist2 > ACTIVE_RADIUS2) {
+        md._throttleAcc = (md._throttleAcc || 0) + dt;
+        const ag = type.aggroRange;
+        if (ag > 0 && pdist2 < ag * ag) { md.state = 'chase'; }
+        else if (md._throttleAcc < 0.25) { continue; }
+        stepDt = md._throttleAcc; md._throttleAcc = 0;
+      }
+
+      const pdist = Math.sqrt(pdist2);
 
       // aggro / leash
       if (md.state === 'wander' && pdist < type.aggroRange) md.state = 'chase';
@@ -768,7 +801,7 @@ function startMonsters(em) {
       if (md.state === 'chase') {
         // chase the player, stop a short distance away (melee reach)
         if (pdist > 1.4) {
-          const step = Math.min(pdist, type.speed * dt);
+          const step = Math.min(pdist, type.speed * stepDt);
           g.position.x += (dpx / pdist) * step; g.position.z += (dpz / pdist) * step;
           g.rotation.y = Math.atan2(dpx, dpz);
           moving = true; speedScale = 1.4;
@@ -776,23 +809,29 @@ function startMonsters(em) {
           g.rotation.y = Math.atan2(dpx, dpz);
         }
       } else {
-        // idle wander around home
+        // idle wander around home (reuse the target object — no per-frame alloc)
         if (t >= md.nextWander) {
           const a = Math.random() * Math.PI * 2, r = Math.random() * 6;
-          md.target = { x: md.home.x + Math.cos(a) * r, z: md.home.z + Math.sin(a) * r };
+          md.target.x = md.home.x + Math.cos(a) * r;
+          md.target.z = md.home.z + Math.sin(a) * r;
           md.nextWander = t + 2 + Math.random() * 5;
         }
         const dx = md.target.x - g.position.x, dz = md.target.z - g.position.z, d = Math.hypot(dx, dz);
         if (d > 0.1) {
-          const step = Math.min(d, type.speed * 0.4 * dt);
+          const step = Math.min(d, type.speed * 0.4 * stepDt);
           g.position.x += (dx / d) * step; g.position.z += (dz / d) * step;
           g.rotation.y = Math.atan2(dx, dz);
           moving = true; speedScale = 0.6;
         }
       }
-      // perf: skip the animation mixer for distant idle monsters (they're far
-      // out in the fields; combatants stay close so they always animate).
-      if (md.state === 'wander' && pdist > 60) continue;
+      // perf: skip the animation mixer for distant monsters, and cap how many
+      // mixers we tick per frame so a near pack can't blow the frame budget.
+      // Chasing monsters are always close, so they're never starved here.
+      if (pdist2 > ANIM_RADIUS2) continue;
+      if (g.userData._model) {
+        if (animCount >= ANIM_BUDGET) continue;
+        animCount++;
+      }
       animate(g, md, dt, t, moving, speedScale);
     }
   }
