@@ -281,6 +281,34 @@ function arcadeArch(g, x, zc, halfLen, spring, apex, material) {
   }
 }
 
+// An elegant arched (lancet-topped) window: a smooth single sheet of softly-
+// glowing coloured glass behind a slim gilt tracery — a vertical mullion and a
+// horizontal transom, capped by a half-round gilt arch. Far calmer than the old
+// blocky multi-pane stained glass. Plane faces ±X (sx = -1 left wall / +1 right)
+// or ±Z. `axis`='x' mounts on a side wall at (x,z); 'z' mounts on a back wall.
+function archedWindow(g, x, z, sillY, w, h, tint, axis = 'z', faceSign = 1) {
+  const glassMat = new THREE.MeshStandardMaterial({ color: tint, emissive: tint, emissiveIntensity: 0.45, roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.82 });
+  const gilt = flat(0xc9a24a, 0.4);
+  const grp = new THREE.Group();
+  const r = w / 2;
+  // glass: a rectangular pane + a half-disc arch head, all one smooth colour
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMat);
+  pane.position.y = sillY + h / 2; grp.add(pane);
+  const head = new THREE.Mesh(new THREE.CircleGeometry(r, 20, 0, Math.PI), glassMat);
+  head.position.y = sillY + h; grp.add(head);
+  // slim gilt tracery: outer arch frame, a vertical mullion and one transom bar
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(r, 0.07, 8, 22, Math.PI), gilt);
+  arch.position.y = sillY + h; grp.add(arch);
+  grp.add(new THREE.Mesh(new THREE.BoxGeometry(0.07, h + r, 0.07), gilt).translateY(sillY + (h + r) / 2));         // mullion
+  grp.add(new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, 0.07), gilt).translateY(sillY + h * 0.55));               // transom
+  for (const sx of [-1, 1]) grp.add(new THREE.Mesh(new THREE.BoxGeometry(0.09, h, 0.09), gilt).translateY(sillY + h / 2).translateX(sx * r));  // jamb rails
+  grp.add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.16, 0.14), gilt).translateY(sillY - 0.05));             // sill
+  grp.traverse((o) => { if (o.isMesh) { o.userData.__toonDone = true; o.userData.noCollide = true; } });
+  if (axis === 'x') grp.rotation.y = faceSign * Math.PI / 2;          // mount flat on a side wall
+  else if (faceSign < 0) grp.rotation.y = Math.PI;
+  grp.position.set(x, 0, z); deco(grp); g.add(grp);
+}
+
 // ---------------------------------------------------------------------------
 // A big walk-in shop with a hideable roof. opts: { wall, roof, wares }
 // ---------------------------------------------------------------------------
@@ -474,10 +502,12 @@ function makeCastle() {
     g.add(deco(box(0.12, 1.4, 0.12, marble, x + 0.35, 2.2, z)));
   };
 
-  // floors + carpet — base flagstones are now tiled modular GLB stone (top ~0.02)
+  // floors — base flagstones are tiled modular GLB stone (top ~0.02). A single
+  // clean polished-marble band runs the centre of the hall as the processional
+  // aisle; the red/gold runner on top is laid once by castleFurniture (addRunner)
+  // so the floor stays calm — no doubled checkerboard, no z-fighting.
   buildGLBFloor(g, HW, HD, 0.02);
-  g.add(deco(box(20, 0.16, HD - 1, marble, 0, 0.0, HD / 2 + 0.5, false)));            // central hall marble (top ~0.08)
-  g.add(deco(box(6, 0.06, 19, mapped(T.carpet), 0, 0.11, 9.5, false)));               // royal aisle carpet
+  g.add(deco(box(8.4, 0.06, HD + HD, marble, 0, 0.05, 0, false)));   // polished marble aisle band (top 0.08)
 
   // curtain walls — modular GLB stone, with invisible colliders matching the old
   // procedural footprint (gate gap at front, local x[-2.5..2.5]).
@@ -615,14 +645,25 @@ function makeCastle() {
   // tall hanging heraldic banners between the columns (high on the nave wall line)
   for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) g.add(deco(box(0.12, 4.0, 1.6, mapped(T.heraldry), sx * 8.3, HALLH - 1.4, z)));
 
-  // throne room (back) — the dais; the throne itself + furnishings are real glTF
-  // models placed by castleFurniture.js (the old box-throne lived here).
-  g.add(deco(box(12, 0.4, 5, marble, 0, 0.32, HD - 3, false)));   // dais step 1
-  g.add(deco(box(8, 0.4, 3.5, marble, 0, 0.6, HD - 3, false)));   // dais step 2
-  const sgThrone = new THREE.MeshStandardMaterial({ map: T.stainedGlass, emissive: 0xffffff, emissiveMap: T.stainedGlass, emissiveIntensity: 0.55, roughness: 0.3 });
-  for (let i = 0; i < 5; i++) g.add(deco(box(2.2, 3.8, 0.2, sgThrone, -8 + i * 4, 4.3, HD - 0.6)));  // stained glass
-  for (const sx of [-1, 1]) g.add(deco(box(2.4, 5.0, 0.12, mapped(T.heraldry), sx * 5.5, 4.0, HD - 0.7)));  // heraldic banners
-  brazier(-3.5, HD - 3.2, true); brazier(3.5, HD - 3.2, true);
+  // throne room (back) — a clean, generous STEPPED DAIS with a rounded front
+  // edge, in warm marble with thin gilt nosings. The grand throne (a procedural
+  // gilded high-backed throne built in castleFurniture) is centred on top, with
+  // the seated King upon it. No blocky stained-glass wall any more — two elegant
+  // arched windows flank the throne instead (built below).
+  const daisMat = mapped(T.marble, 0xece3cf);
+  const daisStep = (w, d, top, zc) => {
+    g.add(deco(box(w, top, d, daisMat, 0, top / 2, zc, false)));            // riser block (top at `top`)
+    g.add(deco(box(w + 0.18, 0.05, d + 0.18, gold, 0, top, zc, false)));    // thin gilt nosing along the edge
+  };
+  daisStep(13.0, 6.0, 0.3, HD - 4.0);   // step 1 (lowest, widest)
+  daisStep(10.0, 4.6, 0.6, HD - 3.4);   // step 2
+  daisStep(7.2, 3.4, 0.9, HD - 3.0);    // step 3 — the throne platform (top y=0.9)
+  // a soft semicircular landing lip on the front of the bottom step
+  g.add(deco(cyl(3.2, 3.2, 0.3, 24, daisMat, 0, 0.15, HD - 7.0, false)));
+  g.add(deco(cyl(3.32, 3.32, 0.05, 24, gold, 0, 0.3, HD - 7.0, false)));
+  // tall heraldic banners flanking the throne (deep blue + gold), hung high
+  for (const sx of [-1, 1]) g.add(deco(box(2.2, 5.2, 0.12, mapped(T.heraldry), sx * 5.4, 4.2, HD - 0.7)));
+  brazier(-4.2, HD - 4.6, true); brazier(4.2, HD - 4.6, true);
   // --- grand APSE framing the throne: paired piers carrying a tall pointed arch
   // and a half-dome of radial ribs, so the dais reads like a sanctuary chancel ---
   for (const sx of [-1, 1]) {
@@ -639,6 +680,11 @@ function makeCastle() {
     rib.rotation.z = (a - Math.PI / 2) * 0.5; deco(rib); g.add(rib);
   }
   g.add(deco(cyl(0.9, 0.9, 0.5, 16, gold, 0, 11.3, HD - 2.6)));                     // gilt boss capping the dome
+  // two tall, elegant arched windows flanking the throne on the back wall (warm
+  // amber + royal blue), washing the apse with soft light — replaces the old
+  // blocky stained-glass slab.
+  archedWindow(g, -7.2, HD - 0.55, 2.2, 2.0, 3.4, 0xe8c46a, 'z', 1);
+  archedWindow(g,  7.2, HD - 0.55, 2.2, 2.0, 3.4, 0x4f74c0, 'z', 1);
 
   brazier(-6, 6); brazier(6, 6); brazier(-6, 15, true); brazier(6, 15, true);   // aisle braziers
 
@@ -716,9 +762,10 @@ function makeCastle() {
   g.add(deco(box(0.9, 0.4, 3.8, stone, fpx + 0.1, 2.5, fpz)));
   { const pl = new THREE.PointLight(0xff7a2a, 4.5, 13, 2); pl.position.set(fpx + 1.2, 1.3, fpz); g.add(pl); }
 
-  // throne dressing: rug + candelabra
-  g.add(deco(box(4, 0.05, 3, carpetMat, 0, 0.84, HD - 3.2, false)));   // rug on the dais (sits on top of the steps)
-  for (const sx of [-1, 1]) { g.add(deco(cyl(0.18, 0.24, 1.9, 8, gold, sx * 2.4, 0.95, HD - 2.6))); g.add(deco(box(0.26, 0.32, 0.26, candle, sx * 2.4, 2.05, HD - 2.6))); }
+  // throne dressing: a slim pair of gilt floor candelabra flanking the dais front
+  // (the throne itself is gilded + cushioned by castleFurniture, so the dais top
+  // stays clear for the King).
+  for (const sx of [-1, 1]) { g.add(deco(cyl(0.18, 0.24, 1.9, 8, gold, sx * 3.0, 1.85, HD - 6.0))); g.add(deco(box(0.26, 0.32, 0.26, candle, sx * 3.0, 2.95, HD - 6.0))); }
 
   // --- Armoury (front-left courtyard room) ---
   g.add(box(2.2, 1.5, 1.6, stone, -20.4, 0.75, -19));                                        // forge
@@ -778,10 +825,13 @@ function makeCastle() {
   g.add(deco(cyl(0.7, 0.7, 0.1, 10, gold, 16, 4.6, 12)));
   for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; g.add(deco(box(0.1, 0.3, 0.1, candle, 16 + Math.cos(a) * 0.7, 4.7, 12 + Math.sin(a) * 0.7))); }
 
-  // --- baldachin over the throne ---
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(deco(box(0.18, 4.2, 0.18, gold, sx * 1.7, 2.1, HD - 2.4 + sz)));
-  g.add(deco(box(4.0, 0.3, 3.0, flat(0x6e1f2f), 0, 4.3, HD - 2.4)));
-  g.add(deco(box(4.2, 0.5, 0.4, gold, 0, 4.55, HD - 3.9)));
+  // --- baldachin / canopy of state high over the throne (clears the tall throne
+  // back + crest, which top out near y~5.5) ---
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(deco(box(0.2, 6.0, 0.2, gold, sx * 1.9, 3.0, HD - 2.2 + sz * 1.1)));
+  g.add(deco(box(4.6, 0.32, 3.4, flat(0x6e1f2f), 0, 6.1, HD - 2.2)));     // canopy roof
+  g.add(deco(box(4.9, 0.5, 0.4, gold, 0, 6.35, HD - 3.9)));               // gilt valance pelmet
+  // a short fringed valance hanging off the front of the canopy
+  g.add(deco(box(4.9, 0.5, 0.12, flat(0x8a1f2a), 0, 5.7, HD - 3.95)));
 
   // --- extra grandeur: portraits, banners, sconces, urns, runner, room signs ---
   const portrait = mapped(T.portrait), heraldry = mapped(T.heraldry);
@@ -819,19 +869,84 @@ function makeCastle() {
 // when the player steps onto it (see scene.userData.stairs + main.js).
 function makeStairs(dir, label) {
   const g = new THREE.Group();
-  const stone = flat(0x8d877c), wood = flat(0x4a3320), dark = flat(0x120f0c);
+  const T = tex();
+  const stone = mapped(T.grey, 0xb4afa4), tread = mapped(T.marble, 0xcfcabb),
+        oak = flat(0x4a3320), gold = flat(0xd8b24a, 0.4), dark = flat(0x120f0c);
   const up = dir === 'up';
-  for (let i = 0; i < 6; i++) g.add(deco(box(2.6, 0.3, 0.55, stone, 0, up ? 0.15 + i * 0.32 : -0.15 - i * 0.32, i * 0.55)));
-  if (!up) g.add(deco(box(2.9, 0.1, 3.6, dark, 0, -2.0, 1.4)));
-  for (const sx of [-1, 1]) g.add(deco(box(0.2, 1.1, 3.6, wood, sx * 1.45, up ? 1.4 : -0.5, 1.4)));
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.7, 0.12), new THREE.MeshStandardMaterial({ map: signTexture(label), roughness: 0.85 }));
-  sign.position.set(0, 2.6, -0.4); deco(sign); g.add(sign);
+  // a stone plinth flanking the run so the steps read as cut masonry, not floating slabs
+  for (const sx of [-1, 1]) g.add(deco(box(0.55, 2.2, 3.6, stone, sx * 1.55, up ? 1.0 : -1.0, 1.4)));
+  // the flight: nosed treads (a thin marble nosing over each stone riser)
+  for (let i = 0; i < 6; i++) {
+    const y = up ? 0.15 + i * 0.32 : -0.15 - i * 0.32;
+    g.add(deco(box(2.6, 0.3, 0.55, stone, 0, y, i * 0.55)));
+    g.add(deco(box(2.7, 0.07, 0.62, tread, 0, y + 0.18, i * 0.55)));   // marble nosing
+  }
+  // a small landing slab at the top/bottom of the run
+  g.add(deco(box(2.8, 0.16, 1.0, tread, 0, up ? 0.15 + 5.5 * 0.32 : -0.15 - 5.5 * 0.32, 3.0)));
+  if (!up) g.add(deco(box(2.9, 0.1, 3.6, dark, 0, -2.0, 1.4)));        // dark stairwell mouth
+  // turned oak balustrades: newel posts + a rail + slim balusters down each side
+  for (const sx of [-1, 1]) {
+    const baseY = up ? 0.6 : -0.6, rise = up ? 0.32 : -0.32;
+    for (const nz of [0.1, 3.0]) {                                     // newel posts
+      g.add(deco(cyl(0.13, 0.15, 1.5, 8, oak, sx * 1.5, baseY + (nz < 1 ? 0 : rise * 5) + 0.75, nz)));
+      g.add(deco(cyl(0.16, 0.16, 0.16, 8, gold, sx * 1.5, baseY + (nz < 1 ? 0 : rise * 5) + 1.55, nz)));
+    }
+    for (let i = 0; i < 6; i++) g.add(deco(cyl(0.05, 0.05, 1.0, 6, oak, sx * 1.5, baseY + rise * i + 0.5, 0.1 + i * 0.55)));
+    // a sloped hand-rail riding the newels
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 3.2), oak);
+    rail.position.set(sx * 1.5, baseY + rise * 2.5 + 1.1, 1.55);
+    rail.rotation.x = up ? -0.52 : 0.52; deco(rail); g.add(rail);
+  }
+  const tx = fittedSignTexture(label);
+  const sw = (tx.userData.aspect || 4) * 0.62;
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.62, 0.1), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.85 }));
+  sign.position.set(0, 2.7, -0.55); deco(sign); g.add(sign);
+  // a torch sconce beside the stair head for warmth
+  g.add(deco(cyl(0.06, 0.06, 0.5, 6, oak, 1.7, 2.4, -0.4)));
+  g.add(deco(box(0.26, 0.3, 0.26, new THREE.MeshStandardMaterial({ color: 0xffb33a, emissive: 0xff7b00, emissiveIntensity: 1.6, roughness: 0.5 }), 1.7, 2.75, -0.4)));
   return g;
 }
 
+// A self-sizing sign texture: the canvas WIDTH is chosen from the measured text
+// so long captions (THRONE ROOM / BEDCHAMBER / STOREROOM) always fit cleanly,
+// and the font is auto-shrunk if it would still overflow. Carved oak look.
+const _signTexCache = {};
+function fittedSignTexture(text) {
+  if (_signTexCache[text]) return _signTexCache[text];
+  const H = 64, PADX = 28;
+  const meas = document.createElement('canvas').getContext('2d');
+  let fs = 34; meas.font = 'bold ' + fs + 'px Georgia, serif';
+  const tw = meas.measureText(text).width;
+  const W = Math.max(128, Math.ceil((tw + PADX * 2) / 4) * 4);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  // oak plaque with a darker bevelled frame
+  g.fillStyle = '#5d3f23'; g.fillRect(0, 0, W, H);
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#6e4b2a'); grad.addColorStop(0.5, '#5a3c22'); grad.addColorStop(1, '#4a3018');
+  g.fillStyle = grad; g.fillRect(4, 4, W - 8, H - 8);
+  // faint vertical grain
+  g.strokeStyle = 'rgba(30,18,8,0.25)'; g.lineWidth = 1;
+  for (let x = 10; x < W; x += 13) { g.beginPath(); g.moveTo(x, 6); g.lineTo(x + 4, H - 6); g.stroke(); }
+  // gilt inner border
+  g.strokeStyle = '#cda23e'; g.lineWidth = 3; g.strokeRect(7, 7, W - 14, H - 14);
+  // text, shrunk to fit if needed
+  g.fillStyle = '#f4e6c2'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const maxW = W - PADX * 2;
+  while (fs > 12) { g.font = 'bold ' + fs + 'px Georgia, serif'; if (g.measureText(text).width <= maxW) break; fs -= 2; }
+  g.shadowColor = 'rgba(20,10,0,0.6)'; g.shadowBlur = 3; g.shadowOffsetY = 1;
+  g.fillText(text, W / 2, H / 2 + 1);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  t.userData = { aspect: W / H };
+  _signTexCache[text] = t; return t;
+}
+
 // A flat, always-readable sign board facing direction `ry` (radians around Y).
+// Width auto-matches the text aspect so captions never stretch or clip.
 function roomSign(g, text, x, y, z, ry, w = 2.4, h = 0.7) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTexture(text), side: THREE.DoubleSide }));
+  const tx = fittedSignTexture(text);
+  const W = (tx.userData.aspect || (w / h)) * h;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(W, h), new THREE.MeshBasicMaterial({ map: tx, side: THREE.DoubleSide, transparent: false }));
   m.position.set(x, y, z); m.rotation.y = ry; m.userData.noCollide = true; m.renderOrder = 1; g.add(m);
 }
 
