@@ -381,6 +381,18 @@ function startGame(username) {
   }
 
   gameMessage('Welcome to Eldenmoor, ' + username + '!');
+  // First-visit tips so new systems are discoverable (staggered into the chat).
+  if (!hadSave) {
+    const tips = [
+      'Train skills out in the world: chop trees, mine the NE quarry, fish the shores, then cook on a fire.',
+      'Smith ore into bars and gear at the blacksmith’s furnace and anvil.',
+      'Fight with melee, or equip a bow + arrows for Ranged, or arm a spell from the Spellbook for Magic.',
+      'Press F (or click the ⚡ bar) to unleash your weapon’s special attack.',
+      'Bury bones for Prayer, then activate prayers and recharge at the chapel altar.',
+      'Bank with Edra in town. Brave the Crypt of the Hollow King far to the NW for a boss and rare loot!',
+    ];
+    tips.forEach((t, i) => setTimeout(() => gameMessage(t), 2500 + i * 4500));
+  }
 
   // Log-out button (top-right) — drops the connection and returns to the login screen.
   const logoutBtn = document.getElementById('logout');
