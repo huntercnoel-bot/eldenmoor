@@ -43,17 +43,52 @@ export function createCollision(scene) {
   addGroups(1, scene.userData.upperBuildings);
   addGroups(-1, scene.userData.basementBuildings);
 
+  // --- Spatial hash grid (built once per floor) -----------------------------
+  // blocked() is called up to 4x per movement frame and used to do a linear scan
+  // over EVERY collider on the active floor (hundreds). Instead we bucket each
+  // collider into a uniform grid, expanding its footprint by PLAYER_R so a single
+  // query POINT only needs to test the colliders in its own cell. This is exact:
+  // any collider that could block at (x,z) overlaps the cell containing (x,z),
+  // because we grew every footprint by the player radius before bucketing.
+  const CELL = 4;                       // metres; comfortably larger than most colliders
+  const key = (cx, cz) => cx * 73856093 ^ cz * 19349663;   // hash a cell coord pair
+  for (const f of Object.keys(sets)) {
+    const s = sets[f];
+    const grid = new Map();
+    const put = (cx, cz, item) => {
+      const k = key(cx, cz);
+      let bucket = grid.get(k);
+      if (!bucket) grid.set(k, bucket = []);
+      bucket.push(item);
+    };
+    // Insert an item into every cell its (player-radius-expanded) AABB overlaps.
+    const insert = (minX, minZ, maxX, maxZ, item) => {
+      const x0 = Math.floor((minX - PLAYER_R) / CELL), x1 = Math.floor((maxX + PLAYER_R) / CELL);
+      const z0 = Math.floor((minZ - PLAYER_R) / CELL), z1 = Math.floor((maxZ + PLAYER_R) / CELL);
+      for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) put(cx, cz, item);
+    };
+    for (const c of s.circles) insert(c.x - c.r, c.z - c.r, c.x + c.r, c.z + c.r, c);
+    for (const r of s.rects) insert(r.x0, r.z0, r.x1, r.z1, r);
+    s.grid = grid;
+  }
+
   let active = 0;
   const setActiveFloor = (f) => { active = f; };
 
   function blocked(x, z) {
     const s = sets[active];
     if (!s) return false;
-    for (const c of s.circles) { const dx = x - c.x, dz = z - c.z, rr = c.r + PLAYER_R; if (dx * dx + dz * dz < rr * rr) return true; }
-    for (const r of s.rects) {
-      const cx = Math.max(r.x0, Math.min(x, r.x1)), cz = Math.max(r.z0, Math.min(z, r.z1));
-      const dx = x - cx, dz = z - cz;
-      if (dx * dx + dz * dz < PLAYER_R * PLAYER_R) return true;
+    const bucket = s.grid.get(key(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!bucket) return false;
+    for (const c of bucket) {
+      if (c.r != null) {                // circle collider
+        const dx = x - c.x, dz = z - c.z, rr = c.r + PLAYER_R;
+        if (dx * dx + dz * dz < rr * rr) return true;
+      } else {                          // rect collider (AABB)
+        const cx = Math.max(c.x0, Math.min(x, c.x1)), cz = Math.max(c.z0, Math.min(z, c.z1));
+        const dx = x - cx, dz = z - cz;
+        if (dx * dx + dz * dz < PLAYER_R * PLAYER_R) return true;
+      }
     }
     return false;
   }

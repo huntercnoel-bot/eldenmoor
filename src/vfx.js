@@ -91,8 +91,12 @@ function createPool(max, blending, depthWrite, sprite) {
   // Parallel particle data (struct-of-arrays kept simple as object array).
   const parts = new Array(max);
   const free = [];
+  // Compact list of currently-active particle indices. update()/flush() iterate
+  // ONLY this list (O(live)) instead of scanning all `max` slots every frame, so
+  // an idle pool of 1000s of slots costs almost nothing when few particles are up.
+  const activeList = [];
   for (let i = 0; i < max; i++) {
-    parts[i] = { active: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1, size: 1, gravity: 0, drag: 0.0, r: 1, g: 1, b: 1, baseSize: 1 };
+    parts[i] = { active: false, slot: -1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, maxLife: 1, size: 1, gravity: 0, drag: 0.0, r: 1, g: 1, b: 1, baseSize: 1 };
     free.push(i);
   }
   let liveCount = 0;
@@ -106,6 +110,8 @@ function createPool(max, blending, depthWrite, sprite) {
     d.active = true;
     d.maxLife = p.life;
     d.baseSize = p.size;
+    d.slot = activeList.length;           // remember our spot for O(1) swap-remove
+    activeList.push(i);
     return i;
   }
 
@@ -126,16 +132,26 @@ function createPool(max, blending, depthWrite, sprite) {
   }
   const _c = [0, 0, 0];
 
-  // Repack active particles into the front of the buffers each frame.
+  // Swap-remove an active particle from activeList in O(1) and recycle its slot.
+  function retire(d, i, listIdx) {
+    d.active = false;
+    free.push(i);
+    const lastIdx = activeList.length - 1;
+    const moved = activeList[lastIdx];
+    activeList[listIdx] = moved;
+    parts[moved].slot = listIdx;
+    activeList.pop();
+  }
+
+  // Repack active particles into the front of the buffers each frame. Iterates the
+  // compact active list, so cost scales with live particles, not pool capacity.
   function flush() {
-    let n = 0;
-    for (let i = 0; i < max; i++) {
-      const d = parts[i];
-      if (!d.active) continue;
-      positions[n * 3] = d.x; positions[n * 3 + 1] = d.y; positions[n * 3 + 2] = d.z;
-      colors[n * 3] = d.r; colors[n * 3 + 1] = d.g; colors[n * 3 + 2] = d.b;
-      sizes[n] = d.size;
-      n++;
+    const n = activeList.length;
+    for (let j = 0; j < n; j++) {
+      const d = parts[activeList[j]];
+      positions[j * 3] = d.x; positions[j * 3 + 1] = d.y; positions[j * 3 + 2] = d.z;
+      colors[j * 3] = d.r; colors[j * 3 + 1] = d.g; colors[j * 3 + 2] = d.b;
+      sizes[j] = d.size;
     }
     liveCount = n;
     geo.setDrawRange(0, n);
@@ -145,11 +161,11 @@ function createPool(max, blending, depthWrite, sprite) {
   }
 
   function update(dt) {
-    for (let i = 0; i < max; i++) {
+    for (let j = activeList.length - 1; j >= 0; j--) {
+      const i = activeList[j];
       const d = parts[i];
-      if (!d.active) continue;
       d.life -= dt;
-      if (d.life <= 0) { d.active = false; free.push(i); continue; }
+      if (d.life <= 0) { retire(d, i, j); continue; }
       d.vy -= d.gravity * dt;
       if (d.drag) { const f = Math.max(0, 1 - d.drag * dt); d.vx *= f; d.vy *= f; d.vz *= f; }
       d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;
