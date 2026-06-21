@@ -13,8 +13,19 @@
 // Exposed as window.eldenmoor.prayer.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { ITEMS } from './items.js';
 import { gameMessage } from './ui.js';
+
+// --- static GLB prop loader (clone-friendly; tags meshes so the cel-shader and
+//     the death-fade leave them alone). Used for the stone altar + cross. -------
+const PROPS = './assets/models/props/';
+const _gltf = new GLTFLoader();
+const _propCache = {};
+function loadProp(name) {
+  if (!_propCache[name]) _propCache[name] = new Promise((ok, err) => _gltf.load(PROPS + name + '.glb', (g) => ok(g.scene), undefined, err));
+  return _propCache[name];
+}
 
 // The prayers, low -> high. `mult` is the multiplier handed to combat for the
 // stat. Higher prayers drain faster. (Mirrors OSRS's Thick Skin / Burst of
@@ -84,8 +95,13 @@ function startPrayer(em) {
   }
 
   // --- the altar prop -------------------------------------------------------
+  // The clickable group keeps kind:'prayer_altar' + its world placement so the
+  // recharge raycast still hits it. The procedural boxes below are kept as a
+  // fallback (and a guaranteed click target) but are HIDDEN once the real Kenney
+  // graveyard stone-altar + cross GLBs load on top.
   const altarG = new THREE.Group();
   altarG.position.set(ALTAR.x, 0, ALTAR.z);
+  const altarFallback = [];
   {
     const stone = new THREE.MeshStandardMaterial({ color: 0xc9c2af, roughness: 0.9, metalness: 0 });
     const gold = new THREE.MeshStandardMaterial({ color: 0xd8b24a, roughness: 0.5, metalness: 0.3, emissive: 0x3a2c08 });
@@ -93,13 +109,36 @@ function startPrayer(em) {
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.22, 1.35), stone); top.position.y = 1.1;
     const cross = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 0.18), gold); cross.position.y = 1.85;
     const crossArm = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.18), gold); crossArm.position.y = 1.95;
-    for (const m of [base, top, cross, crossArm]) { m.castShadow = true; m.userData.__toonDone = true; altarG.add(m); }
-    // a soft candle glow so it reads as holy
+    for (const m of [base, top, cross, crossArm]) { m.castShadow = true; m.userData.__toonDone = true; altarFallback.push(m); altarG.add(m); }
+    // a soft candle glow so it reads as holy (kept regardless of the model)
     const glow = new THREE.PointLight(0xffd98a, 0.6, 6); glow.position.set(0, 1.6, 0); altarG.add(glow);
   }
   altarG.userData = { kind: 'prayer_altar' };
   scene.add(altarG);
   (scene.userData.outdoor = scene.userData.outdoor || []).push(altarG);
+
+  // Drop a static GLB (already authored ~1 m) into the altar group, scaled so its
+  // widest axis matches `targetW`, feet on y=0. Tags meshes __toonDone so the
+  // cel-shader leaves them. Hides the fallback boxes once anything real lands.
+  function addAltarModel(name, targetW, dx, dy, dz) {
+    loadProp(name).then((src) => {
+      const model = src.clone(true);
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const native = Math.max(size.x, size.z) || 1;
+      const s = targetW / native;
+      model.scale.setScalar(s);
+      // recentre x/z and drop feet to y=0, then offset
+      model.position.set(dx - (box.min.x + box.max.x) / 2 * s, dy - box.min.y * s, dz - (box.min.z + box.max.z) / 2 * s);
+      model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.__toonDone = true; } });
+      for (const m of altarFallback) m.visible = false;
+      altarG.add(model);
+      if (em.applyToonTo) em.applyToonTo(altarG);
+    }).catch((e) => console.error('[prayer] altar model load failed', name, e));
+  }
+  addAltarModel('graveyard_altar_stone', 2.0, 0, 0, 0);     // ~2 m wide stone altar
+  addAltarModel('graveyard_cross', 1.0, 0, 0, -0.55);       // standing cross accent behind it
+  if (em.applyToonTo) em.applyToonTo(altarG);
 
   // --- click the altar to recharge ------------------------------------------
   const raycaster = new THREE.Raycaster();
