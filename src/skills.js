@@ -14,6 +14,7 @@ const SKILL_DEFS = [
   { id: 'firemaking', name: 'Firemaking', icon: '🔥', base: 1 },
   { id: 'prayer',     name: 'Prayer',     icon: '🙏', base: 1 },
   { id: 'magic',      name: 'Magic',      icon: '✨', base: 1 },
+  { id: 'ranged',     name: 'Ranged',     icon: '🏹', base: 1 },
 ];
 
 // --- Tree tiers (Woodcutting) -------------------------------------------------

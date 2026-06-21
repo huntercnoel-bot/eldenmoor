@@ -558,3 +558,31 @@ ITEMS.fire_rune  = { id: 'fire_rune',  name: 'Fire rune',  stackable: true, valu
 ITEMS.mind_rune  = { id: 'mind_rune',  name: 'Mind rune',  stackable: true, value: 3,  examine: 'A rune of the mind.',  icon: runeIcon('#c8a0ff', 'M14 22 Q20 12 26 22 M17 26 L23 26') };
 ITEMS.chaos_rune = { id: 'chaos_rune', name: 'Chaos rune', stackable: true, value: 18, examine: 'A rune of chaos.', icon: runeIcon('#ff4a6a', 'M20 11 L20 29 M12 15 L28 25 M28 15 L12 25') };
 ITEMS.death_rune = { id: 'death_rune', name: 'Death rune', stackable: true, value: 50, examine: 'A rune of death.', icon: runeIcon('#d0d0d8', 'M14 14 L26 26 M26 14 L14 26 M20 11 L20 29') };
+
+// ---- Ranged: bows + arrows -------------------------------------------------
+// Bows go in the weapon slot (tool:'bow'); ranged.js fires when one is equipped
+// and you click a foe, consuming one arrow. `rangedStr` feeds the damage roll.
+ITEMS.shortbow = {
+  id: 'shortbow', name: 'Shortbow', stackable: false, value: 50,
+  equipable: true, slot: 'weapon', tool: 'bow', rangedLevel: 1, shootTime: 1.6, rangedStr: 3,
+  examine: 'A simple shortbow. Equip it and click a foe to loose an arrow.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 6 Q30 20 12 34" fill="none" stroke="#8a5a30" stroke-width="2.4"/><path d="M12 6 L12 34" stroke="#cfcfcf" stroke-width="1"/><path d="M11 20 L31 20" stroke="#6b4a2f" stroke-width="1.4"/><path d="M31 20 l-4 -2 m4 2 l-4 2" stroke="#6b4a2f" stroke-width="1.4" fill="none"/></svg>`,
+};
+ITEMS.oak_shortbow = {
+  id: 'oak_shortbow', name: 'Oak shortbow', stackable: false, value: 160,
+  equipable: true, slot: 'weapon', tool: 'bow', rangedLevel: 5, shootTime: 1.4, rangedStr: 7,
+  examine: 'A sturdier oak shortbow. Ranged level 5.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 5 Q32 20 12 35" fill="none" stroke="#6e4a26" stroke-width="2.8"/><path d="M12 5 L12 35" stroke="#dcdcdc" stroke-width="1"/><path d="M11 20 L32 20" stroke="#6b4a2f" stroke-width="1.5"/><path d="M32 20 l-4 -2 m4 2 l-4 2" stroke="#6b4a2f" stroke-width="1.5" fill="none"/></svg>`,
+};
+ITEMS.maple_shortbow = {
+  id: 'maple_shortbow', name: 'Maple shortbow', stackable: false, value: 480,
+  equipable: true, slot: 'weapon', tool: 'bow', rangedLevel: 30, shootTime: 1.2, rangedStr: 14,
+  examine: 'A fine maple shortbow. Ranged level 30.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 5 Q33 20 12 35" fill="none" stroke="#9a5a2a" stroke-width="2.8"/><path d="M12 5 L12 35" stroke="#e8e8e8" stroke-width="1"/><path d="M11 20 L33 20" stroke="#6b4a2f" stroke-width="1.5"/><path d="M33 20 l-4 -2 m4 2 l-4 2" stroke="#6b4a2f" stroke-width="1.5" fill="none"/></svg>`,
+};
+function arrowIcon(head) {
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-45 20 20)"><rect x="19" y="8" width="2" height="24" fill="#8a5a30"/><path d="M20 5 l4 7 -8 0 z" fill="${head}" stroke="#4a3018" stroke-width="0.8"/><path d="M17 30 l3 3 3 -3" fill="none" stroke="#d8d8d8" stroke-width="1.2"/></g></svg>`;
+}
+ITEMS.bronze_arrow = { id: 'bronze_arrow', name: 'Bronze arrow', stackable: true, value: 2, ammo: true, rangedStr: 2, examine: 'Bronze-tipped arrows.', icon: arrowIcon('#c8842f') };
+ITEMS.iron_arrow   = { id: 'iron_arrow',   name: 'Iron arrow',   stackable: true, value: 4, ammo: true, rangedStr: 5, examine: 'Iron-tipped arrows. Hit harder.', icon: arrowIcon('#b8b0a8') };
+ITEMS.steel_arrow  = { id: 'steel_arrow',  name: 'Steel arrow',  stackable: true, value: 8, ammo: true, rangedStr: 9, examine: 'Steel-tipped arrows.', icon: arrowIcon('#c2c7ce') };

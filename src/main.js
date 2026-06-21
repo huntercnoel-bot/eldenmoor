@@ -31,6 +31,7 @@ import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; r
 import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
 import './prayer.js';   // Prayer skill: bury bones, activatable prayers, chapel altar
 import './magic.js';    // Magic skill: spellbook of elemental attack spells
+import './ranged.js';   // Ranged skill: equip a bow + arrows, click a foe to shoot
 import './dungeon.js';   // Crypt of the Hollow King — undead dungeon zone (self-initializing)
 import './ambient.js';
 import './assets.js';
@@ -181,6 +182,8 @@ function startGame(username) {
     // a pouch of starter runes so the Magic spellbook works from the off
     inventory.add('air_rune', 40); inventory.add('mind_rune', 30);
     inventory.add('water_rune', 20); inventory.add('earth_rune', 20); inventory.add('fire_rune', 20);
+    // a shortbow + arrows so Ranged is playable from the start
+    inventory.add('shortbow', 1); inventory.add('bronze_arrow', 75);
   }
   if (!equipment.getWeapon()) {
     if (inventory.count('bronze_axe') > 0) equipment.equip('bronze_axe');
