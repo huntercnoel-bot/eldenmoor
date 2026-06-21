@@ -1,7 +1,8 @@
 // questmarkers.js — WoW-style floating quest markers above NPCs.
 //
 //   "!"  (class .quest-marker.available)   → an NPC has a quest you can START
-//   "?"  (class .quest-marker.in-progress) → a quest is on / READY TO HAND IN
+//   "?"  (class .quest-marker.in-progress) → a quest is ON, objectives underway
+//   "?"  (class .quest-marker.ready)       → objectives DONE — return to hand in
 //
 // Each marker is a DOM node created in JS and positioned every frame by
 // projecting the NPC's head world-position to screen — the same technique
@@ -10,18 +11,39 @@
 // is hidden whenever its NPC is hidden (e.g. on another floor) or off-screen.
 //
 // Markers carry clear classes so the UI agent can theme them; we set just enough
-// inline style to make them visible/positioned out of the box.
+// inline style to make them visible/positioned out of the box. The 'ready' marker
+// also gets a gentle bob to catch the eye, and every marker carries a title
+// tooltip naming the quest's current stage so it reads at a glance.
 
 import * as THREE from '../vendor/three.module.js';
 
 const _v = new THREE.Vector3();
 
 // Glyphs per state. Kept here so behaviour stays in JS even if the UI restyles.
-const GLYPH = { available: '!', 'in-progress': '?' };
+const GLYPH = { available: '!', 'in-progress': '?', ready: '?' };
+// Default hues per state (the UI agent can override via the .quest-marker classes).
+const HUE = { available: '#ffd100', 'in-progress': '#cfe2ff', ready: '#ffe066' };
+
+// A short tooltip describing where the quest stands, so hovering a marker (or a
+// future UI reading the title) reflects the live stage.
+function tooltipFor(quests, npcId) {
+  const id = quests.questIdForGiver(npcId);
+  if (!id) return '';
+  const def = quests.QUEST_DEFS[id];
+  const name = (def && def.name) || 'Quest';
+  if (quests.canStart(id)) return name + ' — new quest available!';
+  if (quests.readyToComplete(id)) return name + ' — ready to hand in';
+  if (quests.isActive(id)) {
+    const st = def && def.stages[Math.min(quests.stage(id), def.stages.length - 1)];
+    return name + (st ? ' — ' + st.name : ' — in progress');
+  }
+  return name;
+}
 
 export function createQuestMarkers(npcs, quests) {
   // One marker DOM node per quest-giver NPC, created lazily.
-  const markers = new Map(); // npcId -> { el, npc, state }
+  const markers = new Map(); // npcId -> { el, npc, state, stage }
+  let clock = 0;
 
   // Which NPCs are quest-givers? Anything the quest system recognises as a giver.
   const givers = npcs.filter((n) => n.def && quests.questIdForGiver(n.def.id));
@@ -40,30 +62,39 @@ export function createQuestMarkers(npcs, quests) {
   }
 
   // Call every frame from the game loop. Mirrors updateNpcLabels' projection.
-  function update(camera) {
+  function update(camera, dt = 0) {
+    clock += dt;
     for (const n of givers) {
-      const state = quests.markerFor(n.def.id); // 'available' | 'in-progress' | null
+      const state = quests.markerFor(n.def.id); // 'available' | 'in-progress' | 'ready' | null
       let m = markers.get(n.def.id);
 
       // No active marker for this NPC right now → hide if it exists.
       if (!state) { if (m) m.el.style.display = 'none'; continue; }
 
-      if (!m) { m = { el: makeEl(), npc: n, state: null }; markers.set(n.def.id, m); }
+      if (!m) { m = { el: makeEl(), npc: n, state: null, stage: -1 }; markers.set(n.def.id, m); }
 
       // Hidden NPC (different floor / culled) → hide the marker too.
       if (!n.group.visible) { m.el.style.display = 'none'; continue; }
 
-      // Update glyph + class only when the state changes (keeps the DOM cheap).
-      if (m.state !== state) {
-        m.state = state;
+      // Update glyph + class + tooltip when the state OR the stage changes (so the
+      // marker reflects each stage of the quest, while keeping the DOM cheap).
+      const stg = quests.stage(n.def.id);
+      if (m.state !== state || m.stage !== stg) {
+        m.state = state; m.stage = stg;
         m.el.className = 'quest-marker ' + state;
         m.el.textContent = GLYPH[state] || '';
-        // A distinct default hue per state so they read before the UI themes them.
-        m.el.style.color = state === 'in-progress' ? '#cfe2ff' : '#ffd100';
+        m.el.style.color = HUE[state] || '#ffd100';
+        // A brighter, warmer glow when the quest is ready to be handed in.
+        m.el.style.textShadow = state === 'ready'
+          ? '0 0 8px #ffcf4a,0 0 4px #000,0 2px 4px rgba(0,0,0,0.8)'
+          : '0 0 4px #000,0 2px 4px rgba(0,0,0,0.8)';
+        m.el.title = tooltipFor(quests, n.def.id);
       }
 
-      // Project the NPC head (y ≈ 2.7, just above the name label at 2.4).
-      _v.set(n.group.position.x, 2.7, n.group.position.z).project(camera);
+      // Project the NPC head (y ≈ 2.7, just above the name label at 2.4). The
+      // 'ready' marker bobs gently to draw the eye back to the quest-giver.
+      const bob = state === 'ready' ? Math.sin(clock * 4) * 0.12 : 0;
+      _v.set(n.group.position.x, 2.7 + bob, n.group.position.z).project(camera);
       if (_v.z > 1 || _v.x < -1.1 || _v.x > 1.1) { m.el.style.display = 'none'; continue; }
       m.el.style.display = 'block';
       m.el.style.left = (_v.x * 0.5 + 0.5) * window.innerWidth + 'px';
