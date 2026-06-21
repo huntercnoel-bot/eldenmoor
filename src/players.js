@@ -165,6 +165,20 @@ export function createRemotePlayers(scene, camera) {
     r.removed = true;
     scene.remove(r.group);
     r.label.remove();
+    // Free this avatar's PRIVATE GPU/CPU resources. Geometry and materials are
+    // shared by reference with the cached GLB prototype (Object3D.clone keeps
+    // those refs), so we must NOT dispose them — only the per-clone skeleton
+    // bone textures and the mixer are unique to this avatar.
+    if (r.anim) {
+      try {
+        const mixer = r.anim.mixer, model = r.anim.model;
+        if (mixer) { mixer.stopAllAction(); if (model) mixer.uncacheRoot(model); }
+        if (model) model.traverse((o) => {
+          if (o.isSkinnedMesh && o.skeleton && o.skeleton.dispose) o.skeleton.dispose();
+        });
+      } catch (err) { /* never let cleanup throw */ }
+      r.anim = null;
+    }
     delete remotes[user];
   }
 
