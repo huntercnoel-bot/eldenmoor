@@ -42,7 +42,7 @@ function startMagic(em) {
   // --- the spellbook panel --------------------------------------------------
   const panel = document.createElement('div');
   panel.id = 'spellbook-panel';
-  panel.style.cssText = 'position:fixed;left:12px;top:230px;z-index:24;display:flex;flex-direction:column;gap:3px;' +
+  panel.style.cssText = 'position:fixed;left:12px;top:252px;z-index:24;display:flex;flex-direction:column;gap:3px;' +
     'font-family:Georgia,serif;pointer-events:auto;user-select:none;max-width:150px;';
   document.body.appendChild(panel);
   const head = document.createElement('div');
