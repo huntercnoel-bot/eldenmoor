@@ -767,6 +767,7 @@ function startMonsters(em) {
   // skipped dt so movement speed is unchanged when it does run.
   const ACTIVE_RADIUS2 = 70 * 70;    // beyond this, throttle the idle wander AI
   const ANIM_RADIUS2 = 55 * 55;      // beyond this, skip the mixer (was 60)
+  const RENDER_RADIUS2 = 62 * 62;    // beyond this, DON'T render the monster at all
   const ANIM_BUDGET = 24;            // max GLB mixers updated per frame
   function update(dt, t) {
     const player = window.eldenmoor.player;
@@ -782,11 +783,15 @@ function startMonsters(em) {
         if (g.userData._model) animate(g, md, dt, t, false);
         continue;
       }
-      g.visible = onGround;
-      if (!onGround) continue;
-
       const dpx = px - g.position.x, dpz = pz - g.position.z;
       const pdist2 = dpx * dpx + dpz * dpz;     // squared (cheap; sqrt only when needed)
+      // RENDER CULL: a monster far from the player isn't worth drawing. Their
+      // skinned GLBs have frustumCulled off, so otherwise all ~50 monsters across
+      // the whole map render every frame regardless of where the camera looks —
+      // a big needless cost. Hide the far ones (AI/aggro/respawn still runs).
+      g.visible = onGround && pdist2 < RENDER_RADIUS2;
+      if (!onGround) continue;
+
       const type = md.type;
 
       // Far + idle: throttle the wander AI. Accumulate the skipped dt so wander
