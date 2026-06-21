@@ -136,9 +136,19 @@ export function initMinimap() {
     return '#e8dcc0';                                           // townsfolk
   }
 
-  function frame() {
+  // Throttle the dial to ~30fps and idle entirely until the game is live.
+  // Before login (and on a backgrounded tab) window.eldenmoor is absent, so the
+  // old code still cleared + repainted the canvas 60×/s for no reason — that work
+  // overlapped the heavy world-build during login. We now redraw at most ~30×/s
+  // and skip the whole pass while there's no player to draw.
+  let lastDraw = -1e9;
+  const DRAW_INTERVAL = 1000 / 30;
+  function frame(now) {
     requestAnimationFrame(frame);
     const em = window.eldenmoor;
+    if (!em || !em.player) return;                  // nothing to draw yet — idle cheaply
+    if (now - lastDraw < DRAW_INTERVAL) return;     // cap at ~30Hz
+    lastDraw = now;
     ctx.clearRect(0, 0, W, H);
 
     // sunken parchment-dark dial base + faint range rings
@@ -298,7 +308,24 @@ export function initSkillLabels() {
   }
 
   decorate();
-  const mo = new MutationObserver(() => decorate());
+  // skills.js rebuilds this whole grid (innerHTML) on every XP gain, and our own
+  // decorate() inserts nodes back into it — both fire this observer. During login
+  // XP is awarded many times (starter kit, save load, quest setup), so a naive
+  // synchronous re-decorate per mutation stacks up fast. Coalesce a burst of
+  // mutations into a single rAF-batched pass, and ignore the mutations decorate()
+  // itself causes (a re-entrancy guard) so we never loop.
+  let scheduled = false, decorating = false;
+  function schedule() {
+    if (scheduled || decorating) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      decorating = true;
+      decorate();
+      decorating = false;
+    });
+  }
+  const mo = new MutationObserver(schedule);
   mo.observe(tab, { childList: true, subtree: true });
 }
 
