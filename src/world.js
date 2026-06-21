@@ -139,7 +139,14 @@ export function buildWorld(scene) {
   // soft sun bloom painted near the sun's bearing. Built locally so we can tune
   // the golden-hour palette without touching the shared texture helpers.
   const sky = goldenSkyDome();
+  sky.visible = false;                          // replaced by the real cubemap sky below
   scene.add(sky); scene.userData.sky = sky;
+  // Real photographic skybox (CC0 cube faces) in place of the procedural dome.
+  new THREE.CubeTextureLoader().setPath('./assets/textures/sky/')
+    .load(['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'], (cube) => {
+      cube.colorSpace = THREE.SRGBColorSpace;
+      scene.background = cube;
+    });
 
   // A few cheap, soft cloud puffs drifting high overhead for a touch of sky life.
   const clouds = makeClouds();
