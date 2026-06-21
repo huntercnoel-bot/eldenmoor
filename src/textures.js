@@ -15,18 +15,45 @@ function finish(canvas, rep) {
 }
 
 export function grassTexture(rep = 55) {
-  const c = cv(128), g = c.getContext('2d');
-  g.fillStyle = '#5f7a33'; g.fillRect(0, 0, 128, 128);                 // RuneScape-green turf
-  for (let i = 0; i < 90; i++) {                                       // soft mottling for gentle variation
-    const v = Math.random();
-    g.fillStyle = `rgba(${(74 + v * 38) | 0},${(104 + v * 44) | 0},${(48 + v * 30) | 0},0.14)`;
-    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 4 + Math.random() * 9, 0, 7); g.fill();
+  const c = cv(256), g = c.getContext('2d');
+  // Base turf laid down as a soft vertical gradient (deeper green low, warmer up
+  // top) so the sheet never reads as one flat colour even before the detail.
+  const base = g.createLinearGradient(0, 0, 0, 256);
+  base.addColorStop(0.0, '#566f2c');
+  base.addColorStop(0.5, '#647e35');
+  base.addColorStop(1.0, '#586f2e');
+  g.fillStyle = base; g.fillRect(0, 0, 256, 256);
+  // Broad low-frequency colour blotches — sun-bleached, mossy and earthier
+  // patches — give the lawn organic large-scale variation when it tiles out.
+  const blot = [
+    [104, 124, 60, 0.18],   // sun-warmed lighter green
+    [70, 92, 42, 0.20],     // shadowed deeper green
+    [120, 116, 64, 0.14],   // dry/strawy patch
+    [78, 104, 54, 0.16],    // fresh mossy green
+  ];
+  for (let i = 0; i < 80; i++) {
+    const [r, gg, b, a] = blot[(Math.random() * blot.length) | 0];
+    g.fillStyle = `rgba(${r},${gg},${b},${(a * (0.5 + Math.random())).toFixed(2)})`;
+    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 10 + Math.random() * 30, 0, 7); g.fill();
   }
-  for (let i = 0; i < 1700; i++) {                                     // fine upright grass blades
-    const v = Math.random(), x = Math.random() * 128, y = Math.random() * 128;
-    g.strokeStyle = `rgba(${(66 + v * 58) | 0},${(98 + v * 62) | 0},${(44 + v * 36) | 0},0.5)`;
-    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2, y - (2 + Math.random() * 3)); g.stroke();
+  // Small dirt scuffs poking through the turf so it doesn't look carpeted.
+  for (let i = 0; i < 26; i++) {
+    g.fillStyle = `rgba(${(112 + Math.random() * 26) | 0},${(92 + Math.random() * 22) | 0},${(58 + Math.random() * 18) | 0},0.16)`;
+    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 3 + Math.random() * 7, 0, 7); g.fill();
   }
+  for (let i = 0; i < 6000; i++) {                                     // fine upright grass blades
+    const v = Math.random(), x = Math.random() * 256, y = Math.random() * 256;
+    g.strokeStyle = `rgba(${(62 + v * 70) | 0},${(94 + v * 70) | 0},${(40 + v * 42) | 0},0.5)`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2.4, y - (2 + Math.random() * 4)); g.stroke();
+  }
+  // A sprinkle of tiny pale wildflower flecks for a touch of RS/WoW meadow life.
+  const fcol = ['#e8e0b0', '#dcd28a', '#cfd6b6'];
+  for (let i = 0; i < 50; i++) {
+    g.fillStyle = fcol[(Math.random() * fcol.length) | 0];
+    g.globalAlpha = 0.5 + Math.random() * 0.3;
+    g.beginPath(); g.arc(Math.random() * 256, Math.random() * 256, 0.8 + Math.random() * 1.2, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
   return finish(c, rep);
 }
 
@@ -46,6 +73,46 @@ export function dirtTexture(rep = 6) {
     const s = 1.4 + Math.random() * 2.2, gy = 120 + Math.random() * 40;
     g.fillStyle = `rgb(${gy | 0},${(gy - 6) | 0},${(gy - 16) | 0})`;
     g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, s, 0, 7); g.fill();
+  }
+  return finish(c, rep);
+}
+
+// A worn dirt road/path: a warm trodden-earth base with long faint ruts running
+// down its length, scattered pebbles and grassy fringe flecks so a town lane
+// reads like packed earth rather than a flat brown strip. Tiles seamlessly.
+export function pathTexture(rep = 6) {
+  const S = 128, c = cv(S), g = c.getContext('2d');
+  g.fillStyle = '#8a6e44'; g.fillRect(0, 0, S, S);                    // sun-warmed packed earth
+  for (let i = 0; i < 46; i++) {                                      // mottled trodden patches
+    const dark = Math.random() < 0.5;
+    g.fillStyle = dark
+      ? `rgba(86,66,38,${(0.08 + Math.random() * 0.10).toFixed(2)})`
+      : `rgba(160,138,96,${(0.06 + Math.random() * 0.10).toFixed(2)})`;
+    g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 8 + Math.random() * 22, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 14; i++) {                                      // faint cart ruts down the lane
+    const x = Math.random() * S;
+    g.strokeStyle = `rgba(72,54,30,${(0.10 + Math.random() * 0.10).toFixed(2)})`;
+    g.lineWidth = 1 + Math.random() * 2;
+    g.beginPath(); let xx = x, y = 0; g.moveTo(xx, y);
+    while (y < S) { xx += (Math.random() - 0.5) * 3; y += 10; g.lineTo(xx, y); } g.stroke();
+  }
+  for (let i = 0; i < 2200; i++) {                                    // earthy grain
+    const v = Math.random();
+    g.fillStyle = `rgba(${(120 + v * 50) | 0},${(98 + v * 38) | 0},${(62 + v * 28) | 0},0.4)`;
+    g.beginPath(); g.arc(Math.random() * S, Math.random() * S, Math.random() * 1.6, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 70; i++) {                                      // embedded pebbles
+    const s = 1.2 + Math.random() * 2.4, gy = 118 + Math.random() * 46;
+    g.fillStyle = `rgb(${gy | 0},${(gy - 8) | 0},${(gy - 20) | 0})`;
+    g.beginPath(); g.arc(Math.random() * S, Math.random() * S, s, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,250,235,0.18)';                           // tiny catch-light
+    g.beginPath(); g.arc(Math.random() * S, Math.random() * S, s * 0.4, 0, 7); g.fill();
+  }
+  for (let i = 0; i < 40; i++) {                                      // stray grass tufts creeping in
+    const x = Math.random() * S, y = Math.random() * S;
+    g.strokeStyle = `rgba(${(78 + Math.random() * 30) | 0},${(104 + Math.random() * 30) | 0},${(48 + Math.random() * 20) | 0},0.4)`;
+    g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2, y - (2 + Math.random() * 3)); g.stroke();
   }
   return finish(c, rep);
 }
