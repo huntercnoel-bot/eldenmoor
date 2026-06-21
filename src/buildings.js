@@ -330,15 +330,83 @@ function makeShop(opts) {
   { const finial = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); finial.position.set(0, H + 3.9, 0); deco(finial); roof.add(finial); }  // gold finial
   g.add(roof);
 
-  // interior — real GLB furniture in place of the procedural boxes
-  placeFurn(g, 'house_Shelf_1', 0, HD - 1.5, 0, 1.05);                            // shop counter at the back
-  for (const sx of [-1, 1]) placeFurn(g, 'house_Bookshelf', sx * (HW - 0.6), -0.5, sx < 0 ? Math.PI / 2 : -Math.PI / 2, 2.4); // wall shelving
-  placeFurn(g, 'med_Crate', -HW + 1.5, -HD + 1.6, 0.3, 1.0);
-  placeFurn(g, 'med_Crate', -HW + 1.5, -HD + 2.8, 0.0, 0.85);
-  placeFurn(g, 'med_Crate', 1.7, -HD + 1.7, 0.5, 0.95);
-  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 1.7, 0, 1.1);
-  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 3.0, 0, 1.1);
-  g.add(deco(box(0.34, 0.42, 0.34, new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.3, roughness: 0.5 }), 0, 2.6, -HD + 1.4))); // lantern glow
+  // ---- interior dressing: counter, stocked shelves, hearth, rug, lanterns ----
+  // (door faces -z / front; the counter sits at the back +z, shopkeeper behind it)
+  const wares = opts.wares || [0x8a1f1f, 0x2f6ea5, 0xc9a24a, 0x3f6e44, 0x9a6a2a];
+  const wareMat = wares.map((c) => flat(c, 0.7));
+  const lantern = new THREE.MeshStandardMaterial({ color: 0xffe6a3, emissive: 0xffb142, emissiveIntensity: 1.3, roughness: 0.5 });
+  const emberM = new THREE.MeshStandardMaterial({ color: 0xff7a1e, emissive: 0xff5500, emissiveIntensity: 1.1, roughness: 0.7 });
+  const plankMat = flat(0x5a3a22);
+  // share a few small geometries across the stocked goods so we don't explode draw calls
+  const boltGeo = new THREE.BoxGeometry(0.34, 0.5, 0.34);
+  const potGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.4, 8);
+  const wareAt = (x, y, z, i, ry = 0, kind = 'bolt') => {
+    const m = new THREE.Mesh(kind === 'pot' ? potGeo : boltGeo, wareMat[i % wareMat.length]);
+    m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; g.add(deco(m));
+  };
+
+  // a woollen rug down the middle of the floor (warms the room, leaves the door clear)
+  g.add(deco(box(5.2, 0.04, 6.0, mapped(T.rug), 0, 0.17, -0.4, false)));
+
+  // --- shop counter / till along the back, with a worn plank top + stacked goods.
+  // The keeper stands at local z≈4, just behind the counter, so the counter is deco
+  // (non-colliding) to avoid trapping them in the narrow back strip. ---
+  const COUNTERZ = HD - 1.7;
+  g.add(deco(box(6.2, 1.05, 1.0, woodMat, 0, 0.52, COUNTERZ)));                      // counter body
+  g.add(deco(box(6.6, 0.14, 1.4, plankMat, 0, 1.12, COUNTERZ)));                    // overhanging plank top
+  g.add(deco(box(6.2, 0.4, 0.16, flat(0x4a3018), 0, 0.7, COUNTERZ - 0.55)));        // front kick rail
+  g.add(deco(box(0.7, 0.45, 0.5, flat(0x3a2415), -2.1, 1.42, COUNTERZ)));           // cash box / till
+  g.add(deco(box(0.5, 0.07, 0.7, flat(0xece0c0), 1.9, 1.23, COUNTERZ)));            // open ledger
+  g.add(deco(cyl(0.05, 0.05, 0.5, 6, flat(0x9aa0a8), 0.9, 1.42, COUNTERZ)));        // scale post
+  g.add(deco(box(0.7, 0.05, 0.18, flat(0x9aa0a8), 0.9, 1.66, COUNTERZ)));           // scale beam
+  for (const sx of [-1, 1]) g.add(deco(cyl(0.15, 0.12, 0.07, 8, flat(0xc8ccd2), 0.9 + sx * 0.32, 1.6, COUNTERZ)));  // scale pans
+  for (let i = 0; i < 3; i++) wareAt(-1.0 + i * 0.5, 1.36, COUNTERZ + 0.18, i, 0, 'pot');  // jars on the counter
+
+  // --- wall shelving down both sides, stocked with the shop's wares ---
+  for (const sx of [-1, 1]) {
+    const wx = sx * (HW - 0.35);
+    for (let r = 0; r < 3; r++) {
+      const sy = 1.2 + r * 0.95;
+      g.add(deco(box(0.5, 0.1, 6.0, plankMat, wx, sy, 0.3)));                       // shelf board
+      for (let i = 0; i < 5; i++) wareAt(wx, sy + 0.3, -2.4 + i * 1.2, i + r, sx < 0 ? Math.PI / 2 : -Math.PI / 2);  // bolts / stock
+    }
+    for (const sz of [-2.7, 3.3]) g.add(deco(box(0.55, H - 0.3, 0.3, flat(0x3a2415), wx, (H - 0.3) / 2 + 0.1, sz)));  // shelf upright posts
+  }
+  // a free-standing display stand of goods near the door (left of entry)
+  g.add(box(1.2, 0.85, 1.2, woodMat, -HW + 2.0, 0.42, -HD + 2.4));                  // display table
+  g.add(deco(box(1.4, 0.1, 1.4, plankMat, -HW + 2.0, 0.92, -HD + 2.4)));
+  for (let i = 0; i < 4; i++) wareAt(-HW + 1.7 + (i % 2) * 0.6, 1.18, -HD + 2.1 + Math.floor(i / 2) * 0.6, i + 2, i * 0.7, 'pot');
+
+  // --- a stone hearth/stove in the back-right corner with a mantel + warm glow ---
+  const hx = HW - 1.0, hz = HD - 1.1;
+  g.add(box(1.8, 2.6, 1.0, stoneMat, hx, 1.3, hz));                                 // chimney breast (solid corner)
+  g.add(deco(box(1.2, 1.1, 0.3, flat(0x1c1814), hx, 0.7, hz - 0.5)));               // firebox recess
+  g.add(deco(box(1.0, 0.7, 0.25, emberM, hx, 0.55, hz - 0.55)));                    // embers
+  g.add(deco(box(2.1, 0.22, 1.2, plankMat, hx, 1.55, hz)));                         // timber mantel shelf
+  g.add(deco(box(0.5, 0.55, 0.4, flat(0x3a3a3e), hx - 0.5, 1.92, hz)));             // a pot on the mantel
+  { const pl = new THREE.PointLight(0xff7a2a, 4, 12, 2); pl.position.set(hx - 0.6, 1.0, hz - 0.6); g.add(pl); }
+
+  // --- timber framing on the plaster walls (decorative rails + studs) ---
+  for (const sz of [-1, 1]) for (const ry of [1.0, 2.2]) g.add(deco(box(HW * 2 - 0.4, 0.18, 0.12, beam, 0, ry, sz * (HD - 0.06))));  // dado + mid rails
+  for (const sx of [-1, 1]) for (const z of [-3.2, 0, 3.2]) g.add(deco(box(0.12, H - 0.4, 0.16, beam, sx * (HW - 0.05), (H - 0.4) / 2 + 0.1, z)));  // wall studs
+
+  // --- crates, barrels and sacks stacked in the corners ---
+  placeFurn(g, 'med_Crate', -HW + 1.4, HD - 1.6, 0.3, 1.0);
+  placeFurn(g, 'med_Crate', -HW + 1.4, HD - 1.6, 0.0, 0.8, 1.0);                    // stacked on the first crate
+  placeFurn(g, 'med_Crate', -HW + 2.6, HD - 1.6, 0.6, 0.85);
+  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 1.7, 0, 1.05);
+  placeFurn(g, 'med_Barrel', HW - 1.5, -HD + 3.0, 0, 1.05);
+  for (const p of [[2.0, -HD + 1.6], [2.7, -HD + 1.9], [2.3, -HD + 1.2]]) g.add(deco(cyl(0.34, 0.42, 0.7, 8, flat(0xb8a06a), p[0], 0.4, p[1])));  // sack mound
+
+  // --- warm hanging lanterns (sparingly: one over the counter, one mid-room) ---
+  const lampAt = (x, z, light) => {
+    g.add(deco(box(0.04, 0.7, 0.04, flat(0x2a2218), x, H - 0.4, z)));               // chain
+    g.add(deco(box(0.3, 0.4, 0.3, lantern, x, H - 0.95, z)));                       // glowing lantern box
+    g.add(deco(box(0.36, 0.1, 0.36, flat(0x3a2418), x, H - 0.72, z)));              // cap
+    if (light) { const pl = new THREE.PointLight(0xffc070, 3.2, 11, 2); pl.position.set(x, H - 1.1, z); g.add(pl); }
+  };
+  lampAt(0, COUNTERZ - 1.6, true);
+  lampAt(0, -0.5, true);
 
   g.userData.roof = roof; g.userData.hw = HW + 0.8; g.userData.hd = HD + 0.8;
   return g;
@@ -1004,20 +1072,69 @@ function makeTavern() {
   roof.add(deco(cyl(0.05, 0.05, 0.6, 8, flat(0x3a2418), 0, H + 3.5, 0)));
   { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 8), flat(0xd8b24a)); fin.position.set(0, H + 3.9, 0); deco(fin); roof.add(fin); }
   g.add(roof);
-  // bar, hearth, chandelier, barrels — real GLB furniture
-  placeFurn(g, 'house_Shelf_1', 0, -HD + 1.4, 0, 1.1);                       // bar counter
-  placeFurn(g, 'house_Bookshelf', 0, -HD + 0.35, 0, 2.4);                    // back-bar shelving (bottles)
-  placeFurn(g, 'house_Fireplace', HW - 0.8, -HD + 3, -Math.PI / 2, 2.6);     // hearth on the right wall
-  { const pl = new THREE.PointLight(0xffa53a, 4, 14, 2); pl.position.set(HW - 2, 1.4, -HD + 3); g.add(pl); }
-  placeFurn(g, 'house_Light_Chandelier', 0, 1, 0, 1.0, 2.5);                 // hanging chandelier
-  for (const p of [[-HW + 1, HD - 1.5], [HW - 1, HD - 2]]) placeFurn(g, 'med_Barrel', p[0], p[1], Math.random() * 6, 1.1);
-  // tables + chairs — wooden table tops with real GLB chairs around them
-  const table = (x, z) => {
-    g.add(box(1.5, 0.85, 1.5, woodMat, x, 0.42, z)); g.add(deco(box(1.7, 0.12, 1.7, flat(0x5a3a22), x, 0.9, z)));
-    for (let a = 0; a < 4; a++) { const an = a / 4 * Math.PI * 2; placeFurn(g, 'house_Chair_1', x + Math.cos(an) * 1.25, z + Math.sin(an) * 1.25, -an + Math.PI / 2, 0.95); }
-    g.add(deco(cyl(0.12, 0.14, 0.22, 8, flat(0xb8a06a), x + 0.3, 1.05, z)));
+  // ---- cosy interior: bar, hearth, tables, sconces, chandelier ----
+  // (door faces +z / the town; the BAR is along the back wall at -z, hearth right)
+  const plankMat = flat(0x5a3a22), tankardMat = flat(0x8a8f96, 0.4);
+  const ale = new THREE.MeshStandardMaterial({ color: 0xc98a2a, roughness: 0.5, transparent: true, opacity: 0.85 });
+  const bottleCols = [0x2f6e3a, 0x6e2f2f, 0x2f4a6e, 0x6e5a2f].map((c) => flat(c, 0.5));
+  const breadMat = flat(0xc9954a, 0.8), meatMat = flat(0x8a3a2a, 0.7);
+  // shared small geometries for repeated props
+  const tankardGeo = new THREE.CylinderGeometry(0.1, 0.11, 0.22, 8);
+  const bottleGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.34, 7);
+  const tankardAt = (x, y, z) => { const m = new THREE.Mesh(tankardGeo, tankardMat); m.position.set(x, y, z); m.castShadow = true; g.add(deco(m)); };
+
+  // a worn woollen rug across the common-room floor
+  g.add(deco(box(7.5, 0.04, 6.5, mapped(T.rug), 0, 0.17, 1.0, false)));
+
+  // --- the BAR: a long solid counter, plank top, foot rail. Sits a touch off the
+  // back wall so the innkeeper (local z≈-4.6) stands behind it, not inside it. ---
+  const BARZ = -HD + 1.9;
+  g.add(box(9.0, 1.05, 0.9, woodMat, 0, 0.52, BARZ));                              // bar body (solid: keeps you in front)
+  g.add(deco(box(9.4, 0.14, 1.3, plankMat, 0, 1.12, BARZ)));                       // overhanging bar top
+  g.add(deco(box(9.0, 0.16, 0.4, flat(0x4a3018), 0, 0.32, BARZ + 0.6)));           // brass-look foot rail
+  for (let i = 0; i < 5; i++) tankardAt(-3.2 + i * 1.6, 1.3, BARZ + 0.2);          // tankards lined up on the bar
+  g.add(deco(box(0.5, 0.4, 0.4, ale, 2.8, 1.32, BARZ - 0.1)));                     // an open keg tap jug
+  // back-bar: shelving of bottles + a cask on a stand behind the counter
+  for (let r = 0; r < 2; r++) {
+    g.add(deco(box(8.0, 0.1, 0.4, plankMat, 0, 1.5 + r * 0.7, -HD + 0.4)));        // bottle shelf
+    for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(bottleGeo, bottleCols[(i + r) % bottleCols.length]); b.position.set(-3.6 + i * 0.9, 1.72 + r * 0.7, -HD + 0.4); b.castShadow = true; g.add(deco(b)); }
+  }
+  { const cask = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.1, 12), woodMat); cask.rotation.z = Math.PI / 2; cask.position.set(-HW + 1.4, 0.95, -HD + 0.7); g.add(deco(cask));
+    g.add(deco(box(0.7, 0.5, 0.7, plankMat, -HW + 1.4, 0.35, -HD + 0.7))); g.add(deco(cyl(0.05, 0.05, 0.16, 6, flat(0x2a2218), -HW + 1.4, 0.95, -HD + 0.18))); }  // tap
+
+  // a couple of bar stools in front of the counter
+  for (const sx of [-2.4, 0, 2.4]) { g.add(deco(cyl(0.28, 0.3, 0.1, 10, plankMat, sx, 0.95, BARZ + 1.4))); for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; g.add(deco(cyl(0.05, 0.05, 0.9, 6, flat(0x3a2415), sx + Math.cos(a) * 0.18, 0.5, BARZ + 1.4 + Math.sin(a) * 0.18))); } }
+
+  // --- a stone hearth on the right wall with a timber mantel + warm fire glow ---
+  placeFurn(g, 'house_Fireplace', HW - 0.7, -1.0, -Math.PI / 2, 2.6);              // GLB hearth
+  g.add(deco(box(2.6, 0.22, 1.4, plankMat, HW - 0.6, 1.9, -1.0)));                 // mantel shelf over it
+  for (const dz of [-0.45, 0.0, 0.45]) g.add(deco(box(0.22, 0.3, 0.2, dz === 0 ? flat(0x3a3a3e) : tankardMat, HW - 0.75, 2.16, -1.0 + dz)));  // mantel clutter
+  g.add(deco(box(1.9, 0.3, 1.9, flat(0x9a3a2a), HW - 0.7, 0.17, -1.0, false)));    // small hearthside rug
+  { const pl = new THREE.PointLight(0xffa53a, 4.2, 14, 2); pl.position.set(HW - 2.0, 1.3, -1.0); g.add(pl); }
+
+  // --- a hanging chandelier over the common room + wall sconces for warm light ---
+  placeFurn(g, 'house_Light_Chandelier', 0, 1.4, 0, 1.0, 2.5);                     // GLB chandelier
+  const sconce = (x, z) => {
+    g.add(deco(box(0.12, 0.4, 0.12, flat(0x2a2218), x, 2.5, z)));                  // bracket
+    g.add(deco(box(0.22, 0.28, 0.22, candle, x, 2.78, z)));                        // candle flame
+    const pl = new THREE.PointLight(0xffce7a, 2.2, 9, 2); pl.position.set(x, 2.7, z); g.add(pl);
   };
-  table(2.8, 2.6); table(-2.8, 2.6); table(2.8, -1); table(-3, -1.5);
+  for (const sx of [-1, 1]) sconce(sx * (HW - 0.18), 3.0);
+
+  // --- dining tables, each with GLB chairs + a little food and drink on top ---
+  const table = (x, z) => {
+    g.add(box(1.5, 0.85, 1.5, woodMat, x, 0.42, z)); g.add(deco(box(1.7, 0.12, 1.7, plankMat, x, 0.9, z)));
+    for (let a = 0; a < 4; a++) { const an = a / 4 * Math.PI * 2; placeFurn(g, 'house_Chair_1', x + Math.cos(an) * 1.25, z + Math.sin(an) * 1.25, -an + Math.PI / 2, 0.95); }
+    g.add(deco(cyl(0.12, 0.14, 0.22, 8, flat(0xb8a06a), x + 0.3, 1.05, z)));       // a candle stub / mug
+    tankardAt(x - 0.35, 1.07, z + 0.25); tankardAt(x + 0.1, 1.07, z - 0.35);       // tankards
+    g.add(deco(cyl(0.18, 0.22, 0.14, 8, breadMat, x - 0.1, 1.03, z + 0.05)));      // a loaf / platter
+  };
+  table(2.7, 2.8); table(-2.8, 2.8); table(2.9, 0.2); table(-3.0, 0.0);
+
+  // --- a couple of barrels by the door + a haunch hanging near the bar ---
+  for (const p of [[-HW + 1, HD - 1.5], [HW - 1, HD - 1.8]]) placeFurn(g, 'med_Barrel', p[0], p[1], p[0] * 0.7, 1.1);
+  g.add(deco(box(0.06, 0.7, 0.06, flat(0x2a2218), -HW + 2.2, 3.0, -HD + 1.6)));    // hook
+  g.add(deco(box(0.4, 0.5, 0.3, meatMat, -HW + 2.2, 2.4, -HD + 1.6)));             // hanging cured meat
 
   g.userData.roof = roof; g.userData.hw = HW + 0.8; g.userData.hd = HD + 0.8;
   return g;
