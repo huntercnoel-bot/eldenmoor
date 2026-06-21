@@ -33,6 +33,7 @@ import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initiali
 import './prayer.js';   // Prayer skill: bury bones, activatable prayers, chapel altar
 import './magic.js';    // Magic skill: spellbook of elemental attack spells
 import './ranged.js';   // Ranged skill: equip a bow + arrows, click a foe to shoot
+import './fletching.js'; // Fletching skill: knife + logs -> shafts/bows, fletch arrows
 import './dungeon.js';   // Crypt of the Hollow King — undead dungeon zone (self-initializing)
 import './wizardTower.js';   // Wizard's Tower — arcane landmark for the Magic skill (self-initializing)
 import './ambient.js';
@@ -186,6 +187,7 @@ function startGame(username) {
     inventory.add('water_rune', 20); inventory.add('earth_rune', 20); inventory.add('fire_rune', 20);
     // a shortbow + arrows so Ranged is playable from the start
     inventory.add('shortbow', 1); inventory.add('bronze_arrow', 75);
+    inventory.add('knife', 1);   // for Fletching logs into shafts/bows
   }
   if (!equipment.getWeapon()) {
     if (inventory.count('bronze_axe') > 0) equipment.equip('bronze_axe');

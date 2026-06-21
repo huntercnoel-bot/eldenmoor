@@ -586,3 +586,29 @@ function arrowIcon(head) {
 ITEMS.bronze_arrow = { id: 'bronze_arrow', name: 'Bronze arrow', stackable: true, value: 2, ammo: true, rangedStr: 2, examine: 'Bronze-tipped arrows.', icon: arrowIcon('#c8842f') };
 ITEMS.iron_arrow   = { id: 'iron_arrow',   name: 'Iron arrow',   stackable: true, value: 4, ammo: true, rangedStr: 5, examine: 'Iron-tipped arrows. Hit harder.', icon: arrowIcon('#b8b0a8') };
 ITEMS.steel_arrow  = { id: 'steel_arrow',  name: 'Steel arrow',  stackable: true, value: 8, ammo: true, rangedStr: 9, examine: 'Steel-tipped arrows.', icon: arrowIcon('#c2c7ce') };
+
+// ---- Fletching: knife, shafts, string, unstrung bows -----------------------
+// Knife + logs -> arrow shafts; shafts + feathers -> arrows; knife + logs ->
+// an unstrung bow, then + bow string -> a working bow. Trains Fletching, feeds
+// the Ranged skill with home-made ammo and bows.
+ITEMS.knife = {
+  id: 'knife', name: 'Knife', stackable: false, value: 6, tool: 'knife',
+  examine: 'A small knife. Whittles logs into bow staves and arrow shafts.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M8 30 L26 12 Q31 9 30 15 L16 30 Z" fill="#cfd3da" stroke="#6f747e" stroke-width="1.2"/><rect x="6" y="28" width="8" height="3.4" rx="1.4" transform="rotate(-45 10 30)" fill="#6b4a2f"/></svg>`,
+};
+ITEMS.arrow_shaft = {
+  id: 'arrow_shaft', name: 'Arrow shaft', stackable: true, value: 1, examine: 'A slender wooden shaft. Add feathers to fletch arrows.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-45 20 20)"><rect x="19" y="7" width="2" height="26" rx="1" fill="#a87a44" stroke="#6b4a2f" stroke-width="0.6"/></g></svg>`,
+};
+ITEMS.bow_string = {
+  id: 'bow_string', name: 'Bow string', stackable: true, value: 12, examine: 'A length of strong string for stringing bows.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M10 8 Q26 14 14 22 Q26 28 12 33" fill="none" stroke="#e8e0c8" stroke-width="2"/></svg>`,
+};
+ITEMS.shortbow_u = {
+  id: 'shortbow_u', name: 'Shortbow (u)', stackable: false, value: 30, examine: 'An unstrung shortbow. Add a bow string.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 6 Q30 20 12 34" fill="none" stroke="#8a5a30" stroke-width="2.6"/></svg>`,
+};
+ITEMS.oak_shortbow_u = {
+  id: 'oak_shortbow_u', name: 'Oak shortbow (u)', stackable: false, value: 100, examine: 'An unstrung oak shortbow. Add a bow string.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 5 Q32 20 12 35" fill="none" stroke="#6e4a26" stroke-width="3"/></svg>`,
+};
