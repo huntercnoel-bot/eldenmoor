@@ -516,7 +516,7 @@ function makeUpper() {
   g.add(box(2.2, 0.4, 1.0, wood, -3, 0.4, 4)); g.add(deco(box(0.5, 0.7, 0.1, wood, -3, 0.9, 3.6)));     // a chair
 
   // Royal Solar (back-centre)
-  g.add(box(2.0, 1.0, 1.2, gold, 0, 0.55, HD - 3)); g.add(deco(box(2.0, 1.6, 0.3, red, 0, 1.6, HD - 2.5)));   // royal seat
+  // (royal seat is now a real glTF throne placed by castleFurniture.js)
   for (const z of [HD - 6, HD - 3]) g.add(deco(box(0.5, 2.6, 3.0, books, -HW + 0.7, 1.3, z)));               // bookshelves
   g.add(deco(box(1.2, 1.6, 0.12, mapped(T.portrait), 5, 2.2, HD - 0.3)));                                     // royal portrait
   g.add(deco(box(0.5, 3.0, 3.0, stone, HW - 0.3, 1.5, HD - 4)));                                              // fireplace breast
@@ -622,8 +622,7 @@ function makeBasement() {
   for (const p of [[-1.5, HD - 3], [-0.6, HD - 3], [0.4, HD - 3.4], [1.3, HD - 3]]) g.add(deco(box(0.6, 0.5, 0.6, gold, p[0], 0.25, p[1])));
   for (const cx of [-2, 2]) { g.add(box(1.3, 0.8, 0.9, wood, cx, 0.4, HD - 4)); g.add(deco(box(1.1, 0.34, 0.7, gold, cx, 0.85, HD - 4))); }
 
-  // Storeroom (centre-front)
-  for (const p of [[-3, -12], [-2, -12], [-2.6, -13], [3, -13], [2, -12]]) g.add(box(0.9, 0.9, 0.9, wood, p[0], 0.45, p[1]));
+  // Storeroom (centre-front) — crates are real glTF models (castleFurniture.js)
   for (const p of [[0, -15], [1.2, -15], [-1.2, -15.4]]) g.add(deco(cyl(0.5, 0.6, 0.9, 8, flat(0xc9a24a), p[0], 0.45, p[1])));
 
   // --- basement detail + signs ---
