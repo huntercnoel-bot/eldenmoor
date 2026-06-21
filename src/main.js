@@ -130,7 +130,8 @@ net.connect()
 // ============================ GAME ============================
 function startGame(username) {
   // 1) RENDERER (antialias OFF — some new GPU drivers render black with MSAA).
-  const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+  // powerPreference hints laptops/hybrids to use the discrete GPU.
+  const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
   // Cap pixelRatio for high-DPI GPU cost. We keep this 1.5 ceiling, but the
   // adaptive sampler in the loop may step the *applied* ratio down (never up
@@ -141,6 +142,11 @@ function startGame(username) {
   renderer.setPixelRatio(appliedPR);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // The sun never moves, so re-rendering the (expensive) shadow map every frame
+  // is wasted work. Drive it manually and refresh only ~20×/s — moving shadows
+  // (player/NPCs) still update smoothly, but the shadow pass runs a third as often.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // cinematic, richer contrast + highlights
   renderer.toneMappingExposure = 1.08;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -530,6 +536,7 @@ function startGame(username) {
   // Never exceeds the existing 1.5 ceiling, never drops below 1.0 — so the look
   // is preserved while smoothing out sustained slow frames.
   let frameAccum = 0, frameCount = 0;
+  let shadowTimer = 0;
 
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);
@@ -597,6 +604,9 @@ function startGame(username) {
     if (coordsEl) {
       coordsEl.textContent = `x: ${player.position.x.toFixed(1)}   z: ${player.position.z.toFixed(1)}`;
     }
+    // Refresh the manually-driven shadow map ~20×/s instead of every frame.
+    shadowTimer += dt;
+    if (shadowTimer >= 0.05) { renderer.shadowMap.needsUpdate = true; shadowTimer = 0; }
     renderer.render(scene, camera);
   }
   renderer.setAnimationLoop(frame);
