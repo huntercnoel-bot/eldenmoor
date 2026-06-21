@@ -71,8 +71,15 @@ export const ITEMS = {
   },
   pickaxe: {
     id: 'pickaxe', name: 'Bronze pickaxe', stackable: false, value: 40,
-    equipable: true, slot: 'weapon', tool: 'pickaxe', examine: 'For mining ore. (Mining coming soon!)',
+    equipable: true, slot: 'weapon', tool: 'pickaxe', mineLevel: 1, mineTime: 1.8,
+    examine: 'For mining ore. Equip it and click a rock node. Mining level 1.',
     icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect x="18.5" y="11" width="3" height="23" rx="1.5" fill="#6b4a2f"/><path d="M7 15 Q20 8 33 15 Q20 12 7 15 Z" fill="#c8842f" stroke="#7a4a18" stroke-width="1"/></svg>`,
+  },
+  steel_pickaxe: {
+    id: 'steel_pickaxe', name: 'Steel pickaxe', stackable: false, value: 200,
+    equipable: true, slot: 'weapon', tool: 'pickaxe', mineLevel: 6, mineTime: 1.3,
+    examine: 'A sturdy steel pickaxe — swings faster. Mining level 6.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect x="18.5" y="11" width="3" height="23" rx="1.5" fill="#6b4a2f"/><path d="M7 15 Q20 8 33 15 Q20 12 7 15 Z" fill="#bcc1c9" stroke="#6f747e" stroke-width="1"/></svg>`,
   },
   fishing_rod: {
     id: 'fishing_rod', name: 'Fishing rod', stackable: false, value: 30,
@@ -194,6 +201,127 @@ ITEMS.magic_logs = {
   id: 'magic_logs', name: 'Magic logs', stackable: true, value: 120, examine: 'Faintly glowing magic logs. They hum with power. Woodcutting level 75.',
   icon: logIcon('#5a6aa8', '#33407a', '#a8b8ff', true),
 };
+
+// ---- Mining ores (appended by the Mining/Smithing extension; additive only) ----
+// Ores are stackable raw materials. Each icon is a chunk of rock with a tinted
+// vein of the metal showing through so they read at a glance in the bag. Values
+// follow OSRS spacing scaled down (coal is cheap, mithril dear).
+ITEMS.copper_ore = {
+  id: 'copper_ore', name: 'Copper ore', stackable: true, value: 4, examine: 'A lump of copper ore. Mining level 1.',
+  icon: oreIcon('#b06a3a', '#7a4520'),
+};
+ITEMS.tin_ore = {
+  id: 'tin_ore', name: 'Tin ore', stackable: true, value: 4, examine: 'A lump of tin ore. Mining level 1.',
+  icon: oreIcon('#b6b6c2', '#7a7a86'),
+};
+ITEMS.iron_ore = {
+  id: 'iron_ore', name: 'Iron ore', stackable: true, value: 17, examine: 'A lump of iron ore. Mining level 15.',
+  icon: oreIcon('#9a5a48', '#5e3326'),
+};
+ITEMS.coal = {
+  id: 'coal', name: 'Coal', stackable: true, value: 25, examine: 'A lump of coal. Fuel for the hottest forges. Mining level 30.',
+  icon: oreIcon('#3a3a40', '#161618'),
+};
+ITEMS.mithril_ore = {
+  id: 'mithril_ore', name: 'Mithril ore', stackable: true, value: 90, examine: 'A lump of mithril ore. It gleams faintly blue. Mining level 55.',
+  icon: oreIcon('#3a6aa0', '#22426a'),
+};
+
+// ---- Smithing bars (smelted at the furnace) ----
+ITEMS.bronze_bar = {
+  id: 'bronze_bar', name: 'Bronze bar', stackable: true, value: 12, examine: 'A bar of bronze, ready for the anvil.',
+  icon: barIcon('#c8842f', '#7a4a18', '#f0b25e'),
+};
+ITEMS.iron_bar = {
+  id: 'iron_bar', name: 'Iron bar', stackable: true, value: 28, examine: 'A bar of iron, ready for the anvil.',
+  icon: barIcon('#9a8f88', '#5e544e', '#cfc6bf'),
+};
+ITEMS.steel_bar = {
+  id: 'steel_bar', name: 'Steel bar', stackable: true, value: 55, examine: 'A bar of steel, ready for the anvil.',
+  icon: barIcon('#bcc1c9', '#6f747e', '#eef1f6'),
+};
+ITEMS.mithril_bar = {
+  id: 'mithril_bar', name: 'Mithril bar', stackable: true, value: 160, examine: 'A bar of mithril. Light, strong, faintly blue.',
+  icon: barIcon('#5f8fd0', '#2b5a96', '#bcd6ff'),
+};
+
+// ---- A smithing hammer (used from the bag at the anvil; not equipped) ----
+ITEMS.hammer = {
+  id: 'hammer', name: 'Hammer', stackable: false, value: 14, examine: 'A heavy smithing hammer. Used at an anvil.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect x="18.5" y="14" width="3.2" height="20" rx="1.5" fill="#6b4a2f" stroke="#3a2a18" stroke-width="0.8"/><rect x="11" y="8" width="18" height="8" rx="2" fill="#8a8f97" stroke="#5a5e66" stroke-width="1.2"/><rect x="13" y="9.4" width="5" height="5" rx="1" fill="#b8bcc4"/></svg>`,
+};
+
+// ---- Smithable gear (anvil products). Steel helm/platebody already exist and
+// are reused by the steel recipes; here we add bronze/iron/mithril gear plus the
+// weapon families (daggers/swords/scimitars). Weapons are equipable melee arms;
+// helms/platebodies are wearable armour like the existing steel set. ----
+function weapon(id, name, kind, fill, stroke, shine, value, atk) {
+  ITEMS[id] = {
+    id, name, stackable: false, value, equipable: true, slot: 'weapon', tool: 'sword',
+    examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
+    icon: bladeIcon(kind, fill, stroke, shine),
+  };
+}
+function helm(id, name, fill, stroke, value) {
+  ITEMS[id] = {
+    id, name, stackable: false, value, equipable: true, slot: 'head',
+    examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 22 Q9 9 20 9 Q31 9 31 22 L31 26 Q26 24 20 24 Q14 24 9 26 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><rect x="18.6" y="13" width="2.8" height="12" fill="${stroke}"/></svg>`,
+  };
+}
+function platebody(id, name, fill, stroke, value, tabard) {
+  ITEMS[id] = {
+    id, name, stackable: false, value, equipable: true, slot: 'body', tabard,
+    examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
+    icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M10 11 L20 14 L30 11 L31 30 Q20 35 9 30 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><path d="M10 11 L7 16 M30 11 L33 16" stroke="${stroke}" stroke-width="2.4" fill="none"/></svg>`,
+  };
+}
+// bronze (warm copper), iron (dull grey), mithril (steely blue). Steel reuses the
+// existing steel_helm / steel_platebody items, so it isn't redefined here.
+weapon('bronze_dagger',   'Bronze dagger',   'dagger', '#c8842f', '#7a4a18', '#f0b25e', 12, 4);
+weapon('bronze_sword',    'Bronze sword',    'sword',  '#c8842f', '#7a4a18', '#f0b25e', 26, 6);
+weapon('bronze_scimitar', 'Bronze scimitar', 'scim',   '#c8842f', '#7a4a18', '#f0b25e', 48, 8);
+helm('bronze_helm',       'Bronze med helm', '#c8842f', '#7a4a18', 24);
+platebody('bronze_platebody', 'Bronze platebody', '#c8842f', '#7a4a18', 120, 0x6e1f2f);
+
+weapon('iron_dagger',     'Iron dagger',     'dagger', '#b8b0a8', '#6f675f', '#e6ddd4', 28, 10);
+weapon('iron_sword',      'Iron sword',      'sword',  '#b8b0a8', '#6f675f', '#e6ddd4', 56, 14);
+weapon('iron_scimitar',   'Iron scimitar',   'scim',   '#b8b0a8', '#6f675f', '#e6ddd4', 100, 18);
+helm('iron_helm',         'Iron med helm',   '#b8b0a8', '#6f675f', 56);
+platebody('iron_platebody', 'Iron platebody', '#b8b0a8', '#6f675f', 240, 0x2b3a5a);
+
+weapon('steel_dagger',    'Steel dagger',    'dagger', '#c2c7ce', '#6f747e', '#eef1f6', 75, 20);
+weapon('steel_sword',     'Steel sword',     'sword',  '#c2c7ce', '#6f747e', '#eef1f6', 150, 28);
+weapon('steel_scimitar',  'Steel scimitar',  'scim',   '#c2c7ce', '#6f747e', '#eef1f6', 280, 36);
+
+weapon('mithril_dagger',  'Mithril dagger',  'dagger', '#6f9bd6', '#2b5a96', '#bcd6ff', 200, 32);
+weapon('mithril_sword',   'Mithril sword',   'sword',  '#6f9bd6', '#2b5a96', '#bcd6ff', 400, 44);
+weapon('mithril_scimitar','Mithril scimitar','scim',   '#6f9bd6', '#2b5a96', '#bcd6ff', 720, 56);
+helm('mithril_helm',      'Mithril med helm', '#6f9bd6', '#2b5a96', 220);
+platebody('mithril_platebody', 'Mithril platebody', '#6f9bd6', '#2b5a96', 980, 0x1e3a5a);
+
+// Helper: a chunk-of-ore icon — a rough rock with a tinted metal vein.
+function oreIcon(vein, dark) {
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 24 L13 13 L26 10 L33 19 L29 31 L15 33 Z" fill="#7a7068" stroke="#4a443e" stroke-width="1.5"/>
+    <path d="M16 17 L23 15 L28 21 L22 26 Z" fill="${vein}" stroke="${dark}" stroke-width="1"/>
+    <path d="M12 26 l4 -2 M25 28 l3 -3" stroke="${dark}" stroke-width="1" opacity="0.6"/></svg>`;
+}
+// Helper: a smithing bar icon — a stubby ingot in the metal's colours.
+function barIcon(fill, stroke, shine) {
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><g transform="rotate(-12 20 20)">
+    <path d="M8 22 L12 17 L32 17 L36 22 L32 27 L12 27 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.4"/>
+    <path d="M12 18.4 L31 18.4" stroke="${shine}" stroke-width="1.4" opacity="0.85"/></g></svg>`;
+}
+// Helper: a smithed-blade icon for daggers/swords/scimitars.
+function bladeIcon(kind, fill, stroke, shine) {
+  let blade;
+  if (kind === 'dagger') blade = `<path d="M20 6 L23 22 L20 26 L17 22 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/><path d="M20 7 L20 24" stroke="${shine}" stroke-width="0.9"/>`;
+  else if (kind === 'scim') blade = `<path d="M11 30 Q12 10 31 7 Q22 16 23 28 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/><path d="M14 27 Q15 14 27 9" stroke="${shine}" stroke-width="1" fill="none"/>`;
+  else blade = `<path d="M20 4 L23 26 L20 30 L17 26 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/><path d="M20 5 L20 28" stroke="${shine}" stroke-width="0.9"/>`;
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">${blade}
+    <rect x="13" y="29" width="14" height="2.6" rx="1.2" fill="#6b4a2f"/><rect x="18.6" y="30" width="2.8" height="6" rx="1.2" fill="#6b4a2f"/></svg>`;
+}
 
 // Helper: a banded bundle-of-logs icon in the given wood colours. `glow` adds a
 // soft aura behind the bundle (used by magic logs).
