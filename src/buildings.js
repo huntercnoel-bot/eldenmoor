@@ -242,6 +242,45 @@ function archFrame(width, jambH, depth, material, x, y, z, ry = 0) {
   grp.rotation.y = ry; grp.position.set(x, y, z); return grp;
 }
 
+// A ribbed transverse stone arch (one bay rib of a vault) spanning the nave at a
+// given z. Springs from height `spring` up to apex `apex`, built from small
+// chamfered voussoir boxes following a circular curve so it reads as cut masonry.
+// Purely decorative (deco) — the ceiling/aisle stay walkable below.
+function ribArch(g, halfSpan, spring, apex, z, material, depth = 0.5, voxW = 0.6) {
+  const rise = apex - spring;
+  const R = (halfSpan * halfSpan + rise * rise) / (2 * rise);   // arc radius
+  const cy = apex - R;                                          // arc centre height
+  const start = Math.acos(Math.max(-1, Math.min(1, halfSpan / R)));  // half sweep angle
+  const n = Math.max(7, Math.round((2 * start * R) / 0.55));
+  for (let i = 0; i <= n; i++) {
+    const a = -start + (2 * start) * (i / n);                   // left springer -> apex -> right
+    const x = R * Math.sin(a), y = cy + R * Math.cos(a);
+    if (y < spring - 0.1) continue;
+    const vox = new THREE.Mesh(new THREE.BoxGeometry(voxW, 0.46, depth), material);
+    vox.position.set(x, y, z); vox.rotation.z = -a; vox.castShadow = true;
+    g.add(deco(vox));
+  }
+}
+
+// A longitudinal arcade arch (semicircle in the X-constant plane) linking two
+// columns down one side of the nave, springing at `spring`, apex at `apex`,
+// centred on (x, *, zc) and spanning ±halfLen in z. Decorative cut-stone voussoirs.
+function arcadeArch(g, x, zc, halfLen, spring, apex, material) {
+  const rise = apex - spring;
+  const R = (halfLen * halfLen + rise * rise) / (2 * rise);
+  const cy = apex - R;
+  const start = Math.acos(Math.max(-1, Math.min(1, halfLen / R)));
+  const n = Math.max(7, Math.round((2 * start * R) / 0.6));
+  for (let i = 0; i <= n; i++) {
+    const a = -start + (2 * start) * (i / n);
+    const z = R * Math.sin(a), y = cy + R * Math.cos(a);
+    if (y < spring - 0.1) continue;
+    const vox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.44, 0.62), material);
+    vox.position.set(x, y, zc + z); vox.rotation.x = a; vox.castShadow = true;
+    g.add(deco(vox));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // A big walk-in shop with a hideable roof. opts: { wall, roof, wares }
 // ---------------------------------------------------------------------------
@@ -407,6 +446,17 @@ function makeCastle() {
   g.add(deco(box(5.0, 0.25, 0.3, flat(0x2a2c30), 0, WH - 0.5, -HD - 0.1)));
   for (const sx of [-1, 1]) g.add(deco(box(2.6, 4.4, 0.18, mapped(T.heraldry), sx * 5.0, WH - 0.4, -HD - 0.45)));  // banners on the gatehouse face
 
+  // ---- inner gatehouse vestibule: a second arch just inside the gate, flanked by
+  // vaulted GUARD NICHES with standing sentries (keeps the x[-2.5,2.5] passage clear)
+  for (const sx of [-1, 1]) g.add(deco(box(0.8, 5.2, 1.0, greyBig, sx * 3.0, 2.6, -HD + 2.0)));  // inner arch jambs
+  { const ia = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.5, 8, 12, Math.PI), greyBig); ia.position.set(0, 5.2, -HD + 2.0); deco(ia); g.add(ia); }  // inner round arch
+  g.add(deco(box(7.2, 0.6, 1.0, greyBig, 0, 5.6, -HD + 2.0)));                    // lintel band over the vestibule
+  for (const sx of [-1, 1]) {                                                      // arched guard niches recessed in the front wall
+    g.add(deco(box(2.4, 3.6, 0.4, flat(0x2c2a26), sx * 6.2, 1.8, -HD + 0.55)));   // recessed dark niche back
+    { const na = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.18, 6, 10, Math.PI), stone); na.position.set(sx * 6.2, 3.6, -HD + 0.5); deco(na); g.add(na); }  // niche arch
+    g.add(deco(cyl(0.55, 0.62, 0.5, 10, stone, sx * 6.2, 0.25, -HD + 0.9)));      // niche plinth
+  }
+
   // ===================== raised causeway + barbican over the front moat =====================
   // The moat's front gap is local x[-10..10], z[-27..-23]; this bridge is decorative
   // (the player walks on terrain) and keeps the gate (local x±2.5) clear.
@@ -438,19 +488,64 @@ function makeCastle() {
   wallSeg(-HW, 0, -3, 0, 5, 0.7); wallSeg(3, 0, HW, 0, 5, 0.7);
   g.add(deco(box(7.5, 1.6, 1.2, stone, 0, 5.3, 0)));
 
-  // great-hall columns (central aisle stays clear) — a soaring four-column colonnade
-  const HALLH = WH + 3.2;
-  for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) column(sx * 9, z);   // hall colonnade (clear of doorways)
-  // semicircular ribbed arches link the columns along each side (cathedral feel)
-  const sideArch = (sx) => {
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(5.5, 0.4, 8, 14, Math.PI), stone);
-    arch.position.set(sx * 9, HALLH + 0.3, 11); arch.rotation.y = Math.PI / 2; deco(arch); g.add(arch);
-    g.add(deco(box(1.0, 0.7, 12.5, stone, sx * 9, HALLH + 0.9, 11)));         // entablature beam over the colonnade
-    g.add(deco(box(1.2, 0.4, 12.7, gold, sx * 9, HALLH + 1.35, 11)));         // gilt cornice band
-  };
-  sideArch(-1); sideArch(1);
-  // tall clerestory beam spanning the nave + hanging banners between the columns
-  for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) g.add(deco(box(0.12, 3.6, 1.6, mapped(T.heraldry), sx * 8.3, HALLH - 2.0, z)));
+  // ===================== GREAT HALL: a soaring cathedral nave =====================
+  // Two ranks of columns at x=±9 march the length of the hall (z from the inner
+  // gate to the throne dais), dividing the central processional NAVE (x[-9,9],
+  // kept clear) from the LIBRARY/CHAPEL side aisles. The colonnade is linked by a
+  // longitudinal arcade of round arches, braced by transverse ribbed arches that
+  // spring across the nave, all carrying a high beamed-and-coffered clerestory
+  // ceiling — so looking up the hall feels grand and vertical.
+  const HALLH = WH + 3.2;                       // ~9.2 — top of the columns / arcade springing
+  const VAULT = HALLH + 3.4;                     // ~12.6 — apex of the nave vault ribs
+  const arcStone = mapped(T.grey);               // cool ashlar for the cut-stone ribs
+  const colZ = [3.5, 9.0, 14.5, 19.5];           // four arcade piers down each side (clear of the z8..11 doorways)
+  for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) column(sx * 9, z);    // the two grand free-standing columns
+  // slender arcade responds at the other pier stations so the arcade reads continuous
+  for (const sx of [-1, 1]) for (const z of [3.5, 14.5, 19.5]) {
+    g.add(deco(box(1.0, 0.5, 1.0, stone, sx * 9, 0.25, z)));                   // pier base
+    g.add(deco(cyl(0.42, 0.5, HALLH - 0.7, 12, arcStone, sx * 9, (HALLH - 0.7) / 2 + 0.5, z)));  // shaft
+    g.add(deco(cyl(0.62, 0.42, 0.6, 12, stone, sx * 9, HALLH - 0.5, z)));      // capital
+    g.add(deco(box(1.1, 0.4, 1.1, stone, sx * 9, HALLH - 0.05, z)));           // abacus
+  }
+  // longitudinal ARCADE: round arches link each adjacent pier pair down both sides
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i < colZ.length - 1; i++) {
+      const zc = (colZ[i] + colZ[i + 1]) / 2, half = (colZ[i + 1] - colZ[i]) / 2;
+      arcadeArch(g, sx * 9, zc, half, HALLH, HALLH + Math.min(2.2, half + 0.6), arcStone);
+    }
+    // an entablature string course + gilt cornice riding the top of the arcade
+    g.add(deco(box(1.0, 0.5, 17.5, stone, sx * 9, HALLH + 1.7, 11.5)));        // entablature beam
+    g.add(deco(box(1.16, 0.3, 17.7, gold, sx * 9, HALLH + 2.05, 11.5)));       // gilt cornice band
+    // a clerestory string course higher up the side wall, with shallow blind arches
+    g.add(deco(box(0.3, 0.34, 19, stone, sx * 9.84, HALLH + 0.4, 11)));        // clerestory string
+    // CLERESTORY: a band of tall arched windows above the arcade, glowing with
+    // daylight (emissive stained glass) so the high nave is washed with colour
+    const clMat = new THREE.MeshStandardMaterial({ map: T.stainedGlass, emissive: 0xffffff, emissiveMap: T.stainedGlass, emissiveIntensity: 0.5, roughness: 0.35 });
+    for (const z of [5.5, 11, 16.5]) {
+      g.add(deco(box(0.16, 2.4, 1.2, clMat, sx * 9.5, HALLH + 2.6, z)));        // lancet glass
+      { const wa = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.14, 6, 9, Math.PI), stone); wa.position.set(sx * 9.5, HALLH + 3.8, z); wa.rotation.y = Math.PI / 2; deco(wa); g.add(wa); }  // arched head
+      g.add(deco(box(0.26, 3.2, 0.26, stone, sx * 9.5, HALLH + 2.7, z - 0.9))); // mullion pier
+      g.add(deco(box(0.26, 3.2, 0.26, stone, sx * 9.5, HALLH + 2.7, z + 0.9)));
+    }
+  }
+  // transverse RIBBED ARCHES springing across the nave at each pier station —
+  // the bones of the vault. Apex sits at VAULT, well above the central aisle.
+  for (const z of colZ) ribArch(g, 9, HALLH, VAULT, z, arcStone, 0.6, 0.7);
+  // longitudinal ridge ribs riding the crown of the vault, tying the bays together
+  for (const sx of [-1, 0, 1]) g.add(deco(box(0.4, 0.42, 17.6, arcStone, sx * 4.4, VAULT - 0.15, 11.5)));
+  // coffered ceiling panels filling the bays between the ribs (high, dark timber +
+  // gilt edging) so the roof reads finished rather than open to the sky
+  const coffer = flat(0x2e2418), cofferGilt = gold;
+  for (let i = 0; i < colZ.length - 1; i++) {
+    const zc = (colZ[i] + colZ[i + 1]) / 2, dz = (colZ[i + 1] - colZ[i]) - 0.5;
+    for (const cx of [-5.6, 0, 5.6]) {
+      g.add(deco(box(4.0, 0.22, dz, coffer, cx, VAULT - 0.45, zc)));           // sunken panel
+      g.add(deco(box(4.3, 0.12, dz + 0.3, cofferGilt, cx, VAULT - 0.62, zc))); // gilt panel edge below
+    }
+  }
+  g.add(deco(box(18.4, 0.3, 18, coffer, 0, VAULT - 0.18, 11.5)));              // ceiling backing slab over the nave
+  // tall hanging heraldic banners between the columns (high on the nave wall line)
+  for (const sx of [-1, 1]) for (const z of [5.5, 16.5]) g.add(deco(box(0.12, 4.0, 1.6, mapped(T.heraldry), sx * 8.3, HALLH - 1.4, z)));
 
   // throne room (back) — the dais; the throne itself + furnishings are real glTF
   // models placed by castleFurniture.js (the old box-throne lived here).
@@ -460,6 +555,22 @@ function makeCastle() {
   for (let i = 0; i < 5; i++) g.add(deco(box(2.2, 3.8, 0.2, sgThrone, -8 + i * 4, 4.3, HD - 0.6)));  // stained glass
   for (const sx of [-1, 1]) g.add(deco(box(2.4, 5.0, 0.12, mapped(T.heraldry), sx * 5.5, 4.0, HD - 0.7)));  // heraldic banners
   brazier(-3.5, HD - 3.2, true); brazier(3.5, HD - 3.2, true);
+  // --- grand APSE framing the throne: paired piers carrying a tall pointed arch
+  // and a half-dome of radial ribs, so the dais reads like a sanctuary chancel ---
+  for (const sx of [-1, 1]) {
+    g.add(deco(box(1.3, 0.5, 1.3, stone, sx * 5.2, 0.25, HD - 4)));                 // apse pier base
+    g.add(deco(cyl(0.5, 0.58, 7.0, 12, mapped(T.grey), sx * 5.2, 3.7, HD - 4)));    // apse pier shaft
+    g.add(deco(cyl(0.72, 0.5, 0.6, 12, stone, sx * 5.2, 7.3, HD - 4)));             // pier capital
+  }
+  ribArch(g, 5.2, 7.5, 11.5, HD - 4, mapped(T.grey), 0.55, 0.62);                   // soaring chancel arch over the dais
+  // half-dome ribs fanning up the back wall behind the throne
+  for (let k = 0; k <= 6; k++) {
+    const a = (k / 6) * Math.PI;                  // 0..PI across the apse width
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.16, 6, 12, Math.PI * 0.62), mapped(T.grey));
+    rib.position.set(0, 6.6, HD - 1.4); rib.rotation.y = Math.PI / 2; rib.rotation.x = -0.5;
+    rib.rotation.z = (a - Math.PI / 2) * 0.5; deco(rib); g.add(rib);
+  }
+  g.add(deco(cyl(0.9, 0.9, 0.5, 16, gold, 0, 11.3, HD - 2.6)));                     // gilt boss capping the dome
 
   brazier(-6, 6); brazier(6, 6); brazier(-6, 15, true); brazier(6, 15, true);   // aisle braziers
 
@@ -686,6 +797,19 @@ function makeUpper() {
   for (const sx of [-1, 1]) for (const z of [-14, -6, 4, 12]) sconce(sx * (HW - 0.5), z);
   chandelier(0, 2, true); chandelier(0, 14, true);
 
+  // --- exposed king-post roof trusses over the solar (open-timber hall ceiling) ---
+  const beam = flat(0x3a2a18), ridgeY = WH + 1.6;
+  g.add(deco(box(0.4, 0.4, HD * 2, beam, 0, ridgeY, 0)));                       // ridge beam down the centre
+  for (const z of [-16, -9, -2, 5, 12, 18]) {
+    for (const sx of [-1, 1]) {                                                  // sloping rafter pair
+      const r = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, HW + 1.2), beam);
+      r.position.set(sx * (HW / 2 - 0.5), WH + 0.7, z); r.rotation.x = Math.PI / 2; r.rotation.z = sx * 0.42;
+      deco(r); g.add(r);
+    }
+    g.add(deco(box(HW * 2 - 1, 0.3, 0.3, beam, 0, WH - 0.1, z)));               // tie beam across
+    g.add(deco(box(0.3, 1.7, 0.3, beam, 0, WH + 0.75, z)));                     // king post up to the ridge
+  }
+
   const dn = makeStairs('down', 'GROUND FLOOR'); dn.position.set(8, 0, 3); g.add(dn);
 
   // central seating + rug
@@ -815,6 +939,14 @@ function makeBasement() {
   roomSign(g, 'STOREROOM', 0, 2.2, -16.5, 0);
   for (const sx of [-1, 1]) for (const z of [-6, 8]) { g.add(cyl(0.6, 0.7, WH, 10, stone, sx * 7, WH / 2, z)); g.add(deco(box(1.2, 0.4, 1.2, stone, sx * 7, WH - 0.2, z))); }   // vaulted pillars
   for (const sx of [-1, 1]) g.add(deco(box(0.6, 0.5, 15, stone, sx * 7, WH - 0.1, 1)));                        // arch beams
+  // proper UNDERCROFT groin vault: low transverse ribs spring across the cellar
+  // between the pillar rows (apex just under the ceiling), with diagonal cross-ribs
+  for (const z of [-12, -6, 1, 8, 14]) {
+    ribArch(g, 7, WH - 1.4, WH + 0.3, z, stone, 0.42, 0.5);                    // transverse barrel rib over the central aisle
+    g.add(deco(cyl(0.18, 0.22, 1.0, 8, stone, 0, WH - 0.2, z)));               // keystone boss
+  }
+  // springer corbels where the ribs meet the side walls
+  for (const sx of [-1, 1]) for (const z of [-12, -6, 1, 8, 14]) g.add(deco(box(0.5, 0.6, 0.5, stone, sx * (HW - 0.4), WH - 1.2, z)));
   g.add(deco(box(0.3, 0.12, 1.4, bone, -18, 0.32, 15))); g.add(deco(box(0.4, 0.4, 0.4, bone, -18, 0.42, 14.2)));   // skeleton
   for (const z of [8, 16]) { g.add(deco(box(0.05, 1.2, 0.05, dark, -21.8, 1.6, z))); g.add(deco(box(0.2, 0.2, 0.2, flat(0x55585e), -21.8, 1.0, z))); }   // chains + manacles
   g.add(box(1.6, 0.6, 0.5, wood, -14.5, 0.3, 8.5)); g.add(deco(box(0.2, 1.2, 0.2, wood, -15.2, 0.6, 8.5)));    // rack
