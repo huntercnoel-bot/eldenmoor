@@ -136,6 +136,10 @@ function startPrayer(em) {
   panel.style.cssText = 'position:fixed;left:12px;top:150px;z-index:24;display:flex;flex-direction:column;gap:5px;' +
     'font-family:Georgia,serif;pointer-events:auto;user-select:none;';
   document.body.appendChild(panel);
+  const phead = document.createElement('div');
+  phead.textContent = '🙏 Prayers';
+  phead.style.cssText = 'color:#dff0ff;font-weight:700;font-size:13px;text-shadow:0 1px 2px #000;margin-bottom:1px;';
+  panel.appendChild(phead);
   const orb = document.createElement('div');
   orb.style.cssText = 'display:flex;align-items:center;gap:6px;color:#dff0ff;font-weight:700;font-size:14px;' +
     'text-shadow:0 1px 2px #000;background:rgba(20,28,40,0.55);border:1px solid rgba(140,180,255,0.4);' +

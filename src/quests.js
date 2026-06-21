@@ -814,7 +814,7 @@ export function createQuests({ skills, inventory, equipment }) {
   // We tally kills per monster type into the flags of every active quest, then
   // re-evaluate objectives. Quests that don't care simply never read the tally.
   // The mapping below routes a monster typeId to the flag a quest objective reads.
-  const KILL_FLAG = { giant_rat: 'ratKills', goblin: 'goblinKills' };
+  const KILL_FLAG = { giant_rat: 'ratKills', goblin: 'goblinKills', hollow_king: 'hollowKingKills' };
   function onMonsterKill(typeId) {
     const flag = KILL_FLAG[typeId];
     if (!flag) return;
