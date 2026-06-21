@@ -5,7 +5,83 @@
 // the solid bits (cottages, fountain, fences, posts) block you automatically.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { stoneTexture, plasterTexture, shingleTexture, pathTexture } from './textures.js';
+
+// --- Low-poly GLB town props -------------------------------------------------
+// The loose town props (barrels, crates, hay, fences, the well, the cart and the
+// market stands) are real downloaded low-poly, vertex-coloured GLBs from the
+// medieval_village pack. Repeated props are drawn as a single InstancedMesh per
+// model (one draw call); unique props are simple clones. All are tagged
+// __toonDone so the cel-shade pass skips them, and added into the town group so
+// they hide with the rest of the outdoor town when changing floors. They are
+// purely decorative (deco / noCollide), so collision is unaffected — the few
+// solid props that block movement keep their existing invisible collider boxes.
+const ENV = './assets/models/env/';
+const propLoader = new GLTFLoader();
+const propCache = {};   // name -> Promise<{ geometry, material, size }>
+
+function loadProp(name) {
+  if (!propCache[name]) {
+    propCache[name] = new Promise((resolve, reject) => {
+      propLoader.load(ENV + name + '.glb', (gltf) => {
+        let mesh = null;
+        gltf.scene.updateWorldMatrix(true, true);
+        gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+        if (!mesh) { reject(new Error('no mesh in ' + name)); return; }
+        const geometry = mesh.geometry.clone();
+        geometry.applyMatrix4(mesh.matrixWorld);
+        geometry.computeBoundingBox();
+        const bb = geometry.boundingBox;
+        const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+        geometry.translate(-cx, -bb.min.y, -cz);    // centre XZ, base at y=0
+        geometry.computeBoundingBox();
+        geometry.computeVertexNormals();
+        const material = mesh.material.isMaterial ? mesh.material : mesh.material[0];
+        material.userData.__toonDone = true;
+        resolve({ geometry, material, size: geometry.boundingBox.getSize(new THREE.Vector3()) });
+      }, undefined, reject);
+    });
+  }
+  return propCache[name];
+}
+
+// Drop many placements of a prop as one InstancedMesh into a parent group.
+// placements: array of { x, z, ry, s }. Loaded async. Decorative (no collision).
+function propScatter(parent, name, placements, { shadow = true, targetH } = {}) {
+  if (!placements.length) return;
+  loadProp(name).then(({ geometry, material, size }) => {
+    const base = targetH ? targetH / (size.y || 1) : 1;
+    const inst = new THREE.InstancedMesh(geometry, material, placements.length);
+    inst.castShadow = shadow; inst.receiveShadow = true;
+    inst.userData.__toonDone = true; inst.userData.noCollide = true;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(),
+      p = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    placements.forEach((pl, i) => {
+      q.setFromAxisAngle(up, pl.ry || 0);
+      p.set(pl.x, pl.y || 0, pl.z);
+      sc.setScalar(base * (pl.s || 1));
+      m.compose(p, q, sc);
+      inst.setMatrixAt(i, m);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    parent.add(inst);
+  }).catch((e) => console.error('[town] prop instance failed', name, e));
+}
+
+// Drop a single cloned prop, sized to a target height, into a parent group.
+function propClone(parent, name, x, z, ry, { shadow = true, targetH, s = 1 } = {}) {
+  loadProp(name).then(({ geometry, material, size }) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    const base = targetH ? targetH / (size.y || 1) : 1;
+    mesh.scale.setScalar(base * s);
+    mesh.position.set(x, 0, z);
+    mesh.rotation.y = ry || 0;
+    mesh.castShadow = shadow; mesh.receiveShadow = true;
+    mesh.userData.__toonDone = true; mesh.userData.noCollide = true;
+    parent.add(mesh);
+  }).catch((e) => console.error('[town] prop clone failed', name, e));
+}
 
 let TX = null;
 function tex() { if (!TX) TX = { road: stoneTexture(10), plaster: plasterTexture(), shingle: shingleTexture(4), wall: stoneTexture(3), path: pathTexture(7) }; return TX; }
@@ -122,17 +198,16 @@ export function buildTown(scene) {
   g.add(deco(cyl(0.3, 0.4, 1.6, 8, stone, fx, 2.4, fz)));
   g.add(deco(cyl(0.6, 0.0, 0.8, 8, flat(0xd8b24a), fx, 3.4, fz)));
 
-  // --- market stalls ---
-  const stall = (x, z, col) => {
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(cyl(0.08, 0.08, 2.0, 6, wood, x + sx * 1.3, 1.0, z + sz * 0.9));
-    { const awn = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 3.3, 16, 1, false, Math.PI, Math.PI), flat(col));   // curved (barrel) awning
-      awn.rotation.z = Math.PI / 2; awn.position.set(x, 2.15, z); deco(awn); g.add(awn); }
-    g.add(deco(box(3.3, 0.12, 0.16, wood, x, 2.05, z - 1.15))); g.add(deco(box(3.3, 0.12, 0.16, wood, x, 2.05, z + 1.15)));   // awning eaves
-    g.add(box(2.8, 0.9, 1.6, wood, x, 0.45, z));                   // table
-    const produce = [0xc44536, 0xe3b04b, 0x6a8d3a, 0x8a1f1f, 0xd9822b];
-    for (let i = 0; i < 5; i++) g.add(deco(box(0.4, 0.4, 0.4, flat(produce[i]), x - 1 + i * 0.5, 1.1, z)));
+  // --- market stalls (low-poly GLB market stands) ---
+  // Visible stand is the GLB model; an invisible box keeps the old table footprint
+  // blocking movement so the square plays the same. Stalls face the square centre.
+  const stall = (x, z, model) => {
+    const body = box(2.8, 0.9, 1.6, wood, x, 0.45, z); body.visible = false; body.castShadow = false; g.add(body);
+    const face = (x < 0 ? Math.PI / 2 : -Math.PI / 2);
+    propClone(g, model, x, z, face, { targetH: 2.6 });
   };
-  stall(6, 13, 0x8a1f1f); stall(6, 20, 0x274a8a); stall(-6, 9, 0x2f8a4a); stall(-6, 22, 0xc9a24a);
+  stall(6, 13, 'med_MarketStand_1'); stall(6, 20, 'med_MarketStand_2');
+  stall(-6, 9, 'med_MarketStand_2'); stall(-6, 22, 'med_MarketStand_1');
 
   // --- cottages: invisible solid colliders only ---
   // The visible houses are realistic glTF models placed by villageModels.js. We
@@ -167,22 +242,35 @@ export function buildTown(scene) {
   };
   chapel(CHAPEL[0], CHAPEL[1]);
 
-  // --- fences along the road ---
+  // --- fences along the road (low-poly GLB rails, instanced) ---
+  // Visible rails are GLB fence segments (one InstancedMesh); each run keeps a
+  // thin invisible collider box per post so movement still blocks like before.
+  const fencePlace = [];
   const fenceRun = (x0, z0, x1, z1) => {
-    const dx = x1 - x0, dz = z1 - z0, n = Math.max(1, Math.round(Math.hypot(dx, dz) / 1.4));
-    for (let i = 0; i <= n; i++) { const t = i / n; g.add(box(0.16, 1.0, 0.16, wood, x0 + dx * t, 0.5, z0 + dz * t)); }
-    g.add(deco(box(Math.max(0.1, Math.abs(dx)) + 0.1, 0.12, Math.max(0.1, Math.abs(dz)) + 0.1, wood, (x0 + x1) / 2, 0.8, (z0 + z1) / 2)));
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(1, Math.round(len / 1.8));
+    const ry = Math.atan2(dx, dz);   // align segment along the run
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const px = x0 + dx * t, pz = z0 + dz * t;
+      fencePlace.push({ x: px, z: pz, ry, s: 1 });
+      const col = box(0.2, 1.0, 0.2, wood, px, 0.5, pz); col.visible = false; col.castShadow = false; g.add(col);
+    }
   };
   fenceRun(-7, 2, -7, 8); fenceRun(7, 2, 7, 8);
+  propScatter(g, 'med_Fence', fencePlace, { targetH: 1.1 });
 
-  // --- signpost near spawn ---
-  g.add(cyl(0.12, 0.12, 2.2, 6, wood, 2, 1.1, 4));
-  g.add(deco(box(1.8, 0.5, 0.16, flat(0x6b4a2c), 2.9, 1.9, 4)));
+  // --- signpost near spawn (GLB banner stands in for the sign) ---
+  g.add(cyl(0.12, 0.12, 2.2, 6, wood, 2, 1.1, 4));   // kept post (collider + visual base)
+  propClone(g, 'medb_Banner', 2.9, 4, -Math.PI / 2, { targetH: 2.4 });
 
-  // --- props ---
-  for (const p of [[5, 11], [-5, 11], [7, 21], [-3, 22]]) g.add(cyl(0.4, 0.46, 0.95, 10, wood, p[0], 0.47, p[1])); // barrels
-  for (const p of [[8, 23], [-8, 21], [3, 6]]) g.add(box(0.9, 0.9, 0.9, wood, p[0], 0.45, p[1]));                  // crates
-  for (const p of [[6, 5], [-6, 5]]) g.add(cyl(0.7, 0.7, 1.0, 10, flat(0xc9a24a), p[0], 0.5, p[1]));               // hay bales
+  // --- props: barrels / crates / hay (low-poly GLBs, instanced) ---
+  propScatter(g, 'med_Barrel', [[5, 11], [-5, 11], [7, 21], [-3, 22]].map(([x, z]) => ({ x, z, ry: Math.random() * Math.PI * 2, s: 1 })), { targetH: 1.0 });
+  propScatter(g, 'med_Crate', [[8, 23], [-8, 21], [3, 6]].map(([x, z]) => ({ x, z, ry: Math.random() * Math.PI * 2, s: 1 })), { targetH: 0.95 });
+  propScatter(g, 'med_Hay', [[6, 5], [-6, 5]].map(([x, z]) => ({ x, z, ry: Math.random() * Math.PI * 2, s: 1 })), { targetH: 1.1 });
+
+  // --- a well and a hand cart as new village character props ---
+  propClone(g, 'med_Well', 11, 9, 0.4, { targetH: 2.2 });
+  propClone(g, 'med_Cart', -10, 7, 1.2, { targetH: 1.6 });
 
   // --- windmill (Lumbridge-style) ---
   const windmill = (x, z) => {

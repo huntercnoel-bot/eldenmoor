@@ -2,11 +2,107 @@
 // Sky, fog, sunlight, the ground, and scattered trees / rocks / grass.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { buildStructures, STRUCTURES } from './buildings.js';
 import { buildTown, townStructures } from './town.js';
 import { buildWater, waterStructures } from './water.js';
-import { grassTexture, dirtTexture, barkTexture, pathTexture } from './textures.js';
+import { grassTexture, dirtTexture, pathTexture } from './textures.js';
 import { gameMessage } from './ui.js';
+
+// --- Low-poly GLB scenery pipeline ------------------------------------------
+// The trees, rocks, bushes, grass, flowers and town props are now real
+// downloaded low-poly, vertex-coloured GLBs (Quaternius / medieval_village).
+// Each file is a single mesh with one vertex-coloured material, so:
+//   * repeated decorative scatter (grass, flowers, bushes, plants, fences) is
+//     drawn as a single THREE.InstancedMesh per model — one draw call for the
+//     whole field, which keeps the deliberately-short draw distance fast.
+//   * trees and rocks stay individual cloned objects because gameplay needs
+//     them addressable (Woodcutting raycasts each tree, shakes it, hides its
+//     foliage; collision reads each tree/rock position + scale). Clones share
+//     the loaded geometry + material, so they are cheap on memory.
+// Everything is tagged userData.__toonDone so the global cel-shade pass leaves
+// these already-stylised models alone, and pushed into scene.userData.outdoor
+// so it hides when the player goes upstairs / underground.
+const ENV = './assets/models/env/';
+const gltfLoader = new GLTFLoader();
+const protoCache = {};   // name -> Promise<{ geometry, material, size }>
+
+// Load a single-mesh GLB once and resolve its baked geometry + material in a
+// y-up, foot-on-ground frame. We bake the GLB's own node transforms into the
+// geometry so a bare InstancedMesh / cloned Mesh reproduces the model faithfully,
+// and recentre it on XZ with its base at y=0.
+function loadProto(name) {
+  if (!protoCache[name]) {
+    protoCache[name] = new Promise((resolve, reject) => {
+      gltfLoader.load(ENV + name + '.glb', (gltf) => {
+        let mesh = null;
+        gltf.scene.updateWorldMatrix(true, true);
+        gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+        if (!mesh) { reject(new Error('no mesh in ' + name)); return; }
+        const geometry = mesh.geometry.clone();
+        geometry.applyMatrix4(mesh.matrixWorld);      // bake node transforms in
+        geometry.computeBoundingBox();
+        const bb = geometry.boundingBox;
+        const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
+        geometry.translate(-cx, -bb.min.y, -cz);       // centre XZ, base at y=0
+        geometry.computeBoundingBox();
+        geometry.computeVertexNormals();
+        const material = mesh.material.isMaterial ? mesh.material : mesh.material[0];
+        material.userData.__toonDone = true;
+        resolve({ geometry, material, size: geometry.boundingBox.getSize(new THREE.Vector3()) });
+      }, undefined, reject);
+    });
+  }
+  return protoCache[name];
+}
+
+// Build one InstancedMesh covering many placements of a model. `placements` is
+// an array of { x, z, ry, s, y }. Loaded async; added to the scene + outdoor
+// list when ready. shadow=false for the cheap, plentiful ground cover.
+function instanceScatter(scene, name, placements, { shadow = true } = {}) {
+  if (!placements.length) return;
+  loadProto(name).then(({ geometry, material }) => {
+    const inst = new THREE.InstancedMesh(geometry, material, placements.length);
+    inst.castShadow = shadow; inst.receiveShadow = true;
+    inst.userData.__toonDone = true;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(),
+      p = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    placements.forEach((pl, i) => {
+      q.setFromAxisAngle(up, pl.ry || 0);
+      p.set(pl.x, pl.y || 0, pl.z);
+      sc.setScalar(pl.s || 1);
+      m.compose(p, q, sc);
+      inst.setMatrixAt(i, m);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    scene.add(inst);
+    (scene.userData.outdoor = scene.userData.outdoor || []).push(inst);
+  }).catch((e) => console.error('[world] instance load failed', name, e));
+}
+
+// Attach a cloned GLB mesh into an existing (already-positioned, already-collidable)
+// host group once its model finishes loading. Used for trees + rocks so collision,
+// which is built synchronously, already sees the host's position/scale. The clone
+// shares the proto's geometry + material across all instances of that model, and
+// is scaled to `targetH` world-height (compensating for the host's own scale) so
+// models of differing native size read at a consistent height.
+function attachClone(host, name, { shadow = true, targetH, keepHostScale = false, onMesh } = {}) {
+  loadProto(name).then(({ geometry, material, size }) => {
+    const mesh = new THREE.Mesh(geometry, material);   // shares geo+mat across clones
+    mesh.castShadow = shadow; mesh.receiveShadow = true;
+    mesh.userData.__toonDone = true;
+    if (targetH) {
+      // Normalise each model's differing native size to `targetH`. For trees we
+      // also divide out the host's scale so the trunk reads at the intended
+      // height regardless of the (collision-driving) host scale; for rocks we
+      // keep the host scale so the per-instance size variation is preserved.
+      const hostS = keepHostScale ? 1 : (host.scale.x || 1);
+      mesh.scale.setScalar((targetH / (size.y || 1)) / hostS);
+    }
+    host.add(mesh);
+    if (onMesh) onMesh(mesh);
+  }).catch((e) => console.error('[world] clone load failed', name, e));
+}
 
 // The pond sits here. We also keep trees from spawning on top of it.
 const POND = { x: 22, z: -16, r: 6 };
@@ -185,7 +281,6 @@ export function buildWorld(scene) {
   // logs + XP. We plant the common low tiers densely and the rare high tiers
   // sparsely, loosely ringed outward, so the forest reads like a gentle
   // progression from the spawn clearing toward the deep woods.
-  const bark = barkTexture();
   const FOREST = [
     { tier: 'normal', count: 16, range: 46 },
     { tier: 'oak',    count: 9,  range: 56 },
@@ -211,7 +306,7 @@ export function buildWorld(scene) {
         const c = trees[trees.length - 1].position;   // cluster around the last one
         p = spotNear({ x: c.x, z: c.z }, 3.5, 8.5);
       }
-      const tree = makeTree(p.x, p.z, band.tier, bark);
+      const tree = makeTree(scene, p.x, p.z, band.tier);
       scene.add(tree);
       trees.push(tree);
       placed++;
@@ -223,30 +318,53 @@ export function buildWorld(scene) {
 
   // Rocks tend to gather where trees thin out — scatter most singly, but let a
   // few cluster into little rocky outcrops for a more natural, weathered look.
+  // Each rock is an individually-placed clone so collision and the mining
+  // raycast can address it; the three rock GLBs share geometry across clones.
   const rocks = [];
   for (let i = 0; i < 22; i++) {
     const p = spot(72);
-    const r = makeRock(p.x, p.z); scene.add(r); rocks.push(r);
+    const r = makeRock(scene, p.x, p.z); scene.add(r); rocks.push(r);
     if (Math.random() < 0.4) {                       // a companion boulder or two nearby
       const near = spotNear({ x: p.x, z: p.z }, 1.0, 2.6);
-      const r2 = makeRock(near.x, near.z); r2.scale.multiplyScalar(0.6 + Math.random() * 0.4);
+      const r2 = makeRock(scene, near.x, near.z); r2.scale.multiplyScalar(0.6 + Math.random() * 0.4);
       scene.add(r2); rocks.push(r2);
     }
   }
   scene.userData.rocks = rocks;
   scene.userData.outdoor.push(...rocks);
 
-  // Grass tufts: clustered into patches and concentrated along the forest fringe
-  // and near the dirt paths so the meadow feels lush near the action and the
-  // treeline is softened, rather than tufts sprinkled uniformly everywhere.
+  // Grass / flowers / bushes / plants: purely decorative ground cover, scattered
+  // in the same clustered pattern as before but rendered as ONE InstancedMesh per
+  // model (one draw call each) so the meadow can stay lush without lag.
+  const grassP = [], shortGrassP = [], grass2P = [], flowerP = [], bushP = [], plantP = [];
+  const grassBuckets = [grassP, grass2P, shortGrassP];
   for (let i = 0; i < 34; i++) {
     const p = spot(76);
     const n = 2 + ((Math.random() * 4) | 0);          // a little knot of tufts
     for (let k = 0; k < n; k++) {
       const q = k === 0 ? p : spotNear({ x: p.x, z: p.z }, 0.6, 2.4);
-      const gr = makeGrass(q.x, q.z); scene.add(gr); scene.userData.outdoor.push(gr);
+      const place = { x: q.x, z: q.z, ry: Math.random() * Math.PI * 2, s: 1.4 + Math.random() * 1.0 };
+      grassBuckets[(Math.random() * grassBuckets.length) | 0].push(place);
+      if (Math.random() < 0.22) flowerP.push({ x: q.x + (Math.random() - 0.5), z: q.z + (Math.random() - 0.5), ry: Math.random() * Math.PI * 2, s: 1.2 + Math.random() * 0.7 });
     }
   }
+  // Leafy bushes + small plants softening the treeline and dotting the meadow.
+  for (let i = 0; i < 18; i++) {
+    const p = spot(74);
+    const bk = [bushP, bushP, plantP][(Math.random() * 3) | 0];
+    bk.push({ x: p.x, z: p.z, ry: Math.random() * Math.PI * 2, s: 1.3 + Math.random() * 0.8 });
+  }
+  instanceScatter(scene, 'nat_Grass', grassP, { shadow: false });
+  instanceScatter(scene, 'nat_Grass_2', grass2P, { shadow: false });
+  instanceScatter(scene, 'nat_Grass_Short', shortGrassP, { shadow: false });
+  instanceScatter(scene, 'nat_Flowers', flowerP, { shadow: false });
+  // bushes split across the two bush models + berry bush for variety
+  instanceScatter(scene, 'nat_Bush_1', bushP.filter((_, i) => i % 3 === 0));
+  instanceScatter(scene, 'nat_Bush_2', bushP.filter((_, i) => i % 3 === 1));
+  instanceScatter(scene, 'nat_BushBerries_1', bushP.filter((_, i) => i % 3 === 2));
+  instanceScatter(scene, 'nat_Plant_1', plantP.filter((_, i) => i % 3 === 0), { shadow: false });
+  instanceScatter(scene, 'nat_Plant_3', plantP.filter((_, i) => i % 3 === 1), { shadow: false });
+  instanceScatter(scene, 'nat_Plant_5', plantP.filter((_, i) => i % 3 === 2), { shadow: false });
 }
 
 // --- Atmosphere helpers ----------------------------------------------------
@@ -379,129 +497,63 @@ function lumpify(geo, amount, seed) {
   return geo;
 }
 
-// Per-tier tree palettes & silhouette tuning. Each tier reads as a distinct
-// species: bushy oaks, drooping willows, fiery maples, dark gnarled yews and a
-// faintly glowing magic tree. Colours are smooth-shaded MeshStandardMaterial
-// base tones (cel-shade ready, no flatShading).
-const TREE_STYLE = {
-  normal: { leaf: [0x6a8d3a, 0x7da043], bark: 0x6b4a2f, trunk: [1.7, 1.3], crown: [1.25, 0.75] },
-  oak:    { leaf: [0x4f7a2c, 0x6a9a3c], bark: 0x6b4a2f, trunk: [1.9, 1.2], crown: [1.7, 0.7], broad: true },
-  willow: { leaf: [0x7fa64a, 0x9bc163], bark: 0x83735a, trunk: [2.4, 1.1], crown: [1.15, 0.5], droop: true },
-  maple:  { leaf: [0xc25a2a, 0xe08a3a], bark: 0x6f4326, trunk: [2.2, 1.2], crown: [1.45, 0.6], fiery: true },
-  yew:    { leaf: [0x2f4a33, 0x3c5f41], bark: 0x4a3326, trunk: [1.6, 1.6], crown: [1.55, 0.7], gnarled: true },
-  magic:  { leaf: [0x4a78c8, 0x76a6e8], bark: 0x53607a, trunk: [2.6, 1.0], crown: [1.2, 0.6], glow: true },
+// Per-tier tree GLBs. Each Woodcutting tier maps to one or more low-poly tree
+// models (oaks read as broad common trees, willows/yews/magic borrow distinct
+// silhouettes from the pine/birch/dead sets) plus a base scale so the species
+// stand at a believable, varied height. `pick` chooses a model for a placement.
+const TREE_MODELS = {
+  normal: { models: ['nat_CommonTree_1', 'nat_CommonTree_3', 'nat_BirchTree_1'], h: 5.5 },
+  oak:    { models: ['nat_CommonTree_1', 'nat_CommonTree_3', 'nat_CommonTree_Autumn_2'], h: 7.0 },
+  willow: { models: ['nat_BirchTree_1', 'nat_BirchTree_3'], h: 7.0 },
+  maple:  { models: ['nat_CommonTree_Autumn_2', 'nat_CommonTree_3'], h: 6.5 },
+  yew:    { models: ['nat_PineTree_1', 'nat_PineTree_3', 'nat_PineTree_5'], h: 7.5 },
+  magic:  { models: ['nat_CommonTree_Dead_1', 'nat_CommonTree_Dead_3'], h: 7.5 },
 };
 
-// A lush, rounded RS/WoW tree built per tier: a tapered smooth trunk and layered,
-// softly warped canopy clumps with smooth normals. Many instances, so kept light
-// (low-segment spheres reused, smooth-shaded). `tier` selects the species look
-// and is recorded on userData so chopping yields the right log + XP.
-function makeTree(x, z, tier, bark) {
-  const st = TREE_STYLE[tier] || TREE_STYLE.normal;
+// A tree is a host Group placed + scaled synchronously (so collision, built right
+// after buildWorld, already sees its position + scale), into which the low-poly
+// GLB mesh is dropped once it loads. The whole model is registered as the tree's
+// `foliage` so Woodcutting hides it to a small stump when chopped, and the host
+// Group is what interactions.js raycasts, rotates (shake) and tracks as the tree.
+function makeTree(scene, x, z, tier) {
+  const def = TREE_MODELS[tier] || TREE_MODELS.normal;
   const g = new THREE.Group();
-  const trunkH = st.trunk[0] + Math.random() * st.trunk[1];
-
-  // Tapered, smooth trunk — slightly bulged at the base for a sculpted root flare.
-  // Most tiers reuse the shared bark map; yew/magic get a tinted plain trunk so
-  // dark gnarled yew and pale magic-wood read distinctly.
-  const trunkMat = (tier === 'yew' || tier === 'magic')
-    ? new THREE.MeshStandardMaterial({ color: st.bark, roughness: 0.95 })
-    : new THREE.MeshStandardMaterial({ map: bark, color: st.bark, roughness: 0.95 });
-  const baseR = st.broad ? 0.5 : (st.gnarled ? 0.46 : 0.42);
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, baseR, trunkH, 12, 1),
-    trunkMat
-  );
-  trunk.position.y = trunkH / 2;
-  if (st.gnarled) { trunk.rotation.z = (Math.random() - 0.5) * 0.18; } // yew leans/twists
-  trunk.castShadow = true; trunk.receiveShadow = true;
-  g.add(trunk);
-
-  // Two leaf tones (a base + a slightly brighter top) for gentle depth. Magic
-  // foliage self-illuminates faintly so it glows at dusk.
-  const lo = st.leaf[0], hi = st.leaf[1];
-  const leafLo = new THREE.MeshStandardMaterial({ color: lo, roughness: 0.85,
-    emissive: st.glow ? 0x24407a : 0x000000, emissiveIntensity: st.glow ? 0.45 : 0 });
-  const leafHi = new THREE.MeshStandardMaterial({ color: hi, roughness: 0.8,
-    emissive: st.glow ? 0x335aa0 : 0x000000, emissiveIntensity: st.glow ? 0.5 : 0 });
-
-  const r = st.crown[0] + Math.random() * st.crown[1];
-  const seed = Math.random() * 10;
   const foliage = [];
 
-  // A clump of canopy: a softly warped, smooth-shaded sphere placed on the crown.
-  const clump = (radius, yOff, xz, mat, sy, sd, ox = 0, oz = 0) => {
-    const m = new THREE.Mesh(lumpify(new THREE.SphereGeometry(radius, 12, 9), 0.14, sd), mat);
-    m.position.set(ox + (Math.random() - 0.5) * xz, trunkH + yOff, oz + (Math.random() - 0.5) * xz);
-    m.scale.y = sy;
-    m.castShadow = true; m.receiveShadow = true;
-    g.add(m); foliage.push(m);
-    return m;
-  };
+  // A short stump that stays behind when the tree is chopped (the GLB foliage is
+  // hidden). Tinted to read as fresh-cut wood; matches the toon look via the pass.
+  const stump = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.3, 0.5, 9, 1),
+    new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 0.95 })
+  );
+  stump.position.y = 0.25; stump.castShadow = true; stump.receiveShadow = true;
+  g.add(stump);
 
-  if (st.broad) {
-    // OAK — broad, bushy, low-spreading crown of big rounded clumps.
-    clump(r * 1.05, r * 0.15, r * 0.4, leafLo, 0.85, seed);
-    clump(r * 0.9, r * 0.5, r * 1.3, leafHi, 0.9, seed + 2.0);
-    clump(r * 0.85, r * 0.4, r * 1.3, leafLo, 0.9, seed + 4.0);
-    clump(r * 0.8, r * 0.75, r * 0.8, leafHi, 0.9, seed + 6.0);
-    clump(r * 0.7, r * 0.95, r * 0.5, leafLo, 0.95, seed + 8.0);
-  } else if (st.droop) {
-    // WILLOW — a slim domed top with long drooping fronds hanging off the rim.
-    clump(r * 0.95, r * 0.5, r * 0.3, leafHi, 0.7, seed);
-    clump(r * 0.7, r * 0.95, r * 0.5, leafHi, 0.7, seed + 3.0);
-    // Drooping fronds: tall thin smooth cones angled down around the canopy.
-    const frondMat = leafLo;
-    const fronds = 7;
-    for (let i = 0; i < fronds; i++) {
-      const a = (i / fronds) * Math.PI * 2 + Math.random() * 0.4;
-      const fr = r * (0.7 + Math.random() * 0.25);
-      const len = r * (1.5 + Math.random() * 0.8);
-      const frond = new THREE.Mesh(
-        lumpify(new THREE.CylinderGeometry(0.05, r * 0.28, len, 7, 1), 0.18, seed + i), frondMat
-      );
-      frond.position.set(Math.cos(a) * fr, trunkH + r * 0.35 - len * 0.4, Math.sin(a) * fr);
-      frond.rotation.set(Math.cos(a) * 0.35, 0, -Math.sin(a) * 0.35);
-      frond.castShadow = true; frond.receiveShadow = true;
-      g.add(frond); foliage.push(frond);
-    }
-  } else if (st.gnarled) {
-    // YEW — dark, dense, lumpy crown sitting low on a stout twisted trunk.
-    clump(r * 1.0, r * 0.1, r * 0.5, leafLo, 0.8, seed);
-    clump(r * 0.82, r * 0.45, r * 1.2, leafHi, 0.85, seed + 2.5);
-    clump(r * 0.78, r * 0.35, r * 1.2, leafLo, 0.85, seed + 5.0);
-    clump(r * 0.7, r * 0.7, r * 0.7, leafHi, 0.9, seed + 7.5);
-    clump(r * 0.55, r * 0.95, r * 0.4, leafLo, 0.95, seed + 9.5);
-  } else if (st.glow) {
-    // MAGIC — a tall, conical, jewel-blue crown that glows softly.
-    clump(r * 0.95, r * 0.25, r * 0.3, leafLo, 1.05, seed);
-    clump(r * 0.78, r * 0.85, r * 0.4, leafHi, 1.1, seed + 3.0);
-    clump(r * 0.6, r * 1.4, r * 0.3, leafLo, 1.15, seed + 6.0);
-    clump(r * 0.42, r * 1.9, r * 0.2, leafHi, 1.2, seed + 9.0);
-  } else if (st.fiery) {
-    // MAPLE — a rounded, fiery-orange crown, a touch taller than a normal tree.
-    clump(r, r * 0.4, 0, leafLo, 0.95, seed);
-    clump(r * 0.82, r * 1.0, r * 0.7, leafHi, 1.0, seed + 3.1);
-    clump(r * 0.7, r * 0.6, r * 1.1, leafLo, 1.0, seed + 6.4);
-    clump(r * 0.6, r * 1.3, r * 0.5, leafHi, 1.0, seed + 9.2);
-  } else {
-    // NORMAL — the original layered, billowing rounded crown.
-    clump(r, r * 0.35, 0, leafLo, 0.9, seed);
-    clump(r * 0.78, r * 0.95, r * 0.7, leafHi, 0.95, seed + 3.1);
-    clump(r * 0.66, r * 0.55, r * 1.1, leafLo, 1.0, seed + 6.4);
-    clump(r * 0.55, r * 1.25, r * 0.5, leafHi, 0.95, seed + 9.2);
-  }
-
+  // Modest host scale drives the chop-stump size and the collision footprint
+  // (collision reads 0.42 * scale.x → ~0.5 radius here); the model itself is
+  // sized to a target world height independently inside attachClone.
   g.position.set(x, 0, z);
   g.rotation.y = Math.random() * Math.PI * 2;
-  // Higher tiers stand a little taller/grander on average.
-  const grand = { normal: 0, oak: 0.1, willow: 0.15, maple: 0.12, yew: 0.05, magic: 0.2 }[tier] || 0;
-  g.scale.setScalar(0.8 + grand + Math.random() * 0.7);
+  g.scale.setScalar(1.1 + Math.random() * 0.3);
 
-  // Data the Woodcutting system uses: which parts are the "leaves" (hidden when
-  // the tree is chopped to a stump), plus its current state and which `tier` it
-  // is (so chopping awards the right log + XP).
-  g.userData = { kind: 'tree', trunk, foliage, depleted: false, respawnAt: 0, shake: 0, tier };
+  const modelName = def.models[(Math.random() * def.models.length) | 0];
+  const targetH = def.h * (0.85 + Math.random() * 0.3);
+  // Magic trees keep a faint dusk glow on their material (shared across that
+  // model's clones, applied once when the proto resolves).
+  attachClone(g, modelName, { shadow: true, targetH, onMesh: (mesh) => {
+    foliage.push(mesh);
+    if (g.userData.depleted) mesh.visible = false;   // loaded after an early chop
+    if (tier === 'magic' && mesh.material && !mesh.material.userData.__glow) {
+      mesh.material.emissive = new THREE.Color(0x2a4a86);
+      mesh.material.emissiveIntensity = 0.4;
+      mesh.material.userData.__glow = true;
+    }
+  } });
+
+  // Data the Woodcutting system uses: `foliage` are the meshes hidden when the
+  // tree is chopped to a stump, plus its current state and which `tier` it is
+  // (so chopping awards the right log + XP). `trunk` points at the stump.
+  g.userData = { kind: 'tree', trunk: stump, foliage, depleted: false, respawnAt: 0, shake: 0, tier };
   return g;
 }
 
@@ -596,59 +648,23 @@ function installWoodcuttingHook() {
   }, 80);
 }
 
-// A rounded, water-worn boulder: a higher-poly sphere warped into a few smooth
-// lobes with smooth normals, so it lights softly instead of showing hard facets.
-// Each gets a slightly varied warm/cool grey so an outcrop reads as real stone.
-function makeRock(x, z) {
-  const size = 0.6 + Math.random() * 0.9;
-  // Slightly varied warm-grey stone: a base grey nudged a touch warmer or cooler.
-  const lum = 0x76 + ((Math.random() * 0x22) | 0);
-  const warm = (Math.random() * 8) | 0;
-  const tint = ((lum + warm) << 16) | (lum << 8) | Math.max(0, lum - warm);
-  const rock = new THREE.Mesh(
-    lumpify(new THREE.SphereGeometry(size, 14, 10), 0.24, Math.random() * 10),
-    new THREE.MeshStandardMaterial({ color: tint, roughness: 0.9, metalness: 0.05 })
-  );
-  rock.position.set(x, size * 0.32, z);
-  rock.scale.set(1, 0.5 + Math.random() * 0.5, 1);     // squat, settled into the ground
-  rock.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.4);
-  rock.castShadow = true; rock.receiveShadow = true;
-  rock.userData = { kind: 'rock' };
-  return rock;
-}
-
-// A little tuft of grass blades — rounded, slightly curved, smooth-shaded — with
-// varied scale and the occasional wildflower so the meadow feels hand-planted.
-const FLOWER_COLS = [0xd6534a, 0xe8c24a, 0x9a6cc8, 0xe6e6e6, 0xe07ab0];
-function makeGrass(x, z) {
+// A boulder built from one of the three low-poly rock GLBs. It is a host Group
+// placed + scaled synchronously (so collision and the mining raycast can address
+// it before the model finishes loading) into which the rock mesh is dropped. The
+// three rock models share their geometry + material across all clones.
+const ROCK_MODELS = ['nat_Rock_1', 'nat_Rock_2', 'nat_Rock_3'];
+function makeRock(scene, x, z) {
   const g = new THREE.Group();
-  const tint = 0x5f7a32 + ((Math.random() * 0x0a1006) | 0);
-  const mat = new THREE.MeshStandardMaterial({ color: tint, roughness: 1 });
-  const n = 3 + ((Math.random() * 4) | 0);
-  for (let i = 0; i < n; i++) {
-    const h = 0.4 + Math.random() * 0.45;
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.05 + Math.random() * 0.03, h, 6), mat);
-    blade.position.set((Math.random() - 0.5) * 0.6, h / 2, (Math.random() - 0.5) * 0.6);
-    blade.rotation.set((Math.random() - 0.5) * 0.55, Math.random() * Math.PI, (Math.random() - 0.5) * 0.55);
-    blade.castShadow = true; blade.receiveShadow = true;
-    g.add(blade);
-  }
-  // ~30% of tufts carry a small wildflower on a thin stem for colour in the grass.
-  if (Math.random() < 0.3) {
-    const fh = 0.5 + Math.random() * 0.3;
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, fh, 5),
-      new THREE.MeshStandardMaterial({ color: 0x537032, roughness: 1 }));
-    stem.position.set((Math.random() - 0.5) * 0.3, fh / 2, (Math.random() - 0.5) * 0.3);
-    g.add(stem);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6),
-      new THREE.MeshStandardMaterial({ color: FLOWER_COLS[(Math.random() * FLOWER_COLS.length) | 0],
-        roughness: 0.7, emissive: 0x1a1408, emissiveIntensity: 0.25 }));
-    head.position.set(stem.position.x, fh, stem.position.z);
-    head.scale.set(1, 0.7, 1);
-    g.add(head);
-  }
   g.position.set(x, 0, z);
   g.rotation.y = Math.random() * Math.PI * 2;
-  g.scale.setScalar(0.8 + Math.random() * 0.6);
+  // Host scale drives the collision radius (collision reads 0.5 * max(scale)).
+  g.scale.setScalar(0.9 + Math.random() * 0.7);
+  g.userData = { kind: 'rock' };
+
+  const name = ROCK_MODELS[(Math.random() * ROCK_MODELS.length) | 0];
+  // keepHostScale: the host scale (and any companion-boulder shrink) drives the
+  // visible rock size, while targetH just normalises the three models to a common
+  // base height first.
+  attachClone(g, name, { shadow: true, targetH: 0.9, keepHostScale: true });
   return g;
 }
