@@ -166,8 +166,12 @@ export function createSkills() {
     if (!tabEl) return;
     let html = '<div class="skills-grid">';
     for (const d of SKILL_DEFS) {
-      html += `<div class="skill-cell" title="${d.name} ${state[d.id].level}">
-        <span class="sc-icon">${d.icon}</span><span class="sc-lv">${state[d.id].level}</span></div>`;
+      const s = state[d.id];
+      const toNext = s.level >= 99 ? 0 : Math.max(0, Math.ceil(xpForLevel(s.level + 1) - s.xp));
+      const tip = `${d.name} — level ${s.level}\nXP: ${Math.floor(s.xp).toLocaleString()}` +
+        (s.level >= 99 ? '\nMastered!' : `\nNext level: ${toNext.toLocaleString()} xp to go`);
+      html += `<div class="skill-cell" title="${tip}">
+        <span class="sc-icon">${d.icon}</span><span class="sc-lv">${s.level}</span></div>`;
     }
     html += '</div>';
     html += `<div class="skills-foot">Total level <b>${totalLevel()}</b> &nbsp;·&nbsp; Combat <b>${combatLevel()}</b></div>`;
