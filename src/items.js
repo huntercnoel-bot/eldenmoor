@@ -170,6 +170,98 @@ ITEMS.goblin_charm = {
   icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 V14" stroke="#9c8a6a" stroke-width="2"/><circle cx="20" cy="22" r="9" fill="#cdbf95" stroke="#7a6a44" stroke-width="1.6"/><circle cx="20" cy="22" r="3.4" fill="#6f8f43"/><path d="M20 13 l2 4 -4 0 z" fill="#e7dcb8"/></svg>`,
 };
 
+// ============================================================================
+//  COMBAT DROPS  (appended by the Beast Tamer; additive only)
+// ============================================================================
+// A full OSRS-style drop economy: every monster always drops BONES, commonly a
+// food/material drop, and occasionally a themed trophy or low gear. Icons are
+// inline SVG to match the rest of the catalogue (no image files).
+
+// --- Always drops --------------------------------------------------------
+ITEMS.bones = {
+  id: 'bones', name: 'Bones', stackable: true, value: 1, examine: 'A pile of bones. Buryable, in theory.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#7a6a4a" stroke-width="1.4" fill="#ece3cf">
+    <path d="M11 27 l16 -14"/><circle cx="11" cy="27" r="3.4"/><circle cx="8.4" cy="29.4" r="3.2"/>
+    <circle cx="27" cy="13" r="3.4"/><circle cx="29.6" cy="10.6" r="3.2"/></g></svg>`,
+};
+ITEMS.big_bones = {
+  id: 'big_bones', name: 'Big bones', stackable: true, value: 3, examine: 'A heavy, thick set of bones from a large beast.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#7a6a4a" stroke-width="2" fill="#ece3cf">
+    <path d="M10 28 l18 -16"/><circle cx="10" cy="28" r="4.2"/><circle cx="6.8" cy="31" r="3.8"/>
+    <circle cx="28" cy="12" r="4.2"/><circle cx="31.2" cy="9" r="3.8"/></g></svg>`,
+};
+
+// --- Common food / materials --------------------------------------------
+ITEMS.feather = {
+  id: 'feather', name: 'Feather', stackable: true, value: 1, examine: 'A soft white feather. Fletchers and fishers want these.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M30 8 Q14 12 10 32 L13 29 Q22 26 30 8 Z" fill="#f2efe6" stroke="#b9b29c" stroke-width="1.3"/><path d="M28 11 L13 28" stroke="#b9b29c" stroke-width="1"/></svg>`,
+};
+ITEMS.raw_chicken = {
+  id: 'raw_chicken', name: 'Raw chicken', stackable: true, value: 4, examine: 'A plucked raw chicken. Cook it before you eat it!',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><ellipse cx="20" cy="23" rx="12" ry="10" fill="#e7c9a0" stroke="#a47a48" stroke-width="1.5"/><path d="M27 16 l6 -5 M29 18 l6 -3" stroke="#d8c7b0" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+};
+ITEMS.raw_beef = {
+  id: 'raw_beef', name: 'Raw beef', stackable: true, value: 5, examine: 'A thick raw cut of beef.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><ellipse cx="20" cy="22" rx="14" ry="10" fill="#c0635f" stroke="#7a3530" stroke-width="1.5"/><ellipse cx="16" cy="20" rx="5" ry="3.4" fill="#e0a39e"/><ellipse cx="24" cy="24" rx="3.4" ry="2.4" fill="#e0a39e"/></svg>`,
+};
+ITEMS.raw_meat = {
+  id: 'raw_meat', name: 'Raw meat', stackable: true, value: 3, examine: 'A wild cut of raw meat.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 24 Q9 13 21 13 Q33 13 31 25 Q30 32 20 32 Q10 32 9 24 Z" fill="#b85a56" stroke="#73302c" stroke-width="1.5"/><circle cx="18" cy="21" r="3.2" fill="#d98a86"/></svg>`,
+};
+ITEMS.cowhide = {
+  id: 'cowhide', name: 'Cowhide', stackable: true, value: 8, examine: 'A rough cowhide. A tanner could make leather from this.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 14 Q14 8 20 12 Q26 8 31 14 Q34 22 27 31 Q20 35 13 31 Q6 22 9 14 Z" fill="#cdb89a" stroke="#7a6a4a" stroke-width="1.5"/><path d="M16 17 q3 4 0 8 M24 16 q2 5 -1 9" fill="#5a4a32"/></svg>`,
+};
+ITEMS.snake_hide = {
+  id: 'snake_hide', name: 'Snake hide', stackable: true, value: 14, examine: 'A supple scaled hide, prized by leatherworkers.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M10 30 Q14 14 24 16 Q33 17 30 9" fill="none" stroke="#5f9a52" stroke-width="6" stroke-linecap="round"/><path d="M12 27 l2 -2 M17 20 l2 -2 M23 17 l2 -2" stroke="#34602c" stroke-width="1.4"/></svg>`,
+};
+
+// --- Themed trophies -----------------------------------------------------
+ITEMS.frog_leg = {
+  id: 'frog_leg', name: 'Frog leg', stackable: true, value: 7, examine: 'A plump frog leg. A delicacy in some courts.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M12 30 Q10 20 18 18 Q26 16 24 9" fill="none" stroke="#7fae4b" stroke-width="5" stroke-linecap="round"/><circle cx="24" cy="9" r="3" fill="#5f8a34"/></svg>`,
+};
+ITEMS.snake_fang = {
+  id: 'snake_fang', name: 'Snake fang', stackable: true, value: 22, examine: 'A curved, venom-stained fang. Handy for poisons.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 7 Q26 18 21 33 Q19 24 14 16 Q17 11 20 7 Z" fill="#eee6cf" stroke="#9a8a64" stroke-width="1.3"/><path d="M20 26 q1 4 0 6" stroke="#6f8f43" stroke-width="1.4"/></svg>`,
+};
+ITEMS.wasp_stinger = {
+  id: 'wasp_stinger', name: 'Wasp stinger', stackable: true, value: 18, examine: 'A barbed stinger, still slick with venom.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 31 L31 9 L27 9 L7 29 Z" fill="#3a2e12" stroke="#1a1408" stroke-width="1"/><path d="M31 9 L24 11 L29 16 Z" fill="#d8c24a"/></svg>`,
+};
+
+// --- Low gear (rare) -----------------------------------------------------
+ITEMS.bronze_dagger = {
+  id: 'bronze_dagger', name: 'Bronze dagger', stackable: false, value: 10,
+  equipable: true, slot: 'weapon', tool: 'sword', chopTime: 1.1, headColor: 0xc8842f,
+  examine: 'A short bronze dagger. Fast, but it barely stings.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 L23 22 L17 22 Z" fill="#c8842f" stroke="#7a4a18" stroke-width="1"/><rect x="14" y="22" width="12" height="3" rx="1" fill="#5a3f24"/><rect x="18.5" y="25" width="3" height="9" rx="1.5" fill="#6b4a2f"/></svg>`,
+};
+ITEMS.bronze_sword = {
+  id: 'bronze_sword', name: 'Bronze sword', stackable: false, value: 26,
+  equipable: true, slot: 'weapon', tool: 'sword', chopTime: 1.4, headColor: 0xc8842f,
+  examine: 'A plain bronze sword. Honest work.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 5 L23 26 L17 26 Z" fill="#c8842f" stroke="#7a4a18" stroke-width="1"/><rect x="12" y="26" width="16" height="3" rx="1.5" fill="#5a3f24"/><rect x="18.5" y="29" width="3" height="7" rx="1.5" fill="#6b4a2f"/></svg>`,
+};
+ITEMS.iron_dagger = {
+  id: 'iron_dagger', name: 'Iron dagger', stackable: false, value: 35,
+  equipable: true, slot: 'weapon', tool: 'sword', chopTime: 1.1, headColor: 0x8f949c,
+  examine: 'A keen iron dagger.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 L23 22 L17 22 Z" fill="#8f949c" stroke="#5a5e66" stroke-width="1"/><rect x="14" y="22" width="12" height="3" rx="1" fill="#5a3f24"/><rect x="18.5" y="25" width="3" height="9" rx="1.5" fill="#6b4a2f"/></svg>`,
+};
+ITEMS.leather_body = {
+  id: 'leather_body', name: 'Leather body', stackable: false, value: 28,
+  equipable: true, slot: 'body', tabard: 0x6e4a2c, examine: 'A hardened leather tunic.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M10 12 L20 15 L30 12 L31 30 Q20 35 9 30 Z" fill="#8a5a30" stroke="#4a3018" stroke-width="1.5"/><path d="M20 15 V32 M14 18 H26" stroke="#5e3f22" stroke-width="1"/></svg>`,
+};
+ITEMS.emerald = {
+  id: 'emerald', name: 'Emerald', stackable: true, value: 200, examine: 'A flawless green gemstone. Worth a tidy sum.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 10 H26 L32 18 L20 34 L8 18 Z" fill="#3fbf6a" stroke="#1e7a3e" stroke-width="1.5"/><path d="M14 10 L20 18 L26 10 M8 18 H32 M20 18 L20 34" stroke="#c8f5d6" stroke-width="1" opacity="0.8"/></svg>`,
+};
+
 // ---- Higher-tier logs (appended by the Woodcutting extension; additive only) ----
 // Values follow OSRS log spacing scaled down: better wood is worth more. Each
 // icon is the same banded log motif tinted to its species so they read at a
