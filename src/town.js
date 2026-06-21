@@ -6,6 +6,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { stoneTexture, plasterTexture, shingleTexture, pathTexture } from './textures.js';
 
 // --- Low-poly GLB town props -------------------------------------------------
@@ -25,20 +26,30 @@ function loadProp(name) {
   if (!propCache[name]) {
     propCache[name] = new Promise((resolve, reject) => {
       propLoader.load(ENV + name + '.glb', (gltf) => {
-        let mesh = null;
+        // Merge ALL primitives (these GLBs are one mesh / several primitives with
+        // separate coloured materials) into one grouped geometry + material array,
+        // so multi-part props/buildings don't lose pieces.
         gltf.scene.updateWorldMatrix(true, true);
-        gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
-        if (!mesh) { reject(new Error('no mesh in ' + name)); return; }
-        const geometry = mesh.geometry.clone();
-        geometry.applyMatrix4(mesh.matrixWorld);
+        const geos = [], mats = [];
+        gltf.scene.traverse((o) => {
+          if (!o.isMesh) return;
+          let g = o.geometry.clone();
+          g.applyMatrix4(o.matrixWorld);
+          for (const a of Object.keys(g.attributes)) { if (a !== 'position' && a !== 'normal') g.deleteAttribute(a); }
+          if (g.index) g = g.toNonIndexed();
+          geos.push(g);
+          const m = o.material.isMaterial ? o.material : o.material[0];
+          m.userData.__toonDone = true;
+          mats.push(m);
+        });
+        if (!geos.length) { reject(new Error('no mesh in ' + name)); return; }
+        const geometry = geos.length === 1 ? geos[0] : mergeGeometries(geos, true);
+        const material = geos.length === 1 ? mats[0] : mats;
         geometry.computeBoundingBox();
         const bb = geometry.boundingBox;
         const cx = (bb.min.x + bb.max.x) / 2, cz = (bb.min.z + bb.max.z) / 2;
         geometry.translate(-cx, -bb.min.y, -cz);    // centre XZ, base at y=0
         geometry.computeBoundingBox();
-        geometry.computeVertexNormals();
-        const material = mesh.material.isMaterial ? mesh.material : mesh.material[0];
-        material.userData.__toonDone = true;
         resolve({ geometry, material, size: geometry.boundingBox.getSize(new THREE.Vector3()) });
       }, undefined, reject);
     });
@@ -240,7 +251,7 @@ export function buildTown(scene) {
     for (const sz of [-2.5, 0, 2.5]) c.add(archedOpening(1.0, 1.8, flat(0x9a6cff), gold, -3.56, 2.0, sz, -Math.PI / 2)); // west windows
     c.position.set(x, 0, z); g.add(c);
   };
-  chapel(CHAPEL[0], CHAPEL[1]);
+  propClone(g, 'chapel', CHAPEL[0], CHAPEL[1], 0, { targetH: 8.5 });   // real GLB chapel
 
   // --- fences along the road (low-poly GLB rails, instanced) ---
   // Visible rails are GLB fence segments (one InstancedMesh); each run keeps a
@@ -283,7 +294,7 @@ export function buildTown(scene) {
     for (let i = 0; i < 4; i++) { const blade = new THREE.Group(); blade.rotation.z = i / 4 * Math.PI * 2; blade.add(deco(box(0.18, 3.6, 0.12, wood, 0, 1.9, 0.1))); blade.add(deco(box(0.7, 2.6, 0.06, flat(0xe6ddc8), 0.45, 2.3, 0.16))); hub.add(blade); }
     g.add(hub);
   };
-  windmill(30, -6);
+  propClone(g, 'mill', 30, -6, 0, { targetH: 9.5 });   // real GLB windmill
 
   // --- graveyard beside the chapel ---
   const graveyard = (cx, cz) => {
@@ -295,7 +306,8 @@ export function buildTown(scene) {
     g.add(box(0.4, 2.6, 0.4, flat(0x3a2a1a), cx - 3, 1.3, cz + 3));
     for (const a of [0.6, -0.5, 0.2]) g.add(deco(box(0.16, 1.4, 0.16, flat(0x3a2a1a), cx - 3 + Math.sin(a) * 0.6, 2.4, cz + 3 + Math.cos(a) * 0.3)));
   };
-  graveyard(-30, 4);
+  for (const gp of [[-32,2,0.3],[-30,1.5,-0.6],[-28,3,0.2],[-31,6,0.8],[-29,6.5,-0.3]]) propClone(g, gp[2]>0.5?'gravestone_rip':'gravestone', -30+(gp[0]+30), gp[1], gp[2], { targetH: 1.1 });
+  propClone(g, 'crypt', -28.5, 6, 0.4, { targetH: 2.6 });
 
   // --- stable + horse ---
   const horse = (x, z) => {
@@ -313,7 +325,7 @@ export function buildTown(scene) {
     g.add(box(1.6, 0.5, 0.6, wood, cx - 1, 0.25, cz - 1.7));
     horse(cx, cz);
   };
-  stable(26, 2);
+  propClone(g, 'stable', 26, 2, 0, { targetH: 4.5 });   // real GLB stable
 
   // --- hedges, flower beds, lanterns, notice board ---
   const hedge = (x0, z0, x1, z1) => { const dx = x1 - x0, dz = z1 - z0, n = Math.max(1, Math.round(Math.hypot(dx, dz) / 1.5)); for (let i = 0; i <= n; i++) { const t = i / n; g.add(box(1.0, 1.0, 1.0, flat(0x3f6e3a), x0 + dx * t, 0.5, z0 + dz * t)); } };
