@@ -33,6 +33,7 @@ import './storeModels.js';
 import './castleModel.js';
 import './castleFurniture.js';
 import './playerModel.js';
+import './npcModels.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
