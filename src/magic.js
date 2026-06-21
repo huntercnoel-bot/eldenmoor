@@ -79,8 +79,19 @@ function startMagic(em) {
     }
   }
   refreshPanel();
-  // keep the book's rune availability fresh as the bag changes
-  setInterval(refreshPanel, 1500);
+  // Keep the book's rune availability fresh as the bag changes. Rebuilding the
+  // whole list every 1.5s forever is wasteful, so only rebuild when the relevant
+  // state (magic level, armed spell, carried rune counts) actually changed.
+  function paintSig() {
+    let s = magicLevel() + '|' + armed;
+    for (const sp of SPELLS) for (const id in sp.runes) s += '|' + id + ':' + inventory.count(id);
+    return s;
+  }
+  let lastSig = paintSig();
+  setInterval(() => {
+    const sig = paintSig();
+    if (sig !== lastSig) { lastSig = sig; refreshPanel(); }
+  }, 1500);
 
   // --- click a monster while armed to cast ----------------------------------
   const raycaster = new THREE.Raycaster();
@@ -140,6 +151,7 @@ function startMagic(em) {
     const spell = b.spell, g = b.target;
     scene.remove(b.mesh);
     if (b.mesh.geometry) b.mesh.geometry.dispose();
+    if (b.mesh.material) b.mesh.material.dispose();
     if (!g || !g.userData || !g.userData.monster || !g.userData.monster.alive) return;
     // magic accuracy: Magic level vs target defence; a miss "splashes" for 0.
     const def = g.userData.monster.type.defense || 1;
@@ -155,6 +167,7 @@ function startMagic(em) {
 
   // --- per-frame: fly the bolts ---------------------------------------------
   let last = performance.now();
+  const _to = new THREE.Vector3();   // reused per-frame to avoid allocations
   function tick(now) {
     requestAnimationFrame(tick);
     if (!window.eldenmoor || !window.eldenmoor.player) return;
@@ -164,7 +177,7 @@ function startMagic(em) {
       const b = bolts[i];
       b.t += dt * 3.2;   // ~0.3s flight
       const to = b.target && b.target.position
-        ? new THREE.Vector3(b.target.position.x, (b.target.position.y || 0) + 1.0, b.target.position.z)
+        ? _to.set(b.target.position.x, (b.target.position.y || 0) + 1.0, b.target.position.z)
         : b.from;
       b.mesh.position.lerpVectors(b.from, to, Math.min(1, b.t));
       if (b.t >= 1) { landBolt(b); bolts.splice(i, 1); }

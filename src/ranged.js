@@ -93,6 +93,7 @@ function startRanged(em) {
     const g = a.target;
     scene.remove(a.mesh);
     if (a.mesh.geometry) a.mesh.geometry.dispose();
+    if (a.mesh.material) a.mesh.material.dispose();
     if (!g || !g.userData || !g.userData.monster || !g.userData.monster.alive) return;
     const def = g.userData.monster.type.defense || 1;
     const lvl = rangedLevel();
@@ -110,6 +111,7 @@ function startRanged(em) {
 
   // --- per-frame: fly arrows -------------------------------------------------
   let last = performance.now();
+  const _to = new THREE.Vector3();   // reused per-frame to avoid allocations
   function tick(now) {
     requestAnimationFrame(tick);
     if (!window.eldenmoor || !window.eldenmoor.player) return;
@@ -119,7 +121,7 @@ function startRanged(em) {
       const a = arrows[i];
       a.t += dt * 3.6;
       const to = a.target && a.target.position
-        ? new THREE.Vector3(a.target.position.x, (a.target.position.y || 0) + 1.0, a.target.position.z)
+        ? _to.set(a.target.position.x, (a.target.position.y || 0) + 1.0, a.target.position.z)
         : a.from;
       a.mesh.position.lerpVectors(a.from, to, Math.min(1, a.t));
       a.mesh.lookAt(to);
