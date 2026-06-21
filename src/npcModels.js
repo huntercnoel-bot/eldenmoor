@@ -254,6 +254,14 @@ async function swapNpcs(em) {
       if (!st) continue;
       const g = n.group;
 
+      // perf: freeze the animation of NPCs far from the player (small/fogged on
+      // screen anyway) — keeps ~20 mixers from all ticking every frame.
+      const pp = em.player && em.player.position;
+      if (pp) {
+        const ddx = g.position.x - pp.x, ddz = g.position.z - pp.z;
+        if (ddx * ddx + ddz * ddz > 3600) { st.lastX = g.position.x; st.lastZ = g.position.z; continue; }
+      }
+
       // movement detection: did the wander code move the group this frame?
       const dx = g.position.x - st.lastX, dz = g.position.z - st.lastZ;
       st.lastX = g.position.x; st.lastZ = g.position.z;

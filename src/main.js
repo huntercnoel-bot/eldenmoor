@@ -35,6 +35,7 @@ import './castleFurniture.js';
 import './kingModel.js';
 import './npcModels.js';
 import './playerModel.js';
+import './loading.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
@@ -118,7 +119,7 @@ function startGame(username) {
   // 1) RENDERER (antialias OFF — some new GPU drivers render black with MSAA).
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));   // cap for high-DPI GPU cost
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // cinematic, richer contrast + highlights

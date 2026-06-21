@@ -506,6 +506,9 @@ function startMonsters(em) {
           moving = true; speedScale = 0.6;
         }
       }
+      // perf: skip the animation mixer for distant idle monsters (they're far
+      // out in the fields; combatants stay close so they always animate).
+      if (md.state === 'wander' && pdist > 60) continue;
       animate(g, md, dt, t, moving, speedScale);
     }
   }
