@@ -19,7 +19,46 @@ ACCOUNTS_FILE = os.path.join(ROOT, 'accounts.json')
 WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 
 # ---------------------------------------------------------------- accounts ---
+# Persistence: if a DATABASE_URL is set (Render/Neon/Supabase Postgres), accounts
+# live in the database so they SURVIVE restarts & redeploys. Otherwise they fall
+# back to a local accounts.json file (fine for local / tunnel play). Accounts are
+# also held in memory (the `accounts` dict) for fast lookups; the DB is the
+# durable copy written on every change.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
+db_conn = None
+
+def db_connect():
+    global db_conn
+    if not (DATABASE_URL and psycopg2):
+        return False
+    try:
+        db_conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        db_conn.autocommit = True
+        with db_conn.cursor() as cur:
+            cur.execute('CREATE TABLE IF NOT EXISTS accounts '
+                        '(username TEXT PRIMARY KEY, salt TEXT, hash TEXT, friends TEXT)')
+        print('accounts: using Postgres database (persistent)')
+        return True
+    except Exception as e:
+        db_conn = None
+        print('accounts: DATABASE_URL set but could not connect (%s); using file' % e)
+        return False
+
 def load_accounts():
+    if db_connect():
+        out = {}
+        try:
+            with db_conn.cursor() as cur:
+                cur.execute('SELECT username, salt, hash, friends FROM accounts')
+                for u, s, h, fr in cur.fetchall():
+                    out[u] = {'salt': s, 'hash': h, 'friends': json.loads(fr or '[]')}
+        except Exception as e:
+            print('account db load error:', e)
+        return out
     try:
         with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -27,6 +66,18 @@ def load_accounts():
         return {}
 
 def save_accounts():
+    if db_conn:
+        try:
+            with db_conn.cursor() as cur:
+                for u, a in accounts.items():
+                    cur.execute(
+                        'INSERT INTO accounts (username, salt, hash, friends) VALUES (%s,%s,%s,%s) '
+                        'ON CONFLICT (username) DO UPDATE SET '
+                        'salt=EXCLUDED.salt, hash=EXCLUDED.hash, friends=EXCLUDED.friends',
+                        (u, a['salt'], a['hash'], json.dumps(a.get('friends', []))))
+        except Exception as e:
+            print('account db save error:', e)
+        return
     try:
         with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
             json.dump(accounts, f, indent=2)

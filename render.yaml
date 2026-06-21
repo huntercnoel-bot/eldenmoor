@@ -1,6 +1,13 @@
 # One-click deploy of the Eldenmoor multiplayer server to Render (https://render.com).
 # Free tier. Serves the game files AND the WebSocket on a single public HTTPS URL,
 # so you and your friend just open that URL, make accounts, and you're in the same world.
+#
+# A free Postgres database is provisioned and wired to DATABASE_URL, so accounts
+# and friends PERSIST across restarts/redeploys (no more resets).
+databases:
+  - name: eldenmoor-db
+    plan: free
+
 services:
   - type: web
     name: eldenmoor
@@ -11,3 +18,8 @@ services:
     startCommand: "python mpserver.py"
     healthCheckPath: /index.html
     autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eldenmoor-db
+          property: connectionString

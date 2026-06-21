@@ -1,2 +1,4 @@
 # Eldenmoor's multiplayer server (mpserver.py) uses only the Python standard
-# library — there are no third-party packages to install.
+# library for the game itself. The one optional dependency is a Postgres driver,
+# used ONLY when a DATABASE_URL is set (so accounts persist across restarts).
+psycopg2-binary>=2.9

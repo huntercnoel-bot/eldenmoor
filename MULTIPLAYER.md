@@ -32,10 +32,15 @@ No command line, nothing to download, and the server stays up even when your PC 
 it asks, set **Runtime: Python**, **Build: `pip install -r requirements.txt`**,
 **Start: `python mpserver.py`**, **Plan: Free**. Deploy.
 
-> **Free-tier notes:** the server "sleeps" after ~15 min idle, so the first visit after
-> a quiet spell takes ~30s to wake. Accounts can reset if the service restarts/redeploys.
-> Both are fine for casual play — tell me if you want accounts to persist and I'll add a
-> small database.
+> **Accounts persist:** the blueprint also provisions a **free Postgres database** and
+> wires it up automatically, so accounts and friends survive restarts and redeploys —
+> they won't reset.
+>
+> **Free-tier note:** the web service "sleeps" after ~15 min idle, so the first visit
+> after a quiet spell takes ~30s to wake. (Render's free database is free for a limited
+> window; if you want it permanent forever, use a free **Neon**/**Supabase** Postgres and
+> set its connection string as the `DATABASE_URL` env var — same code, just a different
+> database. Tell me and I'll walk you through it.)
 
 ---
 
