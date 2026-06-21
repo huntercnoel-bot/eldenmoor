@@ -42,6 +42,14 @@ function loadGlb(url) {
 const MONSTER_MODEL = {
   giant_rat: { file: 'enemy_Rat.glb',    h: 0.85, face: 0 },
   goblin:    { file: 'enemy_Spider.glb', h: 1.30, face: 0 },
+  // New creatures wired to their own GLBs (Beast Tamer pass).
+  frog:      { file: 'enemy_Frog.glb',   h: 0.70, face: 0 },
+  snake:     { file: 'enemy_Snake.glb',  h: 0.55, face: 0 },
+  wasp:      { file: 'enemy_Wasp.glb',   h: 0.60, face: 0 },
+  // Trainer mobs reuse existing creature GLBs at a smaller scale (easy XP, like
+  // OSRS chickens & cows) — chicken=tiny rat, marsh hopper=tiny frog.
+  chicken:   { file: 'enemy_Rat.glb',    h: 0.45, face: 0 },
+  marsh_hopper: { file: 'enemy_Frog.glb', h: 0.40, face: 0 },
 };
 
 // SkinnedMesh-safe deep clone (inlined three.js SkeletonUtils.clone). A plain
@@ -275,16 +283,139 @@ function buildGoblin() {
   return g;
 }
 
+// --- Frog: a squat green dome with bulging eyes and folded back legs. ---------
+function buildFrog() {
+  const g = new THREE.Group();
+  const skin = mat(0x6fae45);
+  const belly = mat(0xcfe09a, 0.8);
+  const dark = mat(0x14140f);
+
+  const body = ball(0.34, skin); place(body, 0, 0.3, 0, 0, 0, 0, [1.2, 0.85, 1.1]); g.add(body);
+  const under = ball(0.27, belly); place(under, 0, 0.22, 0.08, 0, 0, 0, [1.1, 0.6, 1]); g.add(under);
+  // wide flat mouth
+  const head = ball(0.26, skin); place(head, 0, 0.32, 0.28, 0, 0, 0, [1.25, 0.7, 0.8]); g.add(head);
+  for (const sx of [-1, 1]) {
+    const bulge = ball(0.11, skin); place(bulge, sx * 0.16, 0.5, 0.18); g.add(bulge);
+    const eye = ball(0.06, dark); place(eye, sx * 0.16, 0.52, 0.26); g.add(eye);
+  }
+  // folded back legs (groups so the rig can hop them) + small front legs
+  const mkBack = (x) => { const l = new THREE.Group(); l.position.set(x, 0.16, -0.14); const thigh = cap(0.07, 0.14, skin); place(thigh, 0, 0, 0, 0, 0, Math.PI / 2 - 0.6); l.add(thigh); const foot = ball(0.07, skin); place(foot, x * 0.18, -0.06, 0.12, 0, 0, 0, [1.6, 0.5, 1]); l.add(foot); g.add(l); return l; };
+  const blL = mkBack(0.22), blR = mkBack(-0.22);
+  const mkFront = (x) => { const l = cap(0.05, 0.1, skin); place(l, x, 0.1, 0.2); g.add(l); return l; };
+  const flL = mkFront(0.13), flR = mkFront(-0.13);
+  g.userData.rig = { body, head, frontL: flL, frontR: flR, backL: blL, backR: blR };
+  return g;
+}
+
+// --- Snake: a coiled tapering body, raised head, flicking tongue. -------------
+function buildSnake() {
+  const g = new THREE.Group();
+  const skin = mat(0x4f8a3e);
+  const under = mat(0xd0c878, 0.8);
+  const dark = mat(0x14140f);
+  // coiled base ring (torus-like via lathe ring) + tapering raised neck
+  const coil = lathe([[0.28, 0], [0.36, 0.05], [0.36, 0.12], [0.28, 0.16], [0.24, 0.1], [0.24, 0.04]], skin, 24);
+  place(coil, 0, 0.06, 0, 0, 0, 0, 1); g.add(coil);
+  const neck = cap(0.11, 0.34, skin); place(neck, 0, 0.42, 0.04, -0.5, 0, 0); g.add(neck);
+  const head = ball(0.14, skin); place(head, 0, 0.62, 0.22, 0, 0, 0, [1, 0.8, 1.3]); g.add(head);
+  const chin = ball(0.1, under); place(chin, 0, 0.57, 0.28, 0, 0, 0, [1, 0.5, 1]); g.add(chin);
+  for (const sx of [-1, 1]) { const eye = ball(0.035, dark); place(eye, sx * 0.07, 0.66, 0.3); g.add(eye); }
+  const tongue = lathe([[0, 0], [0.012, 0.1], [0, 0.2]], mat(0xb03040), 8); place(tongue, 0, 0.6, 0.36, Math.PI / 2 - 0.3, 0, 0); g.add(tongue);
+  // "head" as the swing rig so the procedural fallback sways
+  g.userData.rig = { body: coil, head, neck };
+  return g;
+}
+
+// --- Wasp: a striped abdomen, thorax, head, and a pair of wing planes. --------
+function buildWasp() {
+  const g = new THREE.Group();
+  const yellow = mat(0xe0b830);
+  const black = mat(0x231b10);
+  const wingMat = new THREE.MeshStandardMaterial({ color: 0xeaf2ff, roughness: 0.3, transparent: true, opacity: 0.5 });
+  // floats a bit off the ground
+  const thorax = ball(0.17, black); place(thorax, 0, 0.66, 0); g.add(thorax);
+  const abdomen = lathe([[0, 0], [0.12, 0.06], [0.17, 0.2], [0.1, 0.36], [0, 0.42]], yellow, 18);
+  place(abdomen, 0, 0.62, -0.16, Math.PI / 2 + 0.4, 0, 0); g.add(abdomen);
+  // stripe bands
+  for (let i = 0; i < 2; i++) { const band = ball(0.13 - i * 0.03, black); place(band, 0, 0.6 - i * 0.02, -0.18 - i * 0.12, 0, 0, 0, [1, 0.5, 1]); g.add(band); }
+  const head = ball(0.12, black); place(head, 0, 0.68, 0.18); g.add(head);
+  for (const sx of [-1, 1]) { const eye = ball(0.04, mat(0x6a3010)); place(eye, sx * 0.07, 0.7, 0.26); g.add(eye); const ant = cap(0.012, 0.12, black); place(ant, sx * 0.05, 0.8, 0.22, -0.6, 0, sx * 0.3); g.add(ant); }
+  const stinger = lathe([[0, 0], [0.03, 0.04], [0, 0.16]], black, 8); place(stinger, 0, 0.58, -0.5, Math.PI / 2, 0, 0); g.add(stinger);
+  // wings (thin planes) — grouped so the rig can buzz them
+  const mkWing = (x) => { const w = new THREE.Group(); w.position.set(x, 0.74, -0.02); const plane = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16), wingMat); plane.material.side = THREE.DoubleSide; place(plane, x * 0.2, 0, -0.06, 0, 0, 0, [0.7, 1, 1]); plane.rotation.x = -Math.PI / 2 + 0.3; w.add(plane); g.add(w); return w; };
+  const wingL = mkWing(0.16), wingR = mkWing(-0.16);
+  g.userData.rig = { body: thorax, head, wingL, wingR, abdomen };
+  return g;
+}
+
+// --- Chicken: a tiny round trainer fowl (reuses no GLB humanoid). -------------
+function buildChicken() {
+  const g = new THREE.Group();
+  const feather = mat(0xf0ead8);
+  const beakC = mat(0xe0a030);
+  const comb = mat(0xc83a2a);
+  const dark = mat(0x14140f);
+  const body = ball(0.2, feather); place(body, 0, 0.3, 0, 0, 0, 0, [1, 1.1, 1.2]); g.add(body);
+  const head = ball(0.12, feather); place(head, 0, 0.5, 0.08); g.add(head);
+  const cb = ball(0.05, comb); place(cb, 0, 0.6, 0.06, 0, 0, 0, [1.4, 0.7, 0.5]); g.add(cb);
+  const beak = lathe([[0, 0], [0.04, 0.03], [0, 0.1]], beakC, 8); place(beak, 0, 0.5, 0.22, Math.PI / 2, 0, 0); g.add(beak);
+  for (const sx of [-1, 1]) { const eye = ball(0.02, dark); place(eye, sx * 0.05, 0.52, 0.16); g.add(eye); }
+  const tail = lathe([[0, 0], [0.08, 0.04], [0, 0.18]], feather, 8); place(tail, 0, 0.36, -0.18, -1.0, 0, 0); g.add(tail);
+  const mkLeg = (x) => { const l = new THREE.Group(); l.position.set(x, 0.16, 0); const leg = cap(0.02, 0.1, beakC); place(leg, 0, -0.06, 0); l.add(leg); g.add(l); return l; };
+  const legL = mkLeg(0.07), legR = mkLeg(-0.07);
+  g.userData.rig = { body, head, legL, legR };
+  return g;
+}
+
 // ----- monster catalogue (stats the combat layer reads) ----------------------
 export const MONSTER_TYPES = {
+  // ===== TRAINER MOBS (low-level, easy XP, no aggro) ========================
+  chicken: {
+    id: 'chicken', name: 'Chicken', build: buildChicken, scale: 1.0,
+    maxHp: 3, dmg: [0, 1], attackSpeed: 2.4, defense: 0,
+    aggroRange: 0, leashRange: 14, speed: 1.4, hpBarY: 0.7,
+    xp: 3, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },              // always
+      { id: 'feather', chance: 0.9, min: 5, max: 15 },           // common
+      { id: 'raw_chicken', chance: 0.85, min: 1, max: 1 },       // common
+      { id: 'coins', chance: 0.25, min: 1, max: 3 },             // uncommon
+    ],
+  },
+  marsh_hopper: {
+    id: 'marsh_hopper', name: 'Marsh Hopper', build: buildFrog, scale: 1.0,
+    maxHp: 5, dmg: [0, 1], attackSpeed: 2.2, defense: 1,
+    aggroRange: 0, leashRange: 16, speed: 1.7, hpBarY: 0.6,
+    xp: 5, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },
+      { id: 'raw_meat', chance: 0.8, min: 1, max: 1 },
+      { id: 'frog_leg', chance: 0.35, min: 1, max: 2 },
+      { id: 'coins', chance: 0.3, min: 1, max: 5 },
+    ],
+  },
+
+  // ===== STANDARD MOBS ======================================================
   giant_rat: {
     id: 'giant_rat', name: 'Giant Rat', build: buildGiantRat, scale: 1.0,
     maxHp: 12, dmg: [1, 3], attackSpeed: 1.6, defense: 1,
     aggroRange: 7, leashRange: 22, speed: 1.9, hpBarY: 1.05,
     xp: 8, loot: [
-      { id: 'coins', chance: 0.85, min: 1, max: 6 },
-      { id: 'rat_tail', chance: 0.4, min: 1, max: 1 },
-      { id: 'raw_rat_meat', chance: 0.3, min: 1, max: 1 },
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },              // always
+      { id: 'coins', chance: 0.85, min: 1, max: 6 },             // common
+      { id: 'raw_rat_meat', chance: 0.5, min: 1, max: 1 },       // common
+      { id: 'rat_tail', chance: 0.3, min: 1, max: 1 },           // uncommon (themed)
+      { id: 'bronze_dagger', chance: 0.03, min: 1, max: 1 },     // rare (gear)
+    ],
+  },
+  frog: {
+    id: 'frog', name: 'Giant Frog', build: buildFrog, scale: 1.4,
+    maxHp: 18, dmg: [1, 4], attackSpeed: 1.8, defense: 2,
+    aggroRange: 6, leashRange: 20, speed: 2.0, hpBarY: 1.0,
+    xp: 13, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },
+      { id: 'coins', chance: 0.85, min: 3, max: 14 },
+      { id: 'raw_meat', chance: 0.55, min: 1, max: 2 },
+      { id: 'frog_leg', chance: 0.4, min: 1, max: 3 },           // themed
+      { id: 'leather_body', chance: 0.04, min: 1, max: 1 },      // rare gear
     ],
   },
   goblin: {
@@ -292,22 +423,71 @@ export const MONSTER_TYPES = {
     maxHp: 22, dmg: [2, 5], attackSpeed: 1.9, defense: 3,
     aggroRange: 8, leashRange: 26, speed: 2.2, hpBarY: 1.85,
     xp: 18, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },
       { id: 'coins', chance: 0.95, min: 3, max: 18 },
-      { id: 'goblin_ear', chance: 0.45, min: 1, max: 1 },
-      { id: 'bronze_axe', chance: 0.06, min: 1, max: 1 },
-      { id: 'goblin_charm', chance: 0.12, min: 1, max: 1 },
+      { id: 'raw_meat', chance: 0.4, min: 1, max: 1 },
+      { id: 'goblin_ear', chance: 0.45, min: 1, max: 1 },        // themed
+      { id: 'goblin_charm', chance: 0.12, min: 1, max: 1 },      // uncommon themed
+      { id: 'bronze_sword', chance: 0.05, min: 1, max: 1 },      // rare gear
+      { id: 'bronze_axe', chance: 0.04, min: 1, max: 1 },        // rare gear
+    ],
+  },
+  wasp: {
+    id: 'wasp', name: 'Giant Wasp', build: buildWasp, scale: 1.3,
+    maxHp: 20, dmg: [2, 5], attackSpeed: 1.4, defense: 4,
+    aggroRange: 9, leashRange: 24, speed: 3.0, hpBarY: 1.1,
+    xp: 20, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },
+      { id: 'coins', chance: 0.9, min: 4, max: 22 },
+      { id: 'raw_meat', chance: 0.3, min: 1, max: 1 },
+      { id: 'wasp_stinger', chance: 0.45, min: 1, max: 2 },      // themed
+      { id: 'iron_dagger', chance: 0.05, min: 1, max: 1 },       // rare gear
+    ],
+  },
+  snake: {
+    id: 'snake', name: 'Giant Snake', build: buildSnake, scale: 1.5,
+    maxHp: 32, dmg: [3, 7], attackSpeed: 1.7, defense: 6,
+    aggroRange: 9, leashRange: 28, speed: 2.4, hpBarY: 1.1,
+    xp: 32, loot: [
+      { id: 'big_bones', chance: 1.0, min: 1, max: 1 },         // always (bigger beast)
+      { id: 'coins', chance: 0.95, min: 8, max: 40 },
+      { id: 'raw_meat', chance: 0.5, min: 1, max: 2 },
+      { id: 'snake_hide', chance: 0.5, min: 1, max: 1 },        // themed material
+      { id: 'snake_fang', chance: 0.3, min: 1, max: 1 },        // themed trophy
+      { id: 'emerald', chance: 0.04, min: 1, max: 1 },          // rare valuable
     ],
   },
 };
 
-// Where monsters live: a few clusters out in the field, away from the town
-// centre and the castle approach. Each entry: [type, centerX, centerZ, count].
+// Where monsters live, laid out as OSRS-style SPAWN ZONES that ramp in danger
+// the further you stray from town. Each entry: [type, centerX, centerZ, count].
+//   * Farmstead (near town):  chickens + marsh hoppers + a couple rats — safe,
+//     non-aggressive trainer fodder for a brand-new player.
+//   * Field rats / frogs:     classic low-level aggressive mobs.
+//   * Goblin & wasp wilds:    mid-level threats further out.
+//   * Snake fen (far out):    the toughest zone, real danger + best loot.
 const SPAWN_CLUSTERS = [
+  // --- Farmstead trainer zone, close to town centre -----------------------
+  ['chicken', -16, 14, 4],
+  ['chicken', -22, 18, 3],
+  ['marsh_hopper', -20, 24, 3],
+  ['giant_rat', -24, 12, 2],
+
+  // --- Low-level field zone -----------------------------------------------
   ['giant_rat', -40, -10, 3],
   ['giant_rat', 38, -34, 2],
+  ['frog', 28, 26, 3],
+  ['frog', -34, 30, 2],
+
+  // --- Mid-level wilds ----------------------------------------------------
   ['goblin', -46, -38, 3],
   ['goblin', 44, 8, 2],
-  ['giant_rat', 50, -8, 2],
+  ['wasp', 54, -24, 3],
+  ['wasp', -52, 6, 2],
+
+  // --- Far snake fen (high danger) ----------------------------------------
+  ['snake', 64, 40, 3],
+  ['snake', -64, -52, 2],
 ];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -437,12 +617,24 @@ function startMonsters(em) {
       md.bob += dt * 9 * speedScale;
       const sw = Math.sin(md.bob) * 0.6;
       g.position.y = Math.abs(Math.sin(md.bob)) * 0.05;
-      if (md.typeId === 'giant_rat') {
+      // Quadruped-style swing (rat/frog/chicken) when those limbs exist,
+      // otherwise the biped goblin swing — each guarded so the new procedural
+      // fallbacks (snake/wasp, which have neither) simply bob without throwing.
+      if (rig.frontL && rig.backL) {
         rig.frontL.rotation.x = sw; rig.frontR.rotation.x = -sw;
         rig.backL.rotation.x = -sw; rig.backR.rotation.x = sw;
-      } else {
+      } else if (rig.legL && rig.armL) {
         rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw;
         rig.armL.rotation.x = -sw * 0.7; rig.armR.rotation.x = sw * 0.7;
+      } else if (rig.legL) {
+        rig.legL.rotation.x = sw; rig.legR.rotation.x = -sw;
+      } else if (rig.wingL) {
+        // wasp: flap wings fast, hover
+        rig.wingL.rotation.z = 0.4 + Math.sin(md.bob * 4) * 0.5;
+        rig.wingR.rotation.z = -0.4 - Math.sin(md.bob * 4) * 0.5;
+      } else if (rig.head) {
+        // snake: sway the raised head/neck
+        rig.head.rotation.y = sw * 0.5;
       }
     } else {
       g.position.y *= 0.8;

@@ -130,12 +130,25 @@ function startCombat(em) {
       spawnDrop(entry.id, qty, x + rand(-0.4, 0.4), z + rand(-0.4, 0.4));
     }
   }
+  // Tint a ground item by its rough category so drops read at a glance:
+  // gold coins, bone-white bones, red meat/hide, green/themed trophies, steel gear.
+  function dropColor(itemId) {
+    if (itemId === 'coins') return { color: 0xf2cf4e, emissive: 0x4a3a00, metal: 0.6 };
+    if (itemId === 'bones' || itemId === 'big_bones') return { color: 0xece3cf, emissive: 0x2a2618, metal: 0.0 };
+    if (itemId === 'feather') return { color: 0xf2efe6, emissive: 0x2a2820, metal: 0.0 };
+    if (/raw_|_meat|cowhide|_hide|frog_leg/.test(itemId)) return { color: 0xb85a56, emissive: 0x2a1010, metal: 0.0 };
+    if (/dagger|sword|axe/.test(itemId)) return { color: 0xb8bcc4, emissive: 0x14181c, metal: 0.7 };
+    if (itemId === 'emerald') return { color: 0x3fbf6a, emissive: 0x0a3a18, metal: 0.3 };
+    if (/charm|fang|stinger|ear|tail|leather_body/.test(itemId)) return { color: 0x8a7a4a, emissive: 0x201808, metal: 0.1 };
+    return { color: 0xb98a3a, emissive: 0x2a1f08, metal: 0.2 };
+  }
   function spawnDrop(itemId, qty, x, z) {
     const isCoin = itemId === 'coins';
+    const c = dropColor(itemId);
     const g = new THREE.Group();
     const m = new THREE.MeshStandardMaterial({
-      color: isCoin ? 0xf2cf4e : 0xb98a3a, roughness: 0.5, metalness: isCoin ? 0.6 : 0.2,
-      emissive: isCoin ? 0x4a3a00 : 0x2a1f08, emissiveIntensity: 0.5,
+      color: c.color, roughness: 0.5, metalness: c.metal,
+      emissive: c.emissive, emissiveIntensity: 0.5,
     });
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 16), m);
     disc.castShadow = true; g.add(disc);
@@ -143,7 +156,20 @@ function startCombat(em) {
     g.position.set(x, 0.3, z);
     scene.add(g);
     if (em.vfx && em.vfx.burst) em.vfx.burst(isCoin ? 'coin' : 'hit', x, 0.4, z);
-    drops.push({ group: g, itemId, qty, born: performance.now() / 1000 });
+    // OSRS-style floating ground-item name label (DOM), clears on pickup/despawn.
+    const def = ITEMS[itemId];
+    const label = document.createElement('div');
+    label.textContent = (qty > 1 ? qty + ' ' : '') + (def ? def.name : itemId);
+    label.style.cssText = 'position:absolute;transform:translate(-50%,-50%);font:600 12px Georgia,serif;' +
+      'color:#ffe9a8;text-shadow:0 1px 2px #000,0 0 3px #000;pointer-events:none;white-space:nowrap;';
+    layer.appendChild(label);
+    drops.push({ group: g, itemId, qty, born: performance.now() / 1000, label });
+  }
+  function removeDrop(d, i) {
+    scene.remove(d.group);
+    d.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    if (d.label) d.label.remove();
+    drops.splice(i, 1);
   }
   function updateDrops(dt, t) {
     const onGround = (em.getFloor ? em.getFloor() : 0) === 0;
@@ -152,6 +178,12 @@ function startCombat(em) {
       d.group.visible = onGround;
       d.group.rotation.y += dt * 1.5;
       d.group.position.y = 0.3 + Math.sin(t * 2 + i) * 0.06;
+      // position the floating name label above the item
+      if (d.label) {
+        const s = toScreen(d.group.position.x, 0.95, d.group.position.z);
+        if (!onGround || s.behind) { d.label.style.display = 'none'; }
+        else { d.label.style.display = 'block'; d.label.style.left = s.x + 'px'; d.label.style.top = s.y + 'px'; }
+      }
       if (!onGround) continue;
       const dx = player.position.x - d.group.position.x, dz = player.position.z - d.group.position.z;
       if (Math.hypot(dx, dz) < LOOT_PICKUP_RANGE) {
@@ -161,10 +193,10 @@ function startCombat(em) {
           floatNumber(d.group.position.x, 0.9, d.group.position.z,
             '+' + d.qty + ' ' + (def ? def.name : d.itemId), 'loot');
           if (em.vfx && em.vfx.burst) em.vfx.burst('coin', d.group.position.x, 0.5, d.group.position.z);
-          scene.remove(d.group); drops.splice(i, 1);
+          removeDrop(d, i);
         }
       } else if (t - d.born > 90) {   // despawn old loot
-        scene.remove(d.group); drops.splice(i, 1);
+        removeDrop(d, i);
       }
     }
   }
@@ -191,6 +223,19 @@ function startCombat(em) {
     return null;
   }
 
+  // Raycast against ground-item drops; returns the drops[] index under the cursor.
+  function pickDropIndex(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const groups = drops.map((d) => d.group).filter((g) => g.visible);
+    const hits = raycaster.intersectObjects(groups, true);
+    if (!hits.length) return -1;
+    let o = hits[0].object; while (o && o.parent && o.parent !== scene) o = o.parent;
+    return drops.findIndex((d) => d.group === o);
+  }
+
   let downX = 0, downY = 0;
   if (canvas) {
     canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { downX = e.clientX; downY = e.clientY; } }, true);
@@ -198,7 +243,19 @@ function startCombat(em) {
       if (e.button !== 0) return;
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;   // a camera drag, not a click
       const g = pickMonster(e.clientX, e.clientY);
-      if (g) { engage(g); e.stopPropagation(); }
+      if (g) { engage(g); e.stopPropagation(); return; }
+      // Clicking a dropped item picks it straight up (OSRS-style "Take").
+      const di = pickDropIndex(e.clientX, e.clientY);
+      if (di >= 0) {
+        const d = drops[di], inv = em.inventory;
+        if (inv && inv.add(d.itemId, d.qty)) {
+          const def = ITEMS[d.itemId];
+          floatNumber(d.group.position.x, 0.9, d.group.position.z, '+' + d.qty + ' ' + (def ? def.name : d.itemId), 'loot');
+          if (em.vfx && em.vfx.burst) em.vfx.burst('coin', d.group.position.x, 0.5, d.group.position.z);
+          removeDrop(d, di);
+        }
+        e.stopPropagation();
+      }
     }, true);   // capture so we beat the move-to-click handler when over a monster
   }
 
