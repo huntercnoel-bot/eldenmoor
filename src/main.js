@@ -45,6 +45,7 @@ import './villageModels.js';
 import './storeModels.js';
 import './castleModel.js';
 import './castleFurniture.js';
+import './castleRoom_kitchen.js';   // furnishes the castle's KITCHEN room
 import './kingModel.js';
 import './npcModels.js';
 import './playerModel.js';
