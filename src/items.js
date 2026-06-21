@@ -413,22 +413,28 @@ ITEMS.hammer = {
 // weapon families (daggers/swords/scimitars). Weapons are equipable melee arms;
 // helms/platebodies are wearable armour like the existing steel set. ----
 function weapon(id, name, kind, fill, stroke, shine, value, atk) {
+  // A weapon's `atk` rating drives both its Attack accuracy bonus and (a touch
+  // lower) its Strength bonus. Scimitars hit a bit harder for their tier.
+  const str = Math.round(atk * (kind === 'scim' ? 0.95 : kind === 'dagger' ? 0.65 : 0.8));
   ITEMS[id] = {
     id, name, stackable: false, value, equipable: true, slot: 'weapon', tool: 'sword',
+    bonuses: { attack: atk, strength: str },
     examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
     icon: bladeIcon(kind, fill, stroke, shine),
   };
 }
-function helm(id, name, fill, stroke, value) {
+function helm(id, name, fill, stroke, value, def) {
   ITEMS[id] = {
     id, name, stackable: false, value, equipable: true, slot: 'head',
+    bonuses: { defence: def || 3 },
     examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
     icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M9 22 Q9 9 20 9 Q31 9 31 22 L31 26 Q26 24 20 24 Q14 24 9 26 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><rect x="18.6" y="13" width="2.8" height="12" fill="${stroke}"/></svg>`,
   };
 }
-function platebody(id, name, fill, stroke, value, tabard) {
+function platebody(id, name, fill, stroke, value, tabard, def) {
   ITEMS[id] = {
     id, name, stackable: false, value, equipable: true, slot: 'body', tabard,
+    bonuses: { defence: def || 8 },
     examine: 'A ' + name.toLowerCase() + '. Smithed at the anvil.',
     icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M10 11 L20 14 L30 11 L31 30 Q20 35 9 30 Z" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><path d="M10 11 L7 16 M30 11 L33 16" stroke="${stroke}" stroke-width="2.4" fill="none"/></svg>`,
   };
@@ -438,14 +444,14 @@ function platebody(id, name, fill, stroke, value, tabard) {
 weapon('bronze_dagger',   'Bronze dagger',   'dagger', '#c8842f', '#7a4a18', '#f0b25e', 12, 4);
 weapon('bronze_sword',    'Bronze sword',    'sword',  '#c8842f', '#7a4a18', '#f0b25e', 26, 6);
 weapon('bronze_scimitar', 'Bronze scimitar', 'scim',   '#c8842f', '#7a4a18', '#f0b25e', 48, 8);
-helm('bronze_helm',       'Bronze med helm', '#c8842f', '#7a4a18', 24);
-platebody('bronze_platebody', 'Bronze platebody', '#c8842f', '#7a4a18', 120, 0x6e1f2f);
+helm('bronze_helm',       'Bronze med helm', '#c8842f', '#7a4a18', 24, 3);
+platebody('bronze_platebody', 'Bronze platebody', '#c8842f', '#7a4a18', 120, 0x6e1f2f, 8);
 
 weapon('iron_dagger',     'Iron dagger',     'dagger', '#b8b0a8', '#6f675f', '#e6ddd4', 28, 10);
 weapon('iron_sword',      'Iron sword',      'sword',  '#b8b0a8', '#6f675f', '#e6ddd4', 56, 14);
 weapon('iron_scimitar',   'Iron scimitar',   'scim',   '#b8b0a8', '#6f675f', '#e6ddd4', 100, 18);
-helm('iron_helm',         'Iron med helm',   '#b8b0a8', '#6f675f', 56);
-platebody('iron_platebody', 'Iron platebody', '#b8b0a8', '#6f675f', 240, 0x2b3a5a);
+helm('iron_helm',         'Iron med helm',   '#b8b0a8', '#6f675f', 56, 6);
+platebody('iron_platebody', 'Iron platebody', '#b8b0a8', '#6f675f', 240, 0x2b3a5a, 16);
 
 weapon('steel_dagger',    'Steel dagger',    'dagger', '#c2c7ce', '#6f747e', '#eef1f6', 75, 20);
 weapon('steel_sword',     'Steel sword',     'sword',  '#c2c7ce', '#6f747e', '#eef1f6', 150, 28);
@@ -454,8 +460,8 @@ weapon('steel_scimitar',  'Steel scimitar',  'scim',   '#c2c7ce', '#6f747e', '#e
 weapon('mithril_dagger',  'Mithril dagger',  'dagger', '#6f9bd6', '#2b5a96', '#bcd6ff', 200, 32);
 weapon('mithril_sword',   'Mithril sword',   'sword',  '#6f9bd6', '#2b5a96', '#bcd6ff', 400, 44);
 weapon('mithril_scimitar','Mithril scimitar','scim',   '#6f9bd6', '#2b5a96', '#bcd6ff', 720, 56);
-helm('mithril_helm',      'Mithril med helm', '#6f9bd6', '#2b5a96', 220);
-platebody('mithril_platebody', 'Mithril platebody', '#6f9bd6', '#2b5a96', 980, 0x1e3a5a);
+helm('mithril_helm',      'Mithril med helm', '#6f9bd6', '#2b5a96', 220, 14);
+platebody('mithril_platebody', 'Mithril platebody', '#6f9bd6', '#2b5a96', 980, 0x1e3a5a, 30);
 
 // Helper: a chunk-of-ore icon — a rough rock with a tinted metal vein.
 function oreIcon(vein, dark) {

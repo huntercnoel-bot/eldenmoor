@@ -283,20 +283,28 @@ function startCombat(em) {
     catch (e) { return dflt; }
   }
 
+  function gearBonuses() {
+    try { return (em.equipment && em.equipment.getBonuses && em.equipment.getBonuses()) || { attack: 0, strength: 0, defence: 0 }; }
+    catch (e) { return { attack: 0, strength: 0, defence: 0 }; }
+  }
+
   function hitMonster(g) {
     const md = g.userData.monster;
     const wd = weaponDamage(em.equipment && em.equipment.getWeapon && em.equipment.getWeapon());
+    const eb = gearBonuses();
     const atk = lvl('attack', 1), str = lvl('strength', 1);
-    // Accuracy: the player's Attack level pushes against the monster's defence.
-    // Starts generous and climbs with Attack, so even a level-1 hero connects often.
-    const hitChance = Math.max(0.45, Math.min(0.95, (atk + 4) / (atk + 4 + md.type.defense * 2.4)));
+    // Accuracy: the player's Attack level + worn Attack bonus push against the
+    // monster's defence. Starts generous and climbs, so even a fresh hero connects.
+    const effAtk = atk + 4 + eb.attack * 0.6;
+    const hitChance = Math.max(0.45, Math.min(0.97, effAtk / (effAtk + md.type.defense * 2.4)));
     const bx = g.position.x, by = g.position.y + (md.type.hpBarY || 1.2), bz = g.position.z;
     if (Math.random() > hitChance) {
       floatNumber(bx, by, bz, '0', 'miss');
       return;
     }
-    // Max hit scales the weapon's top end by Strength; roll 0..max like OSRS.
-    const maxHit = Math.max(wd.min, Math.round(wd.max * (1 + (str - 1) * 0.05)));
+    // Max hit scales the weapon's top end by Strength + worn Strength bonus; roll
+    // 0..max like OSRS.
+    const maxHit = Math.max(wd.min, Math.round((wd.max + eb.strength * 0.35) * (1 + (str - 1) * 0.05)));
     const dmg = randInt(0, maxHit);
     md.hp -= dmg;
     floatNumber(bx, by, bz, String(dmg), dmg >= maxHit && dmg > 0 ? 'big' : (dmg === 0 ? 'miss' : 'dmg'));
@@ -307,7 +315,13 @@ function startCombat(em) {
   function hitPlayer(g) {
     const md = g.userData.monster;
     const [lo, hi] = md.type.dmg;
-    const dmg = randInt(lo, hi);
+    let dmg = randInt(lo, hi);
+    // Worn Defence bonus + Defence level give a chance to soak part of the blow,
+    // so armour you smith/buy visibly keeps you alive longer.
+    const eb = gearBonuses();
+    const defLvl = lvl('defence', 1);
+    const soak = (eb.defence + defLvl * 0.5);
+    if (dmg > 0 && Math.random() < soak / (soak + 30)) dmg = Math.max(0, dmg - 1 - Math.floor(eb.defence / 12));
     pstate.hp -= dmg;
     refreshPlayerHp();
     const s = player.position;
@@ -346,6 +360,8 @@ function startCombat(em) {
     md.fadeStart = performance.now() / 1000;
     md.respawnHome = md.home;
     md.respawnType = md.typeId;
+    // Let active quests count this kill toward their objectives.
+    try { if (em.quests && em.quests.onMonsterKill) em.quests.onMonsterKill(md.typeId); } catch (e) {}
   }
 
   function playerDie() {

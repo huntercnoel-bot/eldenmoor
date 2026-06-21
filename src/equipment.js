@@ -35,6 +35,18 @@ export function createEquipment(inventory) {
 
   function getWeapon() { return slots.weapon ? ITEMS[slots.weapon] : null; }
 
+  // Sum the combat bonuses of everything worn into one {attack,strength,defence}.
+  // Drives accuracy, max hit and damage reduction over in combat.js.
+  function getBonuses() {
+    const total = { attack: 0, strength: 0, defence: 0 };
+    for (const d of SLOT_DEFS) {
+      const itemId = slots[d.id];
+      const b = itemId && ITEMS[itemId] && ITEMS[itemId].bonuses;
+      if (b) { total.attack += b.attack || 0; total.strength += b.strength || 0; total.defence += b.defence || 0; }
+    }
+    return total;
+  }
+
   // Tell the listener a slot's worn item changed, so the 3D hero can update.
   function emit(slotId) { if (onEquipChange) onEquipChange(slotId, slots[slotId] ? ITEMS[slots[slotId]] : null); }
   function emitAll() { if (onEquipChange) for (const d of SLOT_DEFS) emit(d.id); }
@@ -81,6 +93,15 @@ export function createEquipment(inventory) {
       }
       gridEl.appendChild(cell);
     }
+    // Total worn bonuses, OSRS equipment-stats style.
+    const b = getBonuses();
+    const stats = document.createElement('div');
+    stats.className = 'equip-bonuses';
+    stats.innerHTML =
+      `<span title="Attack bonus">⚔️ +${b.attack}</span>` +
+      `<span title="Strength bonus">💪 +${b.strength}</span>` +
+      `<span title="Defence bonus">🛡️ +${b.defence}</span>`;
+    gridEl.appendChild(stats);
   }
 
   function serialize() { return Object.assign({}, slots); }
@@ -93,5 +114,5 @@ export function createEquipment(inventory) {
   }
 
   render();
-  return { slots, equip, unequip, getWeapon, render, serialize, load, setEquipChangeHandler };
+  return { slots, equip, unequip, getWeapon, getBonuses, render, serialize, load, setEquipChangeHandler };
 }
