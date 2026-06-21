@@ -446,6 +446,8 @@ function startCombat(em) {
     md.respawnType = md.typeId;
     // Let active quests count this kill toward their objectives.
     try { if (em.quests && em.quests.onMonsterKill) em.quests.onMonsterKill(md.typeId); } catch (e) {}
+    // ...and the Slayer task master, if a task is active.
+    try { if (em.slayer && em.slayer.onKill) em.slayer.onKill(md.typeId, md.type && md.type.name); } catch (e) {}
   }
 
   function playerDie() {

@@ -35,6 +35,7 @@ import './magic.js';    // Magic skill: spellbook of elemental attack spells
 import './ranged.js';   // Ranged skill: equip a bow + arrows, click a foe to shoot
 import './fletching.js'; // Fletching skill: knife + logs -> shafts/bows, fletch arrows
 import './thieving.js';  // Thieving skill: pickpocket townsfolk for coins
+import './slayer.js';    // Slayer skill: kill-N-monster task master
 import './dungeon.js';   // Crypt of the Hollow King — undead dungeon zone (self-initializing)
 import './wizardTower.js';   // Wizard's Tower — arcane landmark for the Magic skill (self-initializing)
 import './ambient.js';

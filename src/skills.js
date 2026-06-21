@@ -17,6 +17,7 @@ const SKILL_DEFS = [
   { id: 'ranged',     name: 'Ranged',     icon: '🏹', base: 1 },
   { id: 'fletching',  name: 'Fletching',  icon: '🪶', base: 1 },
   { id: 'thieving',   name: 'Thieving',   icon: '🤞', base: 1 },
+  { id: 'slayer',     name: 'Slayer',     icon: '💀', base: 1 },
 ];
 
 // --- Tree tiers (Woodcutting) -------------------------------------------------
