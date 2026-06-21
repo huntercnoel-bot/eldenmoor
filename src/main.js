@@ -44,6 +44,7 @@ import './showcase.js';
 import './villageModels.js';
 import './storeModels.js';
 import './castleModel.js';
+import './castleApproach.js';   // self-contained: grand staircase + balustrades + braziers leading to the gate
 import './castleFurniture.js';
 import './castleRoom_library.js';   // self-contained: furnishes the castle Library side room
 import './castleRoom_kitchen.js';   // furnishes the castle's KITCHEN room
