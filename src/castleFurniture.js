@@ -42,7 +42,7 @@ const warmLight = (root, x, y, z, i = 5, d = 16) => { const l = new THREE.PointL
 function furnishGround(floor) {
   const root = new THREE.Group(); root.name = 'castle-furniture'; floor.add(root);
   const put = placer(root); const HD = 22;
-  put('syn_Throne', 0, HD - 3, Math.PI, 3.0, 0.8);
+  put('syn_Throne', 0, HD - 3, Math.PI, 1.95, 0.55);
   put('wj_prop_weapon_rack', -5.5, HD - 3.5, Math.PI, 2.6);
   put('wj_prop_weapon_rack',  5.5, HD - 3.5, Math.PI, 2.6);
   put('wj_prop_candelabra', -3.6, HD - 2.0, 0, 2.2, 0.8); warmLight(root, -3.6, 2.4, HD - 2.0);

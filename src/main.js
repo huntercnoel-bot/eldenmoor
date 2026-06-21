@@ -32,7 +32,7 @@ import './villageModels.js';
 import './storeModels.js';
 import './castleModel.js';
 import './castleFurniture.js';
-import './playerModel.js';
+import './kingModel.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
@@ -356,7 +356,6 @@ function startGame(username) {
       else if (!on) stairLatch = false;
     }
     updatePlayerAnimation(player, wasd || act.walking, t, act.chopping);
-    if (player.userData.setDwarfMotion) player.userData.setDwarfMotion(wasd || act.walking, act.chopping);
     questPollTimer += dt;
     if (questPollTimer >= 0.5) { questPollTimer = 0; quests.poll(); }
     updateNpcs(npcs, dt, t);
