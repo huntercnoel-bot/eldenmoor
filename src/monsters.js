@@ -14,6 +14,168 @@
 // polling for window.eldenmoor, so it needs no main.js wiring beyond the import.
 
 import * as THREE from '../vendor/three.module.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+
+// ============================================================================
+//  REAL CREATURE MODELS  —  swap the procedural blobs for rigged GLBs
+// ============================================================================
+// Each monster TYPE maps to a downloaded Quaternius creature (committed under
+// assets/models/monsters/). The procedural group is still built (so combat.js
+// keeps its hitbox / footprint / rig fields), but its meshes are hidden and a
+// deep-cloned GLB is parented on top, driven by its OWN clips through an
+// AnimationMixer (Idle / Walk / Attack / Death). Mirrors src/npcModels.js.
+
+const MODEL_DIR = './assets/models/monsters/';
+const _loader = new GLTFLoader();
+const _glbCache = {};   // url -> Promise<gltf>
+
+function loadGlb(url) {
+  if (!_glbCache[url]) _glbCache[url] = new Promise((ok, err) => _loader.load(url, ok, undefined, err));
+  return _glbCache[url];
+}
+
+// Per-type model assignment. `h` = target on-the-ground height in metres.
+// `face` lets a human flip a single model 180° if it walks backwards.
+//   giant_rat -> enemy_Rat   (perfect fit)
+//   goblin    -> enemy_Spider (no humanoid enemy ships; the spider is the most
+//                              menacing fit and is sized up to read as a brute)
+const MONSTER_MODEL = {
+  giant_rat: { file: 'enemy_Rat.glb',    h: 0.85, face: 0 },
+  goblin:    { file: 'enemy_Spider.glb', h: 1.30, face: 0 },
+};
+
+// SkinnedMesh-safe deep clone (inlined three.js SkeletonUtils.clone). A plain
+// Object3D.clone(true) shares the Skeleton by reference, so multiple monsters of
+// the same type would fight over one set of bones. This rebuilds each clone's
+// skeleton from its OWN cloned bone tree. (Copied from src/npcModels.js.)
+function cloneSkinned(source) {
+  const clone = source.clone(true);
+  const cloneLookup = new Map();
+  const sourceLookup = new Map();
+  (function parallel(a, b) {            // a = source, b = clone
+    sourceLookup.set(b, a);
+    cloneLookup.set(a, b);
+    const ac = a.children, bc = b.children;
+    for (let i = 0; i < ac.length; i++) parallel(ac[i], bc[i]);
+  })(source, clone);
+  clone.traverse((node) => {
+    if (!node.isSkinnedMesh) return;
+    const cloneMesh = node;
+    const sourceMesh = sourceLookup.get(cloneMesh);
+    const sourceBones = sourceMesh.skeleton.bones;
+    cloneMesh.skeleton = sourceMesh.skeleton.clone();
+    cloneMesh.bindMatrix.copy(sourceMesh.bindMatrix);
+    cloneMesh.skeleton.bones = sourceBones.map((b) => cloneLookup.get(b));
+    cloneMesh.bind(cloneMesh.skeleton, cloneMesh.bindMatrix);
+  });
+  return clone;
+}
+
+// Reliable height/footing for a skinned model: measure the rest-pose silhouette
+// straight from transformed vertex positions (Box3.setFromObject is unreliable
+// on freshly-cloned SkinnedMeshes). Returns world-space y bounds.
+const _mv = new THREE.Vector3();
+function measureY(model) {
+  model.updateMatrixWorld(true);
+  let min = Infinity, max = -Infinity;
+  model.traverse((o) => {
+    if (!(o.isMesh || o.isSkinnedMesh) || !o.geometry || !o.geometry.attributes.position) return;
+    const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      _mv.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      if (_mv.y < min) min = _mv.y;
+      if (_mv.y > max) max = _mv.y;
+    }
+  });
+  return { min, max, h: max - min };
+}
+
+// Pick a clip by intent out of a creature's own animation list. These models
+// name their clips "<Armature>|<Creature>_<Action>" (e.g. "RatArmature|Rat_Walk").
+function pickMonsterClip(clips, kind) {
+  if (!clips || !clips.length) return null;
+  const order = {
+    idle:   [/idle/i, /stand/i],
+    walk:   [/run/i, /walk/i, /flying/i, /jog/i],
+    attack: [/attack/i, /bite/i, /jump/i],
+    death:  [/death/i, /die/i],
+  }[kind] || [];
+  for (const re of order) {
+    const c = clips.find((c) => re.test(c.name) && !/tpose/i.test(c.name));
+    if (c) return c;
+  }
+  return null;
+}
+
+// Attach a cloned GLB to a freshly-built monster group `g` of the given `type`.
+// Hides the procedural meshes, parents the model, and wires up the mixer state
+// onto g.userData._model. Resolves silently on any failure (the procedural body
+// is kept visible as a fallback so a monster is never invisible / T-posed).
+async function attachModel(g, type) {
+  const cfg = MONSTER_MODEL[type.id];
+  if (!cfg) return;
+  let gltf;
+  try { gltf = await loadGlb(MODEL_DIR + cfg.file); }
+  catch (err) { console.error('[monsters] model load failed', cfg.file, err); return; }
+  if (g.userData.monster && g.userData.monster.removed) return;   // killed mid-load
+
+  const model = cloneSkinned(gltf.scene);
+  model.name = 'monster-' + type.id;
+  model.rotation.y = cfg.face || 0;            // Y-rot doesn't change height
+
+  // scale to a sensible on-ground height, drop feet to the group's y=0
+  const m = measureY(model);
+  const nativeH = (isFinite(m.h) && m.h > 0.01) ? m.h : 1.0;
+  const s = cfg.h / nativeH;
+  model.scale.setScalar(s);
+  model.position.y = -m.min * s;
+
+  model.traverse((o) => {
+    if (o.isMesh || o.isSkinnedMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+      o.frustumCulled = false;          // skinned bounds drift; keep it drawn
+      o.userData.__toonDone = true;     // tell the cel-shader to leave it alone
+      o.userData.monsterRoot = g;       // raycast hits on the model resolve to root
+      // clone the material per-instance — clone(true) shares material refs, so
+      // combat.js's death-fade (setOpacity) would otherwise fade every monster
+      // of this type at once. A fresh copy keeps each death independent.
+      if (o.material) o.material = Array.isArray(o.material) ? o.material.map((mm) => mm.clone()) : o.material.clone();
+    }
+  });
+
+  // hide the procedural body (keep the group + rig objects for combat), add model
+  g.traverse((o) => { if (o.isMesh) o.visible = false; });
+  g.add(model);
+
+  // ----- own-clip animation via a per-model mixer ----------------------------
+  const mixer = new THREE.AnimationMixer(model);
+  const clips = gltf.animations || [];
+  const mk = (kind, loop) => {
+    const clip = pickMonsterClip(clips, kind);
+    if (!clip) return null;
+    const a = mixer.clipAction(clip);
+    if (loop === false) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
+    else a.setLoop(THREE.LoopRepeat, Infinity);
+    return a;
+  };
+  const idle = mk('idle', true);
+  const walk = mk('walk', true);
+  const attack = mk('attack', false);
+  const death = mk('death', false);
+  const start = idle || walk;
+  if (start) start.reset().play();
+
+  g.userData._model = {
+    model, mixer,
+    idle, walk, attack, death,
+    current: start || null,
+    lastX: g.position.x, lastZ: g.position.z,
+    attackUntil: 0,        // wall-clock (s) the attack action plays until
+    lastAttackSeen: -1,    // md.lastAttack value we last reacted to
+    deathPlayed: false,
+  };
+}
 
 // ----- shared material helper (smooth, lit, cel-shade-ready) -----------------
 function mat(color, rough = 0.85, metal = 0.0) {
@@ -176,6 +338,9 @@ export function spawnMonster(typeId, x, z) {
   // cel-shade this fresh monster (flat toon bands + outline) to match the scene
   const em = window.eldenmoor;
   if (em && em.applyToonTo) em.applyToonTo(g);
+  // swap the procedural blob for a real rigged creature model (async; the
+  // procedural body shows until the GLB resolves, so it's never invisible)
+  attachModel(g, type).catch((err) => console.error('[monsters] attach failed', err));
   return g;
 }
 
@@ -209,12 +374,64 @@ function startMonsters(em) {
   function remove(group) {
     const i = monsters.indexOf(group);
     if (i >= 0) monsters.splice(i, 1);
+    if (group.userData.monster) group.userData.monster.removed = true;
+    const sm = group.userData._model;
+    if (sm && sm.mixer) sm.mixer.stopAllAction();
     scene.remove(group);
     group.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
   }
 
+  // smoothly crossfade a model's mixer onto a new looping action
+  function fadeTo(sm, action) {
+    if (!action || action === sm.current) return;
+    action.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    if (sm.current) sm.current.crossFadeTo(action, 0.2, false); else action.fadeIn(0.2);
+    sm.current = action;
+  }
+
+  // Drive a GLB monster's own clips: Death > Attack > Walk > Idle. Returns true
+  // if the model handled animation (so the procedural rig path is skipped).
+  function driveModel(g, md, dt, t, moving) {
+    const sm = g.userData._model;
+    if (!sm) return false;
+
+    // Death: play once on death, then hold the final frame while combat fades it.
+    if (md.state === 'dead' || !md.alive) {
+      if (sm.death && !sm.deathPlayed) {
+        sm.deathPlayed = true;
+        if (sm.current && sm.current !== sm.death) sm.current.fadeOut(0.15);
+        sm.death.reset().setLoop(THREE.LoopOnce, 1).play();
+        sm.death.clampWhenFinished = true;
+        sm.current = sm.death;
+      }
+      sm.mixer.update(dt);
+      return true;
+    }
+
+    // Attack: combat.js bumps md.lastAttack each time the monster hits the player.
+    // Fire the one-shot Attack clip when we see a fresh swing.
+    if (sm.attack && md.lastAttack && md.lastAttack !== sm.lastAttackSeen) {
+      sm.lastAttackSeen = md.lastAttack;
+      sm.attackUntil = t + (sm.attack.getClip ? sm.attack.getClip().duration : 0.8);
+      sm.attack.reset().setLoop(THREE.LoopOnce, 1).play();
+      if (sm.current && sm.current !== sm.attack) sm.current.crossFadeTo(sm.attack, 0.1, false);
+      sm.current = sm.attack;
+    }
+
+    if (sm.current === sm.attack && t < sm.attackUntil) {
+      sm.mixer.update(dt);
+      return true;   // let the attack finish before returning to locomotion
+    }
+
+    // Locomotion: Walk while moving, Idle otherwise (fall back to whatever exists).
+    fadeTo(sm, moving ? (sm.walk || sm.idle) : (sm.idle || sm.walk));
+    sm.mixer.update(dt);
+    return true;
+  }
+
   // animate limbs for a walking monster
   function animate(g, md, dt, t, moving, speedScale) {
+    if (driveModel(g, md, dt, t, moving)) return;   // GLB model owns its animation
     const rig = g.userData.rig; if (!rig) return;
     if (moving) {
       md.bob += dt * 9 * speedScale;
@@ -242,7 +459,12 @@ function startMonsters(em) {
     const onGround = floor === 0;
     for (const g of monsters) {
       const md = g.userData.monster;
-      if (!md.alive || md.state === 'dead') continue;          // combat owns death anim
+      if (!md.alive || md.state === 'dead') {
+        // combat owns death + fade/respawn; we still tick the mixer so the GLB
+        // model can play its one-shot Death clip and hold the final frame.
+        if (g.userData._model) animate(g, md, dt, t, false);
+        continue;
+      }
       g.visible = onGround;
       if (!onGround) continue;
 

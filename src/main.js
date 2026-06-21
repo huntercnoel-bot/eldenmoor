@@ -34,6 +34,7 @@ import './castleModel.js';
 import './castleFurniture.js';
 import './kingModel.js';
 import './npcModels.js';
+import './playerModel.js';
 
 // ============================ LOGIN ============================
 const net = createNet();
@@ -357,6 +358,7 @@ function startGame(username) {
       else if (!on) stairLatch = false;
     }
     updatePlayerAnimation(player, wasd || act.walking, t, act.chopping);
+    if (player.userData.setPlayerChop) player.userData.setPlayerChop(act.chopping);
     questPollTimer += dt;
     if (questPollTimer >= 0.5) { questPollTimer = 0; quests.poll(); }
     updateNpcs(npcs, dt, t);
