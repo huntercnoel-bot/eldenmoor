@@ -25,6 +25,7 @@ import { toonify, applyToonTo } from './toon.js';
 import './vfx.js';
 import './audio.js';
 import './combat.js';
+import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; reads window.eldenmoor)
 import './ambient.js';
 import './assets.js';
 import './showcase.js';
