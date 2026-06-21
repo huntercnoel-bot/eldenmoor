@@ -29,6 +29,7 @@ import './combat.js';
 import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; reads window.eldenmoor)
 import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
 import './prayer.js';   // Prayer skill: bury bones, activatable prayers, chapel altar
+import './magic.js';    // Magic skill: spellbook of elemental attack spells
 import './ambient.js';
 import './assets.js';
 import './showcase.js';
@@ -175,6 +176,9 @@ function startGame(username) {
     inventory.add('coins', 25);
     // a starter set of wearable steel armour — equip from the bag to put it on
     for (const g of ['steel_helm', 'steel_platebody', 'steel_platelegs', 'steel_gauntlets', 'steel_boots', 'steel_kiteshield', 'adventurer_cape']) inventory.add(g, 1);
+    // a pouch of starter runes so the Magic spellbook works from the off
+    inventory.add('air_rune', 40); inventory.add('mind_rune', 30);
+    inventory.add('water_rune', 20); inventory.add('earth_rune', 20); inventory.add('fire_rune', 20);
   }
   if (!equipment.getWeapon()) {
     if (inventory.count('bronze_axe') > 0) equipment.equip('bronze_axe');

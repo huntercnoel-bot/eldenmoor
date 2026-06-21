@@ -495,9 +495,26 @@ function startCombat(em) {
   }
   requestAnimationFrame(tick);
 
+  // Apply a chunk of damage to a monster from an external source (e.g. a Magic
+  // spell), routing through the normal floating-number, HP-bar and kill/loot/XP
+  // path so spells feel identical to melee. Returns the damage actually dealt.
+  function damageMonster(g, dmg, kind) {
+    if (!g || !g.userData || !g.userData.monster) return 0;
+    const md = g.userData.monster;
+    if (!md.alive) return 0;
+    dmg = Math.max(0, Math.round(dmg));
+    md.hp -= dmg;
+    const bx = g.position.x, by = g.position.y + (md.type.hpBarY || 1.2), bz = g.position.z;
+    floatNumber(bx, by, bz, String(dmg), dmg === 0 ? 'miss' : (kind || 'dmg'));
+    ensureBar(g);
+    if (md.hp <= 0) killMonster(g);
+    return dmg;
+  }
+
   return {
     state: pstate,
     attack: engage,
+    damageMonster,
     setPlayerHp: (n) => { pstate.hp = Math.max(0, Math.min(pstate.maxHp, n)); refreshPlayerHp(); },
     list: monstersList,
     dropLoot,

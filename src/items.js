@@ -505,3 +505,20 @@ function axeIcon(fill, stroke, shine, glow) {
     <path d="M19 9 C26 8 31 11 31 16 C31 19 27 20.5 19 18 Z" fill="${fill}" stroke="${stroke}" stroke-width="1"/>
     <path d="M22 10.5 C26 10.5 29 12.5 29.6 15" stroke="${shine}" stroke-width="1" fill="none" opacity="0.9"/></svg>`;
 }
+
+// ---- Magic: runes (spell reagents) ----------------------------------------
+// Stackable reagents consumed when casting. Buyable from the magic stall; some
+// also drop from monsters. Icons are little glowing runestones in elemental hues.
+function runeIcon(fill, glyph) {
+  return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="13" fill="${fill}" opacity="0.25"/>
+    <path d="M20 7 L31 14 L28 28 L12 28 L9 14 Z" fill="${fill}" stroke="#2a2440" stroke-width="1.4"/>
+    <path d="${glyph}" stroke="#fff" stroke-width="1.6" fill="none" opacity="0.92"/></svg>`;
+}
+ITEMS.air_rune   = { id: 'air_rune',   name: 'Air rune',   stackable: true, value: 4,  examine: 'A rune of air.',   icon: runeIcon('#bfe6ff', 'M20 12 L20 28 M14 18 L26 18') };
+ITEMS.water_rune = { id: 'water_rune', name: 'Water rune', stackable: true, value: 4,  examine: 'A rune of water.', icon: runeIcon('#5a9bff', 'M20 12 Q26 20 20 28 Q14 20 20 12') };
+ITEMS.earth_rune = { id: 'earth_rune', name: 'Earth rune', stackable: true, value: 4,  examine: 'A rune of earth.', icon: runeIcon('#8a6a3a', 'M13 24 L20 13 L27 24 Z') };
+ITEMS.fire_rune  = { id: 'fire_rune',  name: 'Fire rune',  stackable: true, value: 4,  examine: 'A rune of fire.',  icon: runeIcon('#ff7a3a', 'M20 12 Q25 18 21 23 Q24 25 20 28 Q16 25 19 23 Q15 18 20 12') };
+ITEMS.mind_rune  = { id: 'mind_rune',  name: 'Mind rune',  stackable: true, value: 3,  examine: 'A rune of the mind.',  icon: runeIcon('#c8a0ff', 'M14 22 Q20 12 26 22 M17 26 L23 26') };
+ITEMS.chaos_rune = { id: 'chaos_rune', name: 'Chaos rune', stackable: true, value: 18, examine: 'A rune of chaos.', icon: runeIcon('#ff4a6a', 'M20 11 L20 29 M12 15 L28 25 M28 15 L12 25') };
+ITEMS.death_rune = { id: 'death_rune', name: 'Death rune', stackable: true, value: 50, examine: 'A rune of death.', icon: runeIcon('#d0d0d8', 'M14 14 L26 26 M26 14 L14 26 M20 11 L20 29') };
