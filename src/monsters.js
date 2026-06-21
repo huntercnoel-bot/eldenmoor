@@ -50,6 +50,13 @@ const MONSTER_MODEL = {
   // OSRS chickens & cows) — chicken=tiny rat, marsh hopper=tiny frog.
   chicken:   { file: 'enemy_Rat.glb',    h: 0.45, face: 0 },
   marsh_hopper: { file: 'enemy_Frog.glb', h: 0.40, face: 0 },
+  // --- Undead dungeon mobs (KayKit Skeleton Minion GLB, ~95 own clips). The
+  //     skeleton ships its own Idle/Walk/Attack/Death; the warrior reuses it at a
+  //     larger scale, and the zombie reuses it tinted darker/green (tint applied
+  //     in attachModel via MONSTER_MODEL.tint) — all sharing one committed GLB.
+  skeleton:         { file: 'Skeleton_Minion.glb', h: 1.70, face: 0 },
+  skeleton_warrior: { file: 'Skeleton_Minion.glb', h: 1.95, face: 0 },
+  zombie:           { file: 'Skeleton_Minion.glb', h: 1.65, face: 0, tint: 0x4a6b34 },
 };
 
 // SkinnedMesh-safe deep clone (inlined three.js SkeletonUtils.clone). A plain
@@ -149,6 +156,13 @@ async function attachModel(g, type) {
       // combat.js's death-fade (setOpacity) would otherwise fade every monster
       // of this type at once. A fresh copy keeps each death independent.
       if (o.material) o.material = Array.isArray(o.material) ? o.material.map((mm) => mm.clone()) : o.material.clone();
+      // optional per-type tint (zombie reuses the skeleton GLB recoloured darker
+      // green). Multiply the base colour so the model's texture detail survives.
+      if (cfg.tint != null && o.material) {
+        const tint = new THREE.Color(cfg.tint);
+        const apply = (mm) => { if (mm && mm.color) mm.color.multiply(tint); };
+        Array.isArray(o.material) ? o.material.forEach(apply) : apply(o.material);
+      }
     }
   });
 
@@ -457,6 +471,53 @@ export const MONSTER_TYPES = {
       { id: 'emerald', chance: 0.04, min: 1, max: 1 },          // rare valuable
     ],
   },
+
+  // ===== UNDEAD DUNGEON MOBS (Crypt of the Hollow King) =====================
+  // Tougher than the surface beasts and aggressive — proper mid-level PvE. They
+  // share one rigged GLB (the skeleton) and lean on the same drop economy:
+  // always bones/big_bones, good coin, common smithing materials (coal/iron ore)
+  // and the occasional bronze/iron gear, topped by a rare themed ancient_shard.
+  skeleton: {
+    id: 'skeleton', name: 'Skeleton', build: buildGoblin, scale: 1.0,
+    maxHp: 38, dmg: [3, 8], attackSpeed: 1.8, defense: 7,
+    aggroRange: 9, leashRange: 30, speed: 2.2, hpBarY: 2.0,
+    xp: 36, loot: [
+      { id: 'bones', chance: 1.0, min: 1, max: 1 },              // always
+      { id: 'coins', chance: 0.95, min: 8, max: 38 },            // common
+      { id: 'coal', chance: 0.3, min: 1, max: 2 },               // material
+      { id: 'iron_ore', chance: 0.18, min: 1, max: 1 },          // material
+      { id: 'bronze_sword', chance: 0.07, min: 1, max: 1 },      // gear
+      { id: 'iron_dagger', chance: 0.05, min: 1, max: 1 },       // gear
+      { id: 'ancient_shard', chance: 0.012, min: 1, max: 1 },    // rare themed
+    ],
+  },
+  skeleton_warrior: {
+    id: 'skeleton_warrior', name: 'Skeleton Warrior', build: buildGoblin, scale: 1.0,
+    maxHp: 60, dmg: [5, 12], attackSpeed: 2.0, defense: 12,
+    aggroRange: 10, leashRange: 32, speed: 2.3, hpBarY: 2.2,
+    xp: 60, loot: [
+      { id: 'big_bones', chance: 1.0, min: 1, max: 1 },          // always (heavier)
+      { id: 'coins', chance: 0.98, min: 20, max: 75 },           // common, generous
+      { id: 'coal', chance: 0.4, min: 1, max: 3 },               // material
+      { id: 'iron_ore', chance: 0.3, min: 1, max: 2 },           // material
+      { id: 'iron_sword', chance: 0.08, min: 1, max: 1 },        // gear
+      { id: 'iron_helm', chance: 0.06, min: 1, max: 1 },         // gear
+      { id: 'ancient_shard', chance: 0.04, min: 1, max: 1 },     // rare themed
+    ],
+  },
+  zombie: {
+    id: 'zombie', name: 'Zombie', build: buildGoblin, scale: 1.0,
+    maxHp: 46, dmg: [4, 9], attackSpeed: 2.4, defense: 6,
+    aggroRange: 8, leashRange: 28, speed: 1.5, hpBarY: 2.0,
+    xp: 44, loot: [
+      { id: 'big_bones', chance: 1.0, min: 1, max: 1 },          // always
+      { id: 'coins', chance: 0.9, min: 6, max: 30 },             // common
+      { id: 'raw_meat', chance: 0.35, min: 1, max: 1 },          // rotten flesh
+      { id: 'coal', chance: 0.22, min: 1, max: 2 },              // material
+      { id: 'bronze_dagger', chance: 0.06, min: 1, max: 1 },     // gear
+      { id: 'ancient_shard', chance: 0.018, min: 1, max: 1 },    // rare themed
+    ],
+  },
 };
 
 // Where monsters live, laid out as OSRS-style SPAWN ZONES that ramp in danger
@@ -488,6 +549,16 @@ const SPAWN_CLUSTERS = [
   // --- Far snake fen (high danger) ----------------------------------------
   ['snake', 64, 40, 3],
   ['snake', -64, -52, 2],
+
+  // --- Crypt of the Hollow King (undead dungeon, far NW corner) ------------
+  // Built by dungeon.js around (-105, 88). The undead pack tight around the
+  // crypt mouth, scaling up in danger toward the inner ring.
+  ['skeleton', -118, 78, 3],
+  ['skeleton', -100, 96, 3],
+  ['zombie', -112, 92, 3],
+  ['zombie', -96, 80, 2],
+  ['skeleton_warrior', -107, 88, 2],
+  ['skeleton_warrior', -120, 96, 1],
 ];
 
 const rand = (a, b) => a + Math.random() * (b - a);

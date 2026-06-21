@@ -31,6 +31,7 @@ import './fishing.js';   // Fishing + Cooking + Firemaking (self-initializing; r
 import './mining.js';   // Mining quarry + Smithing furnace/anvil (self-initializing)
 import './prayer.js';   // Prayer skill: bury bones, activatable prayers, chapel altar
 import './magic.js';    // Magic skill: spellbook of elemental attack spells
+import './dungeon.js';   // Crypt of the Hollow King — undead dungeon zone (self-initializing)
 import './ambient.js';
 import './assets.js';
 import './showcase.js';

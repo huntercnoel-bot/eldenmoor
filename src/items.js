@@ -269,6 +269,19 @@ ITEMS.emerald = {
   icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><path d="M14 10 H26 L32 18 L20 34 L8 18 Z" fill="#3fbf6a" stroke="#1e7a3e" stroke-width="1.5"/><path d="M14 10 L20 18 L26 10 M8 18 H32 M20 18 L20 34" stroke="#c8f5d6" stroke-width="1" opacity="0.8"/></svg>`,
 };
 
+// --- Undead dungeon trophy (rare drop from the Crypt of the Hollow King) ----
+// A jagged sliver of bone-pale rune-etched stone, glowing a sickly necrotic
+// green. The rarest undead drop — a valuable curio, themed to the crypt.
+ITEMS.ancient_shard = {
+  id: 'ancient_shard', name: 'Ancient shard', stackable: true, value: 350,
+  examine: 'A jagged shard of rune-carved bone, humming with cold necrotic power.',
+  icon: `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="15" fill="#6fdf8a" opacity="0.18"/>
+    <path d="M16 5 L25 14 L23 28 L18 35 L14 22 L17 16 Z" fill="#d8e6cf" stroke="#5a7a4a" stroke-width="1.4"/>
+    <path d="M18 11 L21 17 M17 20 L22 22 M18 26 L20 30" stroke="#3f6f3a" stroke-width="1.1" opacity="0.9"/>
+    <path d="M16 5 L18 16 L14 22" fill="none" stroke="#aef0bf" stroke-width="0.8" opacity="0.7"/></svg>`,
+};
+
 // ---- Higher-tier logs (appended by the Woodcutting extension; additive only) ----
 // Values follow OSRS log spacing scaled down: better wood is worth more. Each
 // icon is the same banded log motif tinted to its species so they read at a
