@@ -22,5 +22,6 @@ assets/models/castle_candidates/
 assets/models/interior_options/
 assets/models/npc_options/
 assets/models/env_options/
+assets/models/build_options/
 # Temp standalone preview pages used for rendering candidates
 /_*.html
