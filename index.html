@@ -104,7 +104,7 @@
     /* Logout button — carved bronze pill, anchored in the top-right column
        directly UNDER the minimap + coords pill so it never sits behind the dial.
        Width matches the minimap (132px) for a tidy stacked column. */
-    #logout { position: fixed; top: 180px; right: 18px; z-index: 5; width: 132px; text-align: center;
+    #logout { position: fixed; top: 166px; right: 18px; z-index: 5; width: 132px; text-align: center;
       background: linear-gradient(180deg,#4a3620,#241708); color: var(--gold-bright);
       border: 1px solid var(--bronze); font-family: Georgia, serif; font-size: 12px; font-weight: 700;
       padding: 7px 14px; border-radius: 7px; cursor: pointer; letter-spacing: 0.4px;
@@ -270,11 +270,12 @@
       text-shadow: 0 0 12px rgba(255,210,119,0.5), 0 2px 6px rgba(0,0,0,0.95);
       box-shadow: inset 0 1px 0 rgba(255,230,168,0.3), 0 0 22px rgba(255,210,119,0.35), 0 8px 26px rgba(0,0,0,0.65); }
 
-    /* "Saved" toast — sits in the top-right column under the logout pill so it
-       clears the minimap dial and the logout button. */
-    #saved { position: fixed; top: 236px; right: 18px; z-index: 7; pointer-events: none; font-size: 13px; font-weight: 700;
-      width: 132px; text-align: center; color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
-      padding: 5px 14px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease;
+    /* "Saved" toast — a brief flash, centred along the top edge (clear of the
+       minimap, logout pill and the bottom-right tabbed panel). pointer-events
+       stay off so it never blocks the view. */
+    #saved { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 7; pointer-events: none; font-size: 13px; font-weight: 700;
+      text-align: center; color: #c7ffb0; background: linear-gradient(180deg,#2a2114,#16100a); border: 1px solid var(--bronze);
+      padding: 6px 18px; border-radius: 999px; opacity: 0; transition: opacity 0.4s ease;
       box-shadow: inset 0 1px 0 rgba(255,214,119,0.12), 0 3px 10px rgba(0,0,0,0.5); }
 
     /* Right-click context menu — carved bronze dropdown. */
@@ -314,10 +315,11 @@
     #wc-input::placeholder, #chat-input::placeholder, #login input::placeholder, #fr-input::placeholder { color: rgba(244,228,193,0.4); }
     #wc-input:focus, #chat-input:focus, #login input:focus, #fr-input:focus { outline: none; border-color: var(--gold); box-shadow: inset 0 0 6px rgba(0,0,0,0.8), 0 0 8px rgba(255,210,119,0.35); }
 
-    /* Brief OSRS-style game notice — floats above the bottom-left chat stack
-       (world chat + private chat) so it never lands on top of either box. */
-    #gamemsg { position: fixed; bottom: 460px; left: 16px; z-index: 6; pointer-events: none; max-width: 46%;
-      font-size: 14px; color: #f3e7c4; text-shadow: 0 0 8px rgba(255,210,119,0.35), 0 2px 4px rgba(0,0,0,0.95);
+    /* Brief OSRS-style game notice — floats in the central band above the hint
+       banner (insets clear the bottom-left chat box and the bottom-right panel),
+       so it never lands on the left module column or either bottom box. */
+    #gamemsg { position: fixed; bottom: 140px; left: 384px; right: 264px; z-index: 6; pointer-events: none;
+      text-align: center; font-size: 14px; color: #f3e7c4; text-shadow: 0 0 8px rgba(255,210,119,0.35), 0 2px 4px rgba(0,0,0,0.95);
       font-family: Georgia, serif; opacity: 0; transition: opacity 0.4s ease; }
 
     /* Floating NPC name labels. */
@@ -637,6 +639,65 @@
     .bar-fill::before { content: ''; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
       background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.16) 50%, transparent 100%);
       background-size: 120px 100%; background-repeat: no-repeat; animation: em-bar-sheen 3.4s linear infinite; }
+
+    /* ===================== Floating module panels — layout + theme overrides =====================
+       These panels are built by self-contained modules we don't edit (prayer.js,
+       magic.js, slayer.js, combat.js spec bar, achievements.js). They ship their
+       own inline styles, so we override position + skin here with !important to
+       slot them cleanly into the HUD and unify them with the stone/bronze theme.
+
+       HUD layout map (so nothing collides at 1280×720 or 1920×1080):
+         · top-left column   : #vitals (54)  → #prayer-panel (188) → #spellbook-panel (above chat)
+         · top-right column  : minimap → #logout → #saved → 🏆 #ach-toggle
+         · bottom-left       : #slayer-panel sits ABOVE the world-chat box
+         · bottom-centre band: #showcase-btn / #spec-bar / #hint stacked, clear of both columns
+    */
+
+    /* Shared carved-bronze skin for the small left-column module panels. */
+    #prayer-panel, #spellbook-panel, #slayer-panel {
+      background: linear-gradient(180deg, var(--stone-hi) 0%, #1d140c 55%, var(--stone-lo) 100%) !important;
+      border: 2px solid var(--bronze) !important; border-radius: 8px !important;
+      padding: 9px 10px !important;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,214,119,0.10),
+        inset 0 1px 0 rgba(255,214,119,0.16),
+        inset 0 0 18px rgba(0,0,0,0.72),
+        0 0 0 1px var(--bronze-dark),
+        0 8px 22px rgba(0,0,0,0.6) !important;
+      font-family: Georgia, serif !important;
+    }
+
+    /* Left column under the vitals box. Prayer + spellbook sit SIDE BY SIDE just
+       below the vitals frame (they're both narrow), which keeps the left column
+       short enough to clear the bottom-left chat box at 720p. */
+    #prayer-panel    { left: 20px !important; top: 188px !important; z-index: 5 !important; }
+    #spellbook-panel { left: 176px !important; top: 188px !important; z-index: 5 !important; }
+
+    /* Slayer task — parked in the gap between the left module column and the
+       bottom-left world-chat box (chat starts ~498px down at 720p), so it never
+       overlaps either. */
+    #slayer-panel {
+      left: 20px !important; right: auto !important; top: auto !important;
+      bottom: 232px !important; width: 230px !important; z-index: 6 !important;
+      font-size: 12px !important; color: #ecdfff !important; }
+
+    /* Special-attack bar — lift it above the bottom-centre hint banner so the two
+       readouts stack instead of overprinting each other. */
+    #spec-bar { bottom: 56px !important; z-index: 6 !important; }
+
+    /* "View new assets" showcase button — nudge up to clear the spec bar + hint. */
+    #showcase-btn { bottom: 96px !important; }
+
+    /* Achievements 🏆 button — pulled OUT of the bottom-right tabbed panel (it used
+       to overlap an inventory cell). Anchored to hug the LEFT edge of the tabbed
+       panel at the very bottom (panel is right:16 + 232 wide), so it stays clear of
+       the panel at every resolution. Its popup opens upward from the same spot. */
+    #ach-toggle {
+      right: 260px !important; bottom: 16px !important; top: auto !important;
+      z-index: 8 !important; }
+    #ach-panel {
+      right: 260px !important; bottom: 66px !important; top: auto !important;
+      z-index: 32 !important; }
 
     /* respect users who prefer reduced motion — keep states, drop the movement */
     @media (prefers-reduced-motion: reduce) {
