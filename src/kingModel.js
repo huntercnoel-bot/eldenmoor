@@ -19,7 +19,7 @@ const HEIGHT = 2.15;          // standing height the model is scaled to (a big, 
 const TUNE = {
   z: 64.4,          // world z of the king group (throne sits ~65)
   seatY: 0.52,      // local y lift so the dwarf's seat meets the throne cushion
-  face: 0,          // extra yaw of the dwarf so he looks down the hall (-z)
+  face: Math.PI,    // yaw of the dwarf so he looks DOWN the hall (-z), toward the approaching player
   hip: -1.5,        // thigh pitch (fold forward onto the seat)
   knee: 1.55,       // shin pitch (drop down off the seat)
   spine: -0.1,      // slight recline against the throne back
