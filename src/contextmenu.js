@@ -53,6 +53,7 @@ export function setupContextMenu({ dom, interactions, inventory, equipment, onTa
       const def = w.npc.userData.def;
       options.push({ label: 'Talk-to <span class="ctx-yellow">' + def.name + '</span>', action: () => interactions.setNpcTarget(w.npc, () => onTalk && onTalk(def)) });
       if (def.type === 'shop') options.push({ label: 'Trade with <span class="ctx-yellow">' + def.name + '</span>', action: () => interactions.setNpcTarget(w.npc, () => onTrade && onTrade(def)) });
+      options.push({ label: 'Pickpocket <span class="ctx-yellow">' + def.name + '</span>', action: () => { try { window.eldenmoor.thieving && window.eldenmoor.thieving.pickpocket(w.npc, def); } catch (err) {} } });
       options.push({ label: 'Examine <span class="ctx-yellow">' + def.name + '</span>', action: () => gameMessage(def.examine) });
     }
     if (w.tree) {
