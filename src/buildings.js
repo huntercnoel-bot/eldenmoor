@@ -90,20 +90,22 @@ const COL_LEN = 4.92;       // dpack_Column length along +Z natively
 
 // Tile a modular floor across [-hw,hw] x [-hd,hd] (room local space), top at y=top.
 // The floor GLB lies in XY (thickness +Z); rotateX(-90) lays it flat with Y up.
+// A CLEAN flat stone floor. (The old version tiled a `dpack_ModularFloor` GLB
+// whose faceted top read as an ugly grid of grey pyramids — replaced with a
+// single flagstone-textured slab so the hall reads as a smooth marble floor.)
 function buildGLBFloor(group, hw, hd, top = 0.02) {
-  loadProto('dpack_ModularFloor').then((proto) => {
-    const nx = Math.ceil((2 * hw) / FLOOR_TILE), nz = Math.ceil((2 * hd) / FLOOR_TILE);
-    const m = new THREE.Matrix4(), rot = new THREE.Matrix4().makeRotationX(-Math.PI / 2), t = new THREE.Matrix4();
-    const yLift = top - FLOOR_THICK;        // so the tile's top surface lands at `top`
-    const mats = [];
-    for (let ix = 0; ix < nx; ix++) for (let iz = 0; iz < nz; iz++) {
-      const x = -hw + FLOOR_TILE * (ix + 0.5), z = -hd + FLOOR_TILE * (iz + 0.5);
-      t.makeTranslation(x, yLift, z);
-      m.multiplyMatrices(t, rot);
-      mats.push(m.clone());
-    }
-    group.add(instanced(proto, mats));
-  }).catch((e) => console.error('[buildings] floor GLB failed', e));
+  const T = tex();
+  const ft = T.marble.clone();
+  ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
+  ft.repeat.set(Math.max(2, Math.round(hw * 0.6)), Math.max(2, Math.round(hd * 0.6)));
+  ft.needsUpdate = true;
+  const mat = new THREE.MeshStandardMaterial({ map: ft, color: 0xd9d3c4, roughness: 0.82, metalness: 0 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, 0.2, hd * 2), mat);
+  floor.position.set(0, top - 0.1, 0);
+  floor.receiveShadow = true;
+  floor.userData.noCollide = true;
+  floor.userData.__toonDone = true;        // a big flat floor doesn't need an outline
+  group.add(floor);
 }
 
 // Line one straight wall run with stacked modular wall pieces. The run goes from
@@ -672,14 +674,15 @@ function makeCastle() {
     g.add(deco(cyl(0.72, 0.5, 0.6, 12, stone, sx * 5.2, 7.3, HD - 4)));             // pier capital
   }
   ribArch(g, 5.2, 7.5, 11.5, HD - 4, mapped(T.grey), 0.55, 0.62);                   // soaring chancel arch over the dais
-  // half-dome ribs fanning up the back wall behind the throne
+  // half-dome ribs fanning up the back wall HIGH ABOVE the throne (raised + shrunk
+  // + pushed flush to the back wall so they never reach down through the seated King)
   for (let k = 0; k <= 6; k++) {
     const a = (k / 6) * Math.PI;                  // 0..PI across the apse width
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(4.4, 0.16, 6, 12, Math.PI * 0.62), mapped(T.grey));
-    rib.position.set(0, 6.6, HD - 1.4); rib.rotation.y = Math.PI / 2; rib.rotation.x = -0.5;
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.14, 6, 12, Math.PI * 0.55), mapped(T.grey));
+    rib.position.set(0, 9.4, HD - 0.4); rib.rotation.y = Math.PI / 2; rib.rotation.x = -0.5;
     rib.rotation.z = (a - Math.PI / 2) * 0.5; deco(rib); g.add(rib);
   }
-  g.add(deco(cyl(0.9, 0.9, 0.5, 16, gold, 0, 11.3, HD - 2.6)));                     // gilt boss capping the dome
+  g.add(deco(cyl(0.7, 0.7, 0.4, 16, gold, 0, 12.0, HD - 0.9)));                     // gilt boss capping the dome
   // two tall, elegant arched windows flanking the throne on the back wall (warm
   // amber + royal blue), washing the apse with soft light — replaces the old
   // blocky stained-glass slab.
