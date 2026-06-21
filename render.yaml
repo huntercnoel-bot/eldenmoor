@@ -1,0 +1,12 @@
+# One-click deploy of the Eldenmoor multiplayer server to Render (https://render.com).
+# Free tier. Serves the game files AND the WebSocket on a single public HTTPS URL,
+# so you and your friend just open that URL, make accounts, and you're in the same world.
+services:
+  - type: web
+    name: eldenmoor
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: "echo no build step needed (Python standard library only)"
+    startCommand: "python mpserver.py"
+    autoDeploy: true

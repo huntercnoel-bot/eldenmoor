@@ -11,7 +11,9 @@
 
 import asyncio, json, os, sys, hashlib, base64, struct, hmac, secrets
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+# Port: command-line arg wins, else the $PORT env var (cloud hosts set this),
+# else 8000. Cloud hosts (Render/Railway/Fly…) inject $PORT.
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get('PORT', '8000'))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 ACCOUNTS_FILE = os.path.join(ROOT, 'accounts.json')
 WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
