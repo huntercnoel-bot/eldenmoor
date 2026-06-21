@@ -412,6 +412,18 @@ function startCombat(em) {
     if (dt > 0.1) dt = 0.1;
     const t = now / 1000;
 
+    // Slow natural Hitpoints regeneration (OSRS-style): ~1 HP every few seconds
+    // while alive and hurt, so you recover between fights without always eating.
+    // Max HP tracks the Hitpoints level if skills are available.
+    if (!pstate.dead) {
+      const hpLvl = (em.skills && em.skills.maxHp && em.skills.maxHp()) || pstate.maxHp;
+      if (hpLvl > pstate.maxHp) pstate.maxHp = hpLvl;   // never shrink below current
+      if (pstate.hp < pstate.maxHp) {
+        pstate.regenAcc = (pstate.regenAcc || 0) + dt;
+        if (pstate.regenAcc >= 4.5) { pstate.regenAcc = 0; pstate.hp = Math.min(pstate.maxHp, pstate.hp + 1); refreshPlayerHp(); }
+      }
+    }
+
     // Keep our target in sync with interactions.js. If the player clicked a tree,
     // an NPC, or the ground, interactions clears its attack target — so we drop
     // ours too and stop fighting (no more phantom swings at a thing we walked off).
